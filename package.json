@@ -46,14 +46,16 @@
     ]
   },
   "devDependencies": {
-    "@arethetypeswrong/cli": "^0.18.2",
     "@biomejs/biome": "^2.4.15",
     "@changesets/cli": "^2.31.0",
     "@commitlint/cli": "^21.0.1",
     "@commitlint/config-conventional": "^21.0.1",
+    "@types/node": "^25.8.0",
     "lefthook": "^2.1.6",
     "publint": "^0.3.21",
+    "tsup": "^8.5.1",
     "turbo": "^2.9.14",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6"
   }
 }

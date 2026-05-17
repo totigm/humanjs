@@ -18,6 +18,7 @@
     "declarationMap": true,
     "sourceMap": true,
     "verbatimModuleSyntax": true,
-    "useDefineForClassFields": true
+    "useDefineForClassFields": true,
+    "ignoreDeprecations": "6.0"
   }
 }
