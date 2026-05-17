@@ -1,0 +1,32 @@
+{
+  "name": "humanjs",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Humanize browser automation for AI agents, QA tests, and demos.",
+  "author": "Gonzalo Muñoz <toti@eventurex.com.ar>",
+  "license": "MIT",
+  "homepage": "https://humanjs.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/totigm/humanjs.git"
+  },
+  "bugs": {
+    "url": "https://github.com/totigm/humanjs/issues"
+  },
+  "keywords": [
+    "playwright",
+    "browser-automation",
+    "humanize",
+    "ai-agents",
+    "qa",
+    "testing"
+  ],
+  "type": "module",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "packages/*"
+  ]
+}

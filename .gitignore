@@ -1,0 +1,42 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+dist
+build
+.turbo
+*.tsbuildinfo
+
+# Test outputs
+coverage
+.nyc_output
+playwright-report
+test-results
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea
+*.swp
+*.swo
+.DS_Store
+
+# OS
+Thumbs.db
+
+# Local-only docs (not for public repo)
+docs/PROJECT_BRIEF.md
