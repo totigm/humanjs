@@ -1,6 +1,6 @@
 {
   "name": "@humanjs/core",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Personality system, timing math, types, and plugin contract for HumanJS.",
   "keywords": [
     "humanjs",
@@ -53,7 +53,6 @@
     "clean": "rm -rf dist .turbo"
   },
   "publishConfig": {
-    "access": "public",
-    "provenance": true
+    "access": "public"
   }
 }
