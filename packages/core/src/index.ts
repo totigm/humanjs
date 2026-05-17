@@ -7,5 +7,6 @@ export type {
   ReadingProfile,
   TypingProfile,
 } from './personality.js';
-
 export { careful, distracted, fast, precise } from './presets/index.js';
+export type { Rng } from './rng.js';
+export { createRng } from './rng.js';
