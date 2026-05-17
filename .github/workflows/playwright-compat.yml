@@ -39,6 +39,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build @humanjs/core
+        # @humanjs/playwright imports the workspace package via its `exports`
+        # field which points at `dist/`. Without this, typecheck and tests
+        # can't resolve `@humanjs/core`.
+        run: pnpm --filter @humanjs/core build
+
       - name: Pin Playwright to matrix version
         run: pnpm --filter @humanjs/playwright add -D playwright@${{ matrix.playwright }}
 
