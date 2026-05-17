@@ -1,5 +1,6 @@
 export const VERSION = '0.0.0';
 
+export { blend } from './blend.js';
 export type {
   DwellProfile,
   MouseProfile,
