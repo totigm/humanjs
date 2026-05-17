@@ -1,0 +1,49 @@
+name: Playwright compatibility
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  compat:
+    name: Playwright ${{ matrix.playwright }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        playwright:
+          # Floor: the minimum version our peerDependency promises to support.
+          # If a test fails here, either fix the code or raise the peer range.
+          - "1.40.0"
+          # Current latest, to catch regressions on new releases.
+          - "latest"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Pin Playwright to matrix version
+        run: pnpm --filter @humanjs/playwright add -D playwright@${{ matrix.playwright }}
+
+      - name: Typecheck against this Playwright version
+        run: pnpm --filter @humanjs/playwright typecheck
+
+      - name: Run @humanjs/playwright tests
+        run: pnpm --filter @humanjs/playwright test
