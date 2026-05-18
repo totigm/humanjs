@@ -16,6 +16,7 @@ export type {
   BezierPathOptions,
   DwellProfile,
   HumanAction,
+  HumanizePathOptions,
   HumanPlugin,
   KnownActionType,
   MouseProfile,
@@ -31,12 +32,15 @@ export type {
 } from '@humanjs/core';
 // Re-exports of the public core API so consumers have one import surface.
 export {
+  applyMicroJitter,
+  applyVelocityProfile,
   bezierPath,
   blend,
   careful,
   createRng,
   distracted,
   fast,
+  humanizePath,
   precise,
   resolvePersonality,
 } from '@humanjs/core';
