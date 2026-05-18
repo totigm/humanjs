@@ -13,6 +13,7 @@ import type { Page } from 'playwright';
 export type {
   ActionResult,
   ActionType,
+  BezierPathOptions,
   DwellProfile,
   HumanAction,
   HumanPlugin,
@@ -22,6 +23,7 @@ export type {
   PersonalityConfig,
   PersonalityExtension,
   PluginContext,
+  Point,
   PresetName,
   ReadingProfile,
   Rng,
@@ -29,6 +31,7 @@ export type {
 } from '@humanjs/core';
 // Re-exports of the public core API so consumers have one import surface.
 export {
+  bezierPath,
   blend,
   careful,
   createRng,

@@ -1,5 +1,7 @@
 export const VERSION = '0.0.0';
 
+export type { BezierPathOptions, Point } from './bezier.js';
+export { bezierPath } from './bezier.js';
 export { blend } from './blend.js';
 export type {
   DwellProfile,
