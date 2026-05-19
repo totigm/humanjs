@@ -42,8 +42,10 @@ export async function executeClick(
   const locator = typeof target === 'string' ? ctx.page.locator(target) : target;
 
   if (ctx.speed === 'instant') {
-    await locator.click();
+    // Read the bounding box BEFORE the click — the click may navigate away
+    // or remove the element, after which `boundingBox()` returns null.
     const box = await locator.boundingBox();
+    await locator.click();
     const center = box
       ? { x: box.x + box.width / 2, y: box.y + box.height / 2 }
       : ctx.getMousePosition();
@@ -78,6 +80,10 @@ export async function executeClick(
   );
   if (preClickMs > 0) await sleep(preClickMs);
 
+  // Commit the new position BEFORE the click side-effect. If the click throws
+  // (page closed, target removed mid-flight), the next action still starts
+  // from the correct mouse position.
+  ctx.setMousePosition(targetPoint);
   await ctx.page.mouse.click(targetPoint.x, targetPoint.y);
 
   // Post-action dwell — a beat after the click before the next action.
@@ -90,7 +96,6 @@ export async function executeClick(
   );
   if (postActionMs > 0) await sleep(postActionMs);
 
-  ctx.setMousePosition(targetPoint);
   return { target: targetPoint };
 }
 

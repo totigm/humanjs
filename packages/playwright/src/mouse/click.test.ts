@@ -76,17 +76,21 @@ describe('human.click', () => {
       expect(clickY).toBeLessThanOrEqual(defaultBox.y + defaultBox.height);
     });
 
-    it('does not always click dead-center', async () => {
-      // Two seeds should produce visibly different click points.
-      const { page: page1, mouseClick: click1 } = makeMockPage();
-      const { page: page2, mouseClick: click2 } = makeMockPage();
-      const h1 = await createHuman(page1, { seed: 'seed-a', speed: 'fast' });
-      const h2 = await createHuman(page2, { seed: 'seed-b', speed: 'fast' });
-      await h1.click('button');
-      await h2.click('button');
-      const [x1, y1] = click1.mock.calls[0] ?? [0, 0];
-      const [x2, y2] = click2.mock.calls[0] ?? [0, 0];
-      expect(x1 !== x2 || y1 !== y2).toBe(true);
+    it('clicks off-center via Gaussian offset from the box center', async () => {
+      const { page, mouseClick } = makeMockPage();
+      const human = await createHuman(page, { seed: 'off-center', speed: 'fast' });
+      await human.click('button');
+      const [clickX, clickY] = mouseClick.mock.calls[0] ?? [0, 0];
+      const centerX = defaultBox.x + defaultBox.width / 2;
+      const centerY = defaultBox.y + defaultBox.height / 2;
+      // With any non-zero Gaussian draw, the click is off the geometric center.
+      // (Both axes hitting exactly 0 simultaneously has effectively zero probability.)
+      expect(clickX !== centerX || clickY !== centerY).toBe(true);
+      // And it still falls inside the box.
+      expect(clickX).toBeGreaterThanOrEqual(defaultBox.x);
+      expect(clickX).toBeLessThanOrEqual(defaultBox.x + defaultBox.width);
+      expect(clickY).toBeGreaterThanOrEqual(defaultBox.y);
+      expect(clickY).toBeLessThanOrEqual(defaultBox.y + defaultBox.height);
     });
   });
 

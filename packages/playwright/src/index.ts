@@ -65,6 +65,13 @@ export interface CreateHumanOptions {
   readonly speed?: Speed;
   /** Plugins installed on this session, invoked in registration order. */
   readonly plugins?: readonly HumanPlugin[];
+  /**
+   * Starting cursor position used as the origin of the first humanized path.
+   * Defaults to `{ x: 0, y: 0 }`. Set this if you've already moved the cursor
+   * (e.g. via `page.mouse.move`) before creating the session, so the first
+   * click's path starts from the correct location.
+   */
+  readonly initialMousePosition?: Point;
 }
 
 /** A humanized Playwright session bound to a single `Page`. */
@@ -144,7 +151,7 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
     }
   }
 
-  let lastMousePosition: Point = { x: 0, y: 0 };
+  let lastMousePosition: Point = options.initialMousePosition ?? { x: 0, y: 0 };
 
   return {
     personality,

@@ -321,6 +321,7 @@ function makeDemoHtml(personalityA: string, personalityB: string): string {
             const t = exact - i;
             const a = seg.points[i];
             const b = seg.points[Math.min(i + 1, seg.points.length - 1)];
+            if (!a || !b) return;
             const x = a.x + (b.x - a.x) * t;
             const y = a.y + (b.y - a.y) * t;
             cursor.style.left = x + 'px';

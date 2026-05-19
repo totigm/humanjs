@@ -217,8 +217,9 @@ async function main() {
   for (const selector of TARGET_SEQUENCE) {
     await human.click(selector);
     // Cadence floor so the "clicked" visual stays perceptible across all
-    // personalities — postActionMs adds on top for the slower ones.
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    // personalities — postActionMs adds on top for the slower ones. Matches
+    // the same floor used by compare-demo.ts.
+    await new Promise((resolve) => setTimeout(resolve, 250));
   }
 
   console.log('\nDone. Browser will stay open for 5 seconds.');
