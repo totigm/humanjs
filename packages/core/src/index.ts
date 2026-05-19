@@ -1,21 +1,21 @@
 export const VERSION = '0.0.0';
 
-export type { BezierPathOptions, Point } from './bezier.js';
-export { bezierPath } from './bezier.js';
-export { blend } from './blend.js';
-export type { HumanizePathOptions } from './humanize-path.js';
+export type { BezierPathOptions, Point } from './bezier';
+export { bezierPath } from './bezier';
+export { blend } from './blend';
+export type { HumanizePathOptions } from './humanize-path';
 export {
   applyMicroJitter,
   applyVelocityProfile,
   humanizePath,
-} from './humanize-path.js';
+} from './humanize-path';
 export type {
   DwellProfile,
   MouseProfile,
   Personality,
   ReadingProfile,
   TypingProfile,
-} from './personality.js';
+} from './personality';
 export type {
   ActionResult,
   ActionType,
@@ -23,13 +23,13 @@ export type {
   HumanPlugin,
   KnownActionType,
   PluginContext,
-} from './plugin.js';
-export { careful, distracted, fast, precise } from './presets/index.js';
+} from './plugin';
+export { careful, distracted, fast, precise } from './presets';
 export type {
   PersonalityConfig,
   PersonalityExtension,
   PresetName,
-} from './resolve.js';
-export { resolvePersonality } from './resolve.js';
-export type { Rng } from './rng.js';
-export { createRng } from './rng.js';
+} from './resolve';
+export { resolvePersonality } from './resolve';
+export type { Rng } from './rng';
+export { createRng } from './rng';

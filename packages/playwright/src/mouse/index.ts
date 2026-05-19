@@ -1,6 +1,6 @@
 import { bezierPath, humanizePath, type Personality, type Point, type Rng } from '@humanjs/core';
 import type { Locator, Page } from 'playwright';
-import type { Speed } from './index.js';
+import type { Speed } from '../index';
 
 /** Runtime dependencies for a humanized mouse action. */
 export interface MouseContext {

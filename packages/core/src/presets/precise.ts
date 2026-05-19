@@ -1,4 +1,4 @@
-import type { Personality } from '../personality.js';
+import type { Personality } from '../personality';
 
 /**
  * Minimal noise, smooth motion, near-zero mistakes.

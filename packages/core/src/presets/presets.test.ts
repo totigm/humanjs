@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Personality } from '../personality.js';
-import { careful, distracted, fast, precise } from './index.js';
+import type { Personality } from '../personality';
+import { careful, distracted, fast, precise } from './index';
 
 const presets: Record<string, Personality> = { careful, fast, distracted, precise };
 

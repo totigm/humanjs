@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { Point } from './bezier.js';
-import { applyMicroJitter, applyVelocityProfile, humanizePath } from './humanize-path.js';
-import { createRng } from './rng.js';
+import type { Point } from '../bezier';
+import { createRng } from '../rng';
+import { applyMicroJitter, applyVelocityProfile, humanizePath } from './index';
 
 function straightPath(steps: number, length = 200): Point[] {
   return Array.from({ length: steps + 1 }, (_, i) => ({

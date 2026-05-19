@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { bezierPath, type Point } from './bezier.js';
-import { createRng } from './rng.js';
+import { createRng } from '../rng';
+import { bezierPath, type Point } from './index';
 
 const start: Point = { x: 0, y: 0 };
 const end: Point = { x: 800, y: 600 };

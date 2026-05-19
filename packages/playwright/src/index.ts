@@ -10,7 +10,7 @@ import {
   resolvePersonality,
 } from '@humanjs/core';
 import type { Locator, Page } from 'playwright';
-import { executeClick } from './mouse.js';
+import { executeClick } from './mouse';
 
 export type {
   ActionResult,

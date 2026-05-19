@@ -17,7 +17,7 @@
  * in separate modules; this file is pure spatial path generation.
  */
 
-import type { Rng } from './rng.js';
+import type { Rng } from '../rng';
 
 /** A 2D point in screen coordinates. */
 export interface Point {

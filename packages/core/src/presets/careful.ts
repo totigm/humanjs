@@ -1,4 +1,4 @@
-import type { Personality } from '../personality.js';
+import type { Personality } from '../personality';
 
 /**
  * Slow, precise, few mistakes. Longer dwell on important fields.

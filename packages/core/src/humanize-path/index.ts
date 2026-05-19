@@ -16,8 +16,8 @@
  * Pure spatial transforms; no Playwright or Puppeteer dependency.
  */
 
-import type { Point } from './bezier.js';
-import type { Rng } from './rng.js';
+import type { Point } from '../bezier';
+import type { Rng } from '../rng';
 
 /** Options for {@link humanizePath}. */
 export interface HumanizePathOptions {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { blend } from './blend.js';
-import { careful, distracted, fast, precise } from './presets/index.js';
+import { careful, distracted, fast, precise } from '../presets';
+import { blend } from './index';
 
 describe('blend', () => {
   describe('ratio bounds', () => {

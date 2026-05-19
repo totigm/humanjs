@@ -1,5 +1,5 @@
-import type { Personality } from './personality.js';
-import type { Rng } from './rng.js';
+import type { Personality } from '../personality';
+import type { Rng } from '../rng';
 
 /**
  * Contract for plugins that extend a humanized session.
