@@ -30,7 +30,10 @@ export interface MouseProfile {
   readonly curvature: number;
   /** Mean travel time in ms per 1000px of distance. */
   readonly travelTimeMs: number;
-  /** Random variation in travel time as a fraction of the mean (0..1). */
+  /**
+   * Random variation as a fraction of `travelTimeMs`. `0.2` means each move
+   * takes `travelTimeMs × [0.8, 1.2]`. Range: `[0, 1]`; `0` disables variation.
+   */
   readonly travelTimeJitter: number;
   /** Probability of overshooting a target and correcting (0..1). */
   readonly overshootProbability: number;
@@ -42,7 +45,11 @@ export interface MouseProfile {
 export interface TypingProfile {
   /** Mean ms between keystrokes. */
   readonly baseDelayMs: number;
-  /** Random variation as a fraction of the mean (0..1). */
+  /**
+   * Random variation as a fraction of `baseDelayMs`. `0.3` means each
+   * keystroke is delayed `baseDelayMs × [0.7, 1.3]`. Range: `[0, 1]`;
+   * `0` disables variation.
+   */
   readonly delayJitter: number;
   /** Probability of a typo per character (0..1). */
   readonly typoProbability: number;
@@ -61,7 +68,11 @@ export interface TypingProfile {
 export interface ReadingProfile {
   /** Reading speed in words per minute. */
   readonly wpm: number;
-  /** Random variation in reading time as a fraction of base (0..1). */
+  /**
+   * Random variation as a fraction of the base reading time. `0.2` means
+   * the dwell ends up `base × [0.8, 1.2]`. Range: `[0, 1]`; `0` disables
+   * variation.
+   */
   readonly jitter: number;
 }
 
@@ -69,10 +80,16 @@ export interface ReadingProfile {
 export interface DwellProfile {
   /** Pause in ms after hovering, before clicking. */
   readonly preClickMs: number;
-  /** Random jitter on pre-click pause as a fraction (0..1). */
+  /**
+   * Random variation as a fraction of `preClickMs`. `0.3` means each pause
+   * is `preClickMs × [0.7, 1.3]`. Range: `[0, 1]`; `0` disables variation.
+   */
   readonly preClickJitter: number;
   /** Pause in ms after an action completes. */
   readonly postActionMs: number;
-  /** Random jitter on post-action pause as a fraction (0..1). */
+  /**
+   * Random variation as a fraction of `postActionMs`. `0.3` means each pause
+   * is `postActionMs × [0.7, 1.3]`. Range: `[0, 1]`; `0` disables variation.
+   */
   readonly postActionJitter: number;
 }
