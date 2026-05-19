@@ -1,5 +1,28 @@
 # @humanjs/core
 
+## 0.2.0
+
+### Minor Changes
+
+- cce64bf: Add `bezierPath()` for humanized mouse trajectories.
+
+  Produces cubic-Bezier paths with control points offset perpendicular to the start→end line, scaled by `Personality.mouse.curvature`. Deterministic given a seeded `Rng` — same seed produces identical coordinates on every run and every platform.
+
+  The function lives in `@humanjs/core` so future adapters (`@humanjs/puppeteer`, etc.) can reuse it without duplication. `@humanjs/playwright` re-exports it for convenience: `import { bezierPath } from '@humanjs/playwright'`.
+
+  Math adapted from [ghost-cursor](https://github.com/Xetera/ghost-cursor) (MIT, © 2020 Xetera). See `THIRD_PARTY_NOTICES.md` at the repo root for full attribution. Coming next: velocity profiling, micro-jitter, and the `click()` action that consumes this.
+
+- cce64bf: Add `humanizePath()` post-processor for realistic mouse trajectories.
+
+  Takes a raw Bezier path and applies two transformations:
+
+  - **Velocity profile** — resamples the path with a smoothstep-warped arc length, producing the bell-shaped velocity curve observed in human motor studies (small steps at the endpoints, large steps in the middle).
+  - **Micro-jitter** — adds Gaussian sub-pixel noise to interior points, simulating natural hand tremor. Endpoints stay exact so click targets land cleanly.
+
+  Both transforms are deterministic given a seeded `Rng`. The individual transforms (`applyVelocityProfile`, `applyMicroJitter`) are also exported for composition or advanced use.
+
+  Coming next: the `click()` action that consumes Bezier path + `humanizePath` to produce visible humanized motion.
+
 ## 0.1.0
 
 ### Minor Changes
