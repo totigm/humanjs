@@ -4,8 +4,8 @@ import type {
   Personality,
   ReadingProfile,
   TypingProfile,
-} from './personality.js';
-import { careful, distracted, fast, precise } from './presets/index.js';
+} from '../personality';
+import { careful, distracted, fast, precise } from '../presets';
 
 /** Names of the four built-in personality presets. */
 export type PresetName = 'careful' | 'distracted' | 'fast' | 'precise';

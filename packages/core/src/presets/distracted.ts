@@ -1,4 +1,4 @@
-import type { Personality } from '../personality.js';
+import type { Personality } from '../personality';
 
 /**
  * Scrolls back, retypes, hovers off, occasional misclicks.

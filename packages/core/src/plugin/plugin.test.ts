@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ActionResult, HumanAction, HumanPlugin, PluginContext } from './plugin.js';
+import type { ActionResult, HumanAction, HumanPlugin, PluginContext } from './index';
 
 describe('HumanPlugin', () => {
   it('accepts a minimal plugin with just a name', () => {

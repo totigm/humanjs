@@ -1,5 +1,5 @@
-import type { Personality } from './personality.js';
-import { type PersonalityConfig, resolvePersonality } from './resolve.js';
+import type { Personality } from '../personality';
+import { type PersonalityConfig, resolvePersonality } from '../resolve';
 
 /**
  * Composes two personalities into a new one by linearly interpolating

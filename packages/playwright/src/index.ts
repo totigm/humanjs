@@ -6,15 +6,19 @@ import {
   type Personality,
   type PersonalityConfig,
   type PluginContext,
+  type Point,
   resolvePersonality,
 } from '@humanjs/core';
-import type { Page } from 'playwright';
+import type { Locator, Page } from 'playwright';
+import { executeClick } from './mouse';
 
 export type {
   ActionResult,
   ActionType,
+  BezierPathOptions,
   DwellProfile,
   HumanAction,
+  HumanizePathOptions,
   HumanPlugin,
   KnownActionType,
   MouseProfile,
@@ -22,6 +26,7 @@ export type {
   PersonalityConfig,
   PersonalityExtension,
   PluginContext,
+  Point,
   PresetName,
   ReadingProfile,
   Rng,
@@ -29,11 +34,15 @@ export type {
 } from '@humanjs/core';
 // Re-exports of the public core API so consumers have one import surface.
 export {
+  applyMicroJitter,
+  applyVelocityProfile,
+  bezierPath,
   blend,
   careful,
   createRng,
   distracted,
   fast,
+  humanizePath,
   precise,
   resolvePersonality,
 } from '@humanjs/core';
@@ -56,6 +65,13 @@ export interface CreateHumanOptions {
   readonly speed?: Speed;
   /** Plugins installed on this session, invoked in registration order. */
   readonly plugins?: readonly HumanPlugin[];
+  /**
+   * Starting cursor position used as the origin of the first humanized path.
+   * Defaults to `{ x: 0, y: 0 }`. Set this if you've already moved the cursor
+   * (e.g. via `page.mouse.move`) before creating the session, so the first
+   * click's path starts from the correct location.
+   */
+  readonly initialMousePosition?: Point;
 }
 
 /** A humanized Playwright session bound to a single `Page`. */
@@ -69,6 +85,17 @@ export interface Human {
    * `page.goto(url)` is awaited unchanged.
    */
   goto(url: string): Promise<void>;
+  /**
+   * Move the mouse along a humanized Bezier path to `target` and click.
+   *
+   * `target` accepts either a Playwright-compatible selector string (e.g.
+   * `'button:has-text("Buy now")'`) or a built `Locator`. The click point
+   * inside the element is Gaussian-distributed around the center.
+   *
+   * In `speed: 'instant'`, all humanization is skipped and Playwright's
+   * native `locator.click()` is used directly.
+   */
+  click(target: Locator | string): Promise<void>;
 }
 
 /**
@@ -124,12 +151,29 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
     }
   }
 
+  let lastMousePosition: Point = options.initialMousePosition ?? { x: 0, y: 0 };
+
   return {
     personality,
     speed,
     async goto(url) {
       await performAction({ type: 'goto', params: { url } }, async () => {
         await page.goto(url);
+      });
+    },
+    async click(target) {
+      const description = typeof target === 'string' ? target : (target.toString?.() ?? 'locator');
+      await performAction({ type: 'click', params: { target: description } }, async () => {
+        await executeClick(target, {
+          page,
+          personality,
+          rng,
+          speed,
+          getMousePosition: () => lastMousePosition,
+          setMousePosition: (point) => {
+            lastMousePosition = point;
+          },
+        });
       });
     },
   };

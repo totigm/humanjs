@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createRng } from './rng.js';
+import { createRng } from './index';
 
 describe('createRng', () => {
   describe('determinism', () => {

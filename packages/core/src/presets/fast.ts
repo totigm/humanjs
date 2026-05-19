@@ -1,4 +1,4 @@
-import type { Personality } from '../personality.js';
+import type { Personality } from '../personality';
 
 /**
  * Quick but still natural. Fewer pauses, lower typo rate, shorter dwell.

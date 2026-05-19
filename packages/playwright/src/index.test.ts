@@ -1,7 +1,7 @@
 import type { HumanPlugin } from '@humanjs/core';
 import type { Page } from 'playwright';
 import { describe, expect, it, vi } from 'vitest';
-import { createHuman } from './index.js';
+import { createHuman } from './index';
 
 function makeMockPage(overrides: Partial<Page> = {}): Page {
   return {

@@ -1,0 +1,15 @@
+{
+  "name": "@humanjs/examples",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Runnable demos for HumanJS.",
+  "type": "module",
+  "scripts": {
+    "click": "tsx click-demo.ts",
+    "compare": "tsx compare-demo.ts"
+  },
+  "dependencies": {
+    "@humanjs/playwright": "workspace:*",
+    "playwright": "^1.60.0"
+  }
+}

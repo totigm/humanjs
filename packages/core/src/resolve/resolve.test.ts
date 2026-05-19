@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { Personality } from './personality.js';
-import { careful, distracted, fast, precise } from './presets/index.js';
-import { resolvePersonality } from './resolve.js';
+import type { Personality } from '../personality';
+import { careful, distracted, fast, precise } from '../presets';
+import { resolvePersonality } from './index';
 
 describe('resolvePersonality', () => {
   describe('preset name', () => {

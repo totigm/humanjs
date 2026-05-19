@@ -220,6 +220,10 @@ We do not accept PRs that:
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
+## Credits
+
+The cubic Bezier path math behind humanized mouse trajectories is adapted from [ghost-cursor](https://github.com/Xetera/ghost-cursor) by [@Xetera](https://github.com/Xetera) (MIT-licensed). HumanJS humanizes a much broader surface — typing rhythm, reading dwell, scroll, the plugin system, personalities, AI-agent adapters — but the underlying coordinate generation builds on their solid foundation. See [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md) for full attribution.
+
 ## License
 
 MIT — see [LICENSE](./LICENSE).

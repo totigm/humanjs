@@ -1,0 +1,39 @@
+name: Commit messages
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint commit messages
+    runs-on: ubuntu-latest
+    # Dependabot's bodies include release-notes excerpts and YAML metadata that
+    # routinely exceed `body-max-line-length`. We trust those bumps already —
+    # skip the check for bot PRs to avoid noisy failures.
+    if: github.actor != 'dependabot[bot]'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          # Need full history so commitlint can diff against the base branch.
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint commits in this PR
+        run: pnpm exec commitlint --from origin/${{ github.base_ref }} --to HEAD --verbose

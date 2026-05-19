@@ -171,7 +171,8 @@ Don't ship core packages without these:
 - ESM-first; dual-publish CJS where needed (`tsup` is a good fit).
 - Public API uses **named exports**, never default.
 - Internal types prefixed with `_` are unstable; never document.
-- Tests: `*.test.ts` colocated; e2e in `e2e/` with Playwright.
+- Tests: colocated with the module they test. Each non-trivial module lives in its own folder (`src/<module>/index.ts` + `src/<module>/<module>.test.ts`); pure type-only files can stay flat. e2e tests go in `e2e/` with Playwright.
+- Imports: use the short form for relative paths — `from './module'`, not `from './module/index.js'` or `from './module.js'`. Our `moduleResolution: "Bundler"` resolves both directory and file forms without explicit extensions, and tsup bundles everything for publishing so the source style doesn't affect output.
 - Conventional commits: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`.
 - One logical change per commit. No squash-bombs.
 
