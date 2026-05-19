@@ -193,14 +193,12 @@ async function main() {
 
     await page.setContent(DEMO_HTML);
 
-    // Park the real cursor immediately so it doesn't sit at (0, 0) during
-    // the warm-up pause. HumanJS's tracker is aligned via `initialMousePosition`
-    // below.
+    // Park the real cursor immediately so the demo's starting position is
+    // visible the moment the page renders. HumanJS's tracker is aligned via
+    // `initialMousePosition` below.
     await page.mouse.move(cursorStart.x, cursorStart.y);
 
-    // Give the user a moment to see the page before motion starts.
     console.log('Browser open. Sequence starts in a moment…\n');
-    await new Promise((resolve) => setTimeout(resolve, 1500));
 
     const human = await createHuman(page, {
       personality,
