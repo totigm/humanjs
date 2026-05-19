@@ -20,27 +20,10 @@ import {
   humanizePath,
   type Personality,
   type Point,
-  type PresetName,
   resolvePersonality,
 } from '@humanjs/playwright';
 import { chromium } from 'playwright';
-
-const VALID_PERSONALITIES: readonly PresetName[] = ['careful', 'distracted', 'fast', 'precise'];
-
-function parsePersonality(
-  value: string | undefined,
-  fallback: PresetName,
-  varName: string,
-): PresetName {
-  if (!value) return fallback;
-  if (!VALID_PERSONALITIES.includes(value as PresetName)) {
-    console.error(
-      `Invalid ${varName}: "${value}". Must be one of: ${VALID_PERSONALITIES.join(', ')}`,
-    );
-    process.exit(1);
-  }
-  return value as PresetName;
-}
+import { parsePersonality } from './lib';
 
 const WINDOW_WIDTH = 1100;
 const WINDOW_HEIGHT = 750;

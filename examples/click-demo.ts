@@ -12,25 +12,9 @@
  *   PERSONALITY=distracted pnpm demo:click   (default)
  */
 
-import { createHuman, type PresetName } from '@humanjs/playwright';
+import { createHuman } from '@humanjs/playwright';
 import { chromium } from 'playwright';
-
-const VALID_PERSONALITIES: readonly PresetName[] = ['careful', 'distracted', 'fast', 'precise'];
-
-function parsePersonality(
-  value: string | undefined,
-  fallback: PresetName,
-  varName: string,
-): PresetName {
-  if (!value) return fallback;
-  if (!VALID_PERSONALITIES.includes(value as PresetName)) {
-    console.error(
-      `Invalid ${varName}: "${value}". Must be one of: ${VALID_PERSONALITIES.join(', ')}`,
-    );
-    process.exit(1);
-  }
-  return value as PresetName;
-}
+import { parsePersonality } from './lib';
 
 const DEMO_HTML = /* html */ `
 <!doctype html>
@@ -209,12 +193,14 @@ async function main() {
 
     await page.setContent(DEMO_HTML);
 
+    // Park the real cursor immediately so it doesn't sit at (0, 0) during
+    // the warm-up pause. HumanJS's tracker is aligned via `initialMousePosition`
+    // below.
+    await page.mouse.move(cursorStart.x, cursorStart.y);
+
     // Give the user a moment to see the page before motion starts.
     console.log('Browser open. Sequence starts in a moment…\n');
     await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    // Park the real cursor at the start point AND tell HumanJS where it is.
-    await page.mouse.move(cursorStart.x, cursorStart.y);
 
     const human = await createHuman(page, {
       personality,
