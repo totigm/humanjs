@@ -216,8 +216,9 @@ async function main() {
 
   for (const selector of TARGET_SEQUENCE) {
     await human.click(selector);
-    // Brief pause between clicks so each motion is distinct to the eye.
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    // Cadence floor so the "clicked" visual stays perceptible across all
+    // personalities — postActionMs adds on top for the slower ones.
+    await new Promise((resolve) => setTimeout(resolve, 300));
   }
 
   console.log('\nDone. Browser will stay open for 5 seconds.');
