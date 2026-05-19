@@ -12,8 +12,25 @@
  *   PERSONALITY=distracted pnpm demo:click   (default)
  */
 
-import { createHuman } from '@humanjs/playwright';
+import { createHuman, type PresetName } from '@humanjs/playwright';
 import { chromium } from 'playwright';
+
+const VALID_PERSONALITIES: readonly PresetName[] = ['careful', 'distracted', 'fast', 'precise'];
+
+function parsePersonality(
+  value: string | undefined,
+  fallback: PresetName,
+  varName: string,
+): PresetName {
+  if (!value) return fallback;
+  if (!VALID_PERSONALITIES.includes(value as PresetName)) {
+    console.error(
+      `Invalid ${varName}: "${value}". Must be one of: ${VALID_PERSONALITIES.join(', ')}`,
+    );
+    process.exit(1);
+  }
+  return value as PresetName;
+}
 
 const DEMO_HTML = /* html */ `
 <!doctype html>
@@ -173,60 +190,66 @@ const DEMO_HTML = /* html */ `
 const TARGET_SEQUENCE = ['#btn-1', '#btn-5', '#btn-2', '#btn-4', '#btn-3'];
 
 async function main() {
+  const personality = parsePersonality(process.env.PERSONALITY, 'distracted', 'PERSONALITY');
+
+  // Cursor starts here — far from the first target so the opening curve is
+  // obvious. Both the real Playwright cursor and HumanJS's tracked position
+  // need to agree on this so the first click doesn't jump back to (0, 0).
+  const cursorStart = { x: 50, y: 80 };
+
   const browser = await chromium.launch({
     headless: false,
     args: ['--window-size=1100,800'],
   });
-  const context = await browser.newContext({
-    viewport: { width: 1100, height: 800 },
-  });
-  const page = await context.newPage();
+  try {
+    const context = await browser.newContext({
+      viewport: { width: 1100, height: 800 },
+    });
+    const page = await context.newPage();
 
-  await page.setContent(DEMO_HTML);
+    await page.setContent(DEMO_HTML);
 
-  // Give the user a moment to see the page before motion starts.
-  console.log('Browser open. Sequence starts in a moment…\n');
-  await new Promise((resolve) => setTimeout(resolve, 1500));
+    // Give the user a moment to see the page before motion starts.
+    console.log('Browser open. Sequence starts in a moment…\n');
+    await new Promise((resolve) => setTimeout(resolve, 1500));
 
-  const personality = (process.env.PERSONALITY ?? 'distracted') as
-    | 'careful'
-    | 'fast'
-    | 'distracted'
-    | 'precise';
+    // Park the real cursor at the start point AND tell HumanJS where it is.
+    await page.mouse.move(cursorStart.x, cursorStart.y);
 
-  const human = await createHuman(page, {
-    personality,
-    seed: 'demo-1',
-    plugins: [
-      {
-        name: 'logger',
-        beforeAction: (action) => console.log(`→ ${action.type} ${JSON.stringify(action.params)}`),
-        afterAction: (action, result) =>
-          console.log(`✓ ${action.type} took ${result.durationMs}ms`),
-      },
-    ],
-  });
+    const human = await createHuman(page, {
+      personality,
+      seed: 'demo-1',
+      initialMousePosition: cursorStart,
+      plugins: [
+        {
+          name: 'logger',
+          beforeAction: (action) =>
+            console.log(`→ ${action.type} ${JSON.stringify(action.params)}`),
+          afterAction: (action, result) =>
+            console.log(`✓ ${action.type} took ${result.durationMs}ms`),
+        },
+      ],
+    });
 
-  // Park the cursor far from the first target so the opening move is obvious.
-  await page.mouse.move(50, 80);
-  await new Promise((resolve) => setTimeout(resolve, 400));
+    await new Promise((resolve) => setTimeout(resolve, 400));
 
-  console.log(`Personality: ${personality}`);
-  console.log(`Clicking ${TARGET_SEQUENCE.length} targets in sequence…\n`);
+    console.log(`Personality: ${personality}`);
+    console.log(`Clicking ${TARGET_SEQUENCE.length} targets in sequence…\n`);
 
-  for (const selector of TARGET_SEQUENCE) {
-    await human.click(selector);
-    // Cadence floor so the "clicked" visual stays perceptible across all
-    // personalities — postActionMs adds on top for the slower ones. Matches
-    // the same floor used by compare-demo.ts.
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    for (const selector of TARGET_SEQUENCE) {
+      await human.click(selector);
+      // Cadence floor so the "clicked" visual stays perceptible across all
+      // personalities — postActionMs adds on top for the slower ones. Matches
+      // the same floor used by compare-demo.ts.
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+
+    console.log('\nDone. Browser will stay open for 5 seconds.');
+    console.log('Tip: re-run with PERSONALITY=careful (or fast / precise) to compare.');
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+  } finally {
+    await browser.close();
   }
-
-  console.log('\nDone. Browser will stay open for 5 seconds.');
-  console.log('Tip: re-run with PERSONALITY=careful (or fast / precise) to compare.');
-  await new Promise((resolve) => setTimeout(resolve, 5000));
-
-  await browser.close();
 }
 
 main().catch((err) => {

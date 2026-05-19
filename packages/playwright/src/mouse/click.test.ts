@@ -260,10 +260,11 @@ describe('human.click', () => {
       await human.click('button');
       const secondPathStart = mouseMove.mock.calls[0] as [number, number];
 
-      // The new path's first point should be near the previous end (the prior
-      // click landed there). Allowing some jitter slack.
-      expect(Math.abs(secondPathStart[0] - firstClickEnd[0])).toBeLessThan(5);
-      expect(Math.abs(secondPathStart[1] - firstClickEnd[1])).toBeLessThan(5);
+      // humanizePath preserves endpoints exactly, and setMousePosition is
+      // committed to targetPoint before the click — so the next path's first
+      // point should equal the previous path's last point with no slack.
+      expect(secondPathStart[0]).toBe(firstClickEnd[0]);
+      expect(secondPathStart[1]).toBe(firstClickEnd[1]);
     });
   });
 });

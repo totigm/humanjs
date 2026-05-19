@@ -25,6 +25,23 @@ import {
 } from '@humanjs/playwright';
 import { chromium } from 'playwright';
 
+const VALID_PERSONALITIES: readonly PresetName[] = ['careful', 'distracted', 'fast', 'precise'];
+
+function parsePersonality(
+  value: string | undefined,
+  fallback: PresetName,
+  varName: string,
+): PresetName {
+  if (!value) return fallback;
+  if (!VALID_PERSONALITIES.includes(value as PresetName)) {
+    console.error(
+      `Invalid ${varName}: "${value}". Must be one of: ${VALID_PERSONALITIES.join(', ')}`,
+    );
+    process.exit(1);
+  }
+  return value as PresetName;
+}
+
 const WINDOW_WIDTH = 1100;
 const WINDOW_HEIGHT = 750;
 
@@ -284,8 +301,8 @@ function makeDemoHtml(personalityA: string, personalityB: string): string {
     <button class="target" id="btn-4" style="${buttonStyle('btn-4')}">4. Bottom left</button>
     <button class="target" id="btn-5" style="${buttonStyle('btn-5')}">5. Bottom right</button>
 
-    <div class="cursor" id="cursor-a" style="background: ${ACCENT_A}; box-shadow: 0 0 14px ${ACCENT_A}aa;"></div>
-    <div class="cursor" id="cursor-b" style="background: ${ACCENT_B}; box-shadow: 0 0 14px ${ACCENT_B}aa;"></div>
+    <div class="cursor" id="cursor-a" style="left: ${CURSOR_START.x}px; top: ${CURSOR_START.y}px; background: ${ACCENT_A}; box-shadow: 0 0 14px ${ACCENT_A}aa;"></div>
+    <div class="cursor" id="cursor-b" style="left: ${CURSOR_START.x}px; top: ${CURSOR_START.y}px; background: ${ACCENT_B}; box-shadow: 0 0 14px ${ACCENT_B}aa;"></div>
 
     <div class="status" id="status">Press play…</div>
 
@@ -380,8 +397,8 @@ function makeDemoHtml(personalityA: string, personalityB: string): string {
 }
 
 async function main() {
-  const personalityA = (process.env.PERSONALITY_A ?? 'careful') as PresetName;
-  const personalityB = (process.env.PERSONALITY_B ?? 'distracted') as PresetName;
+  const personalityA = parsePersonality(process.env.PERSONALITY_A, 'careful', 'PERSONALITY_A');
+  const personalityB = parsePersonality(process.env.PERSONALITY_B, 'distracted', 'PERSONALITY_B');
 
   console.log(`Same buttons, two cursors: ${personalityA} vs ${personalityB}`);
   console.log(`Demo slowdown: ${DEMO_SLOWDOWN}× (override with SLOWDOWN=… env var)`);
@@ -396,35 +413,38 @@ async function main() {
     headless: false,
     args: [`--window-size=${WINDOW_WIDTH},${WINDOW_HEIGHT}`],
   });
-  const context = await browser.newContext({
-    viewport: { width: WINDOW_WIDTH, height: WINDOW_HEIGHT },
-  });
-  const page = await context.newPage();
-  await page.setContent(makeDemoHtml(personalityA, personalityB));
+  try {
+    const context = await browser.newContext({
+      viewport: { width: WINDOW_WIDTH, height: WINDOW_HEIGHT },
+    });
+    const page = await context.newPage();
+    await page.setContent(makeDemoHtml(personalityA, personalityB));
 
-  await new Promise((resolve) => setTimeout(resolve, 1200));
+    await new Promise((resolve) => setTimeout(resolve, 1200));
 
-  await page.evaluate(
-    ({ left, right }) => {
-      // biome-ignore lint/suspicious/noExplicitAny: window extension for the demo
-      (window as any).__startDemo({ left, right });
-    },
-    { left: segmentsA, right: segmentsB },
-  );
+    await page.evaluate(
+      ({ left, right }) => {
+        // biome-ignore lint/suspicious/noExplicitAny: window extension for the demo
+        (window as any).__startDemo({ left, right });
+      },
+      { left: segmentsA, right: segmentsB },
+    );
 
-  const totalDurationA = segmentsA.reduce(
-    (sum, s) => sum + s.durationMs + s.preClickMs + s.postActionMs + 250,
-    0,
-  );
-  const totalDurationB = segmentsB.reduce(
-    (sum, s) => sum + s.durationMs + s.preClickMs + s.postActionMs + 250,
-    0,
-  );
-  const maxDuration = Math.max(totalDurationA, totalDurationB);
-  console.log(`Estimated runtime: ${Math.round(maxDuration / 1000)}s\n`);
+    const totalDurationA = segmentsA.reduce(
+      (sum, s) => sum + s.durationMs + s.preClickMs + s.postActionMs + 250,
+      0,
+    );
+    const totalDurationB = segmentsB.reduce(
+      (sum, s) => sum + s.durationMs + s.preClickMs + s.postActionMs + 250,
+      0,
+    );
+    const maxDuration = Math.max(totalDurationA, totalDurationB);
+    console.log(`Estimated runtime: ${Math.round(maxDuration / 1000)}s\n`);
 
-  await new Promise((resolve) => setTimeout(resolve, maxDuration + 5000));
-  await browser.close();
+    await new Promise((resolve) => setTimeout(resolve, maxDuration + 5000));
+  } finally {
+    await browser.close();
+  }
 }
 
 main().catch((err) => {
