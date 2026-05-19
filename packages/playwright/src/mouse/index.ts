@@ -67,7 +67,28 @@ export async function executeClick(
   const path = humanizePath(rawPath, ctx.rng);
 
   await walkMouseAlongPath(ctx.page, path, ctx.personality, ctx.rng, ctx.speed);
+
+  // Hover dwell — a real user briefly settles on the target before clicking.
+  const preClickMs = computeDwellTime(
+    ctx.personality.dwell.preClickMs,
+    ctx.personality.dwell.preClickJitter,
+    ctx.personality,
+    ctx.speed,
+    ctx.rng,
+  );
+  if (preClickMs > 0) await sleep(preClickMs);
+
   await ctx.page.mouse.click(targetPoint.x, targetPoint.y);
+
+  // Post-action dwell — a beat after the click before the next action.
+  const postActionMs = computeDwellTime(
+    ctx.personality.dwell.postActionMs,
+    ctx.personality.dwell.postActionJitter,
+    ctx.personality,
+    ctx.speed,
+    ctx.rng,
+  );
+  if (postActionMs > 0) await sleep(postActionMs);
 
   ctx.setMousePosition(targetPoint);
   return { target: targetPoint };
@@ -148,6 +169,28 @@ function computeTravelTime(
   const jitter = rng.nextFloat(-jitterMag, jitterMag);
   const total = (baseTime + jitter) * personality.speed * speedModeFactor(speed);
   return Math.max(0, total);
+}
+
+/**
+ * Dwell time in ms for a single pause.
+ *
+ *   base = meanMs
+ *   jitter = base * jitterFraction * rand[-1, 1]
+ *   total = (base + jitter) * Personality.speed * speedModeFactor
+ *
+ * Returns 0 for zero/negative inputs so callers can skip the sleep entirely.
+ */
+function computeDwellTime(
+  meanMs: number,
+  jitter: number,
+  personality: Personality,
+  speed: Speed,
+  rng: Rng,
+): number {
+  if (meanMs <= 0) return 0;
+  const jitterMag = meanMs * jitter;
+  const offset = rng.nextFloat(-jitterMag, jitterMag);
+  return Math.max(0, (meanMs + offset) * personality.speed * speedModeFactor(speed));
 }
 
 function speedModeFactor(speed: Speed): number {

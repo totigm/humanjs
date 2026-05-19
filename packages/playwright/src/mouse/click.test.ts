@@ -164,6 +164,86 @@ describe('human.click', () => {
     });
   });
 
+  describe('dwell timing', () => {
+    it('pauses for Personality.dwell.preClickMs before clicking', async () => {
+      const afterAction = vi.fn();
+      const { page, mouseMove, mouseClick } = makeMockPage();
+      const human = await createHuman(page, {
+        personality: {
+          extends: 'careful',
+          dwell: { preClickMs: 200, preClickJitter: 0, postActionMs: 0, postActionJitter: 0 },
+        },
+        speed: 'fast',
+        seed: 'dwell-pre',
+        plugins: [{ name: 'p', afterAction }],
+      });
+      const start = Date.now();
+      await human.click('button');
+      const elapsed = Date.now() - start;
+      // preClickMs=200 × personality.speed=1.0 (careful) × speedMode=0.5 (fast) = 100ms minimum.
+      // Allow generous slack for the walk + scheduling overhead.
+      expect(elapsed).toBeGreaterThanOrEqual(100);
+      // Sanity: walk completed before click, dwell came between.
+      const lastMoveOrder = mouseMove.mock.invocationCallOrder.at(-1) ?? 0;
+      const clickOrder = mouseClick.mock.invocationCallOrder[0] ?? 0;
+      expect(clickOrder).toBeGreaterThan(lastMoveOrder);
+    });
+
+    it('pauses for Personality.dwell.postActionMs after clicking', async () => {
+      const afterAction = vi.fn();
+      const { page } = makeMockPage();
+      const human = await createHuman(page, {
+        personality: {
+          extends: 'careful',
+          dwell: { preClickMs: 0, preClickJitter: 0, postActionMs: 200, postActionJitter: 0 },
+        },
+        speed: 'fast',
+        seed: 'dwell-post',
+        plugins: [{ name: 'p', afterAction }],
+      });
+      const start = Date.now();
+      await human.click('button');
+      const elapsed = Date.now() - start;
+      // postActionMs=200 × 1.0 × 0.5 = 100ms minimum.
+      expect(elapsed).toBeGreaterThanOrEqual(100);
+    });
+
+    it('skips both dwells in speed: instant', async () => {
+      const { page } = makeMockPage();
+      const human = await createHuman(page, {
+        personality: {
+          extends: 'careful',
+          dwell: { preClickMs: 1000, preClickJitter: 0, postActionMs: 1000, postActionJitter: 0 },
+        },
+        speed: 'instant',
+        seed: 'dwell-instant',
+      });
+      const start = Date.now();
+      await human.click('button');
+      const elapsed = Date.now() - start;
+      // 'instant' uses locator.click() directly — no walk, no dwell.
+      expect(elapsed).toBeLessThan(100);
+    });
+
+    it('treats zero dwell as a no-op (no sleep at all)', async () => {
+      const { page } = makeMockPage();
+      const human = await createHuman(page, {
+        personality: {
+          extends: 'careful',
+          dwell: { preClickMs: 0, preClickJitter: 0, postActionMs: 0, postActionJitter: 0 },
+        },
+        speed: 'fast',
+        seed: 'dwell-zero',
+      });
+      const start = Date.now();
+      await human.click('button');
+      const elapsed = Date.now() - start;
+      // No dwell + 'fast' walk = brief duration. Walk distance from (0,0) to
+      // ~(140, 215) ≈ 258px at 450ms/1000px × 0.5 speedMode ≈ 58ms.
+      expect(elapsed).toBeLessThan(300);
+    });
+  });
+
   describe('continuity', () => {
     it('starts subsequent paths from the previous click point', async () => {
       const { page, mouseMove } = makeMockPage();

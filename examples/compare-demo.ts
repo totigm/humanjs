@@ -57,6 +57,8 @@ const DEMO_SLOWDOWN = Number(process.env.SLOWDOWN ?? '2');
 interface PathSegment {
   readonly points: Point[];
   readonly durationMs: number;
+  readonly preClickMs: number;
+  readonly postActionMs: number;
   readonly target: string;
 }
 
@@ -72,13 +74,27 @@ function planSequence(personality: Personality, seed: string): PathSegment[] {
     });
     const path = humanizePath(raw, rng);
     const durationMs = computeTravelTime(path, personality, rng) * DEMO_SLOWDOWN;
-    segments.push({ points: path, durationMs, target });
+    const preClickMs =
+      computeDwellTime(
+        personality.dwell.preClickMs,
+        personality.dwell.preClickJitter,
+        personality,
+        rng,
+      ) * DEMO_SLOWDOWN;
+    const postActionMs =
+      computeDwellTime(
+        personality.dwell.postActionMs,
+        personality.dwell.postActionJitter,
+        personality,
+        rng,
+      ) * DEMO_SLOWDOWN;
+    segments.push({ points: path, durationMs, preClickMs, postActionMs, target });
     current = end;
   }
   return segments;
 }
 
-/** Mirrors the travel-time math in @humanjs/playwright's mouse.ts. */
+/** Mirrors the travel-time math in @humanjs/playwright's mouse module. */
 function computeTravelTime(
   path: readonly Point[],
   personality: Personality,
@@ -95,6 +111,19 @@ function computeTravelTime(
   const jitterMag = baseTime * personality.mouse.travelTimeJitter;
   const jitter = rng.nextFloat(-jitterMag, jitterMag);
   return Math.max(50, (baseTime + jitter) * personality.speed);
+}
+
+/** Mirrors the dwell-time math in @humanjs/playwright's mouse module. */
+function computeDwellTime(
+  meanMs: number,
+  jitter: number,
+  personality: Personality,
+  rng: ReturnType<typeof createRng>,
+): number {
+  if (meanMs <= 0) return 0;
+  const jitterMag = meanMs * jitter;
+  const offset = rng.nextFloat(-jitterMag, jitterMag);
+  return Math.max(0, (meanMs + offset) * personality.speed);
 }
 
 function buttonStyle(id: string): string {
@@ -300,14 +329,19 @@ function makeDemoHtml(personalityA: string, personalityB: string): string {
             if (progress < 1) {
               requestAnimationFrame(frame);
             } else {
-              // Mark target visited by this cursor.
-              const btn = document.getElementById(seg.target);
-              btn.classList.add(visitedMarker);
-              if (btn.classList.contains('visited-a') && btn.classList.contains('visited-b')) {
-                btn.classList.add('visited-both');
-              }
-              index++;
-              setTimeout(play, 400);
+              // Pre-click hover dwell: the cursor settles on the target.
+              setTimeout(() => {
+                const btn = document.getElementById(seg.target);
+                btn.classList.add(visitedMarker);
+                if (btn.classList.contains('visited-a') && btn.classList.contains('visited-b')) {
+                  btn.classList.add('visited-both');
+                }
+                // Post-action dwell: the cursor lingers after the click before
+                // starting the next motion. The +250 floor keeps a minimum
+                // perceptible gap between clicks even for fast personalities.
+                index++;
+                setTimeout(play, seg.postActionMs + 250);
+              }, seg.preClickMs);
             }
           }
           requestAnimationFrame(frame);
@@ -377,8 +411,14 @@ async function main() {
     { left: segmentsA, right: segmentsB },
   );
 
-  const totalDurationA = segmentsA.reduce((sum, s) => sum + s.durationMs + 400, 0);
-  const totalDurationB = segmentsB.reduce((sum, s) => sum + s.durationMs + 400, 0);
+  const totalDurationA = segmentsA.reduce(
+    (sum, s) => sum + s.durationMs + s.preClickMs + s.postActionMs + 250,
+    0,
+  );
+  const totalDurationB = segmentsB.reduce(
+    (sum, s) => sum + s.durationMs + s.preClickMs + s.postActionMs + 250,
+    0,
+  );
   const maxDuration = Math.max(totalDurationA, totalDurationB);
   console.log(`Estimated runtime: ${Math.round(maxDuration / 1000)}s\n`);
 
