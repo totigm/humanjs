@@ -8,4 +8,3 @@ export { MiniCursorDemo } from './MiniCursorDemo';
 export { PersonalityCursor } from './PersonalityCursor';
 export { Sandbox } from './Sandbox';
 export { ScrollPath } from './ScrollPath';
-export { TrajectoryCanvas } from './TrajectoryCanvas';
