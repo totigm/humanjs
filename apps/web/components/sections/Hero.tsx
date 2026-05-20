@@ -63,9 +63,13 @@ export function Hero() {
           className="mb-8 font-mono text-[11px] uppercase tracking-[0.32em] text-muted"
         >
           <span className="text-accent">v0.2</span>
-          <span className="mx-3 text-muted/40">/</span>
+          <span aria-hidden className="mx-3 text-muted/40">
+            /
+          </span>
           MIT licensed
-          <span className="mx-3 text-muted/40">/</span>
+          <span aria-hidden className="mx-3 text-muted/40">
+            /
+          </span>
           Built on Playwright
         </motion.p>
 
@@ -139,9 +143,13 @@ export function Hero() {
               className="mt-12 flex flex-wrap items-center gap-x-6 gap-y-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted/70"
             >
               <span>Bezier · jitter · dwell</span>
-              <span className="text-muted/40">·</span>
+              <span aria-hidden className="text-muted/40">
+                ·
+              </span>
               <span>4 personalities</span>
-              <span className="text-muted/40">·</span>
+              <span aria-hidden className="text-muted/40">
+                ·
+              </span>
               <span>Deterministic by seed</span>
             </motion.div>
           </div>
@@ -165,7 +173,10 @@ export function Hero() {
               <MiniCursorDemo />
               <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.2em] text-muted/60">
                 Live. Powered by <span className="text-accent">@humanjs/core</span>{' '}
-                <span className="text-muted/40">·</span> rerolls every cycle
+                <span aria-hidden className="text-muted/40">
+                  ·
+                </span>{' '}
+                rerolls every cycle
               </p>
             </div>
           </motion.div>

@@ -30,9 +30,9 @@ interface StatProps {
 function Stat({ label, value, sub }: StatProps) {
   return (
     <div className="rounded-card border border-hairline bg-canvas/40 px-3 py-2.5">
-      <dt className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted/70">{label}</dt>
+      <dt className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted">{label}</dt>
       <dd className="mt-1 font-mono text-sm tabular-nums text-foreground">{value}</dd>
-      <dd className="font-mono text-[9px] text-muted/50">{sub}</dd>
+      <dd className="font-mono text-[9px] text-muted/80">{sub}</dd>
     </div>
   );
 }

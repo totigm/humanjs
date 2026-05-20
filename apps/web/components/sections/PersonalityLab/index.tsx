@@ -3,7 +3,7 @@
 import type { PresetName } from '@humanjs/core';
 import { motion } from 'framer-motion';
 import { RotateCcw } from 'lucide-react';
-import { useState } from 'react';
+import { type KeyboardEvent, useRef, useState } from 'react';
 import { EASE_EXPO } from '../../../lib/motion';
 import { PersonalityCursor } from '../../motion/PersonalityCursor';
 import { Container, ScrollReveal, Section } from '../../primitives';
@@ -21,6 +21,7 @@ interface Overrides {
 export function PersonalityLab() {
   const [active, setActive] = useState<PresetName>('careful');
   const [overrides, setOverrides] = useState<Overrides>({});
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const preset = personalityPresets.find((p) => p.key === active) ?? personalityPresets[0];
   if (!preset) return null;
@@ -28,6 +29,39 @@ export function PersonalityLab() {
   const effectiveCurvature = overrides.curvature ?? preset.curvature;
   const effectiveJitter = overrides.jitterPx ?? 0.7;
   const dirty = overrides.curvature !== undefined || overrides.jitterPx !== undefined;
+  const activeIndex = personalityPresets.findIndex((p) => p.key === active);
+
+  const selectAt = (index: number) => {
+    const target = personalityPresets[index];
+    if (!target) return;
+    setActive(target.key);
+    setOverrides({});
+    tabRefs.current[index]?.focus();
+  };
+
+  const handleTabsKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const last = personalityPresets.length - 1;
+    switch (e.key) {
+      case 'ArrowRight':
+      case 'ArrowDown':
+        e.preventDefault();
+        selectAt(activeIndex === last ? 0 : activeIndex + 1);
+        break;
+      case 'ArrowLeft':
+      case 'ArrowUp':
+        e.preventDefault();
+        selectAt(activeIndex === 0 ? last : activeIndex - 1);
+        break;
+      case 'Home':
+        e.preventDefault();
+        selectAt(0);
+        break;
+      case 'End':
+        e.preventDefault();
+        selectAt(last);
+        break;
+    }
+  };
 
   return (
     <Section id="personalities" density="loose">
@@ -53,13 +87,18 @@ export function PersonalityLab() {
             <div
               role="tablist"
               aria-label="Personality picker"
+              onKeyDown={handleTabsKeyDown}
               className="grid grid-cols-2 gap-0 border-b border-hairline sm:grid-cols-4"
             >
-              {personalityPresets.map((p) => (
+              {personalityPresets.map((p, i) => (
                 <PersonalityTab
                   key={p.key}
                   preset={p}
                   active={p.key === active}
+                  tabIndex={p.key === active ? 0 : -1}
+                  buttonRef={(el) => {
+                    tabRefs.current[i] = el;
+                  }}
                   onSelect={() => {
                     setActive(p.key);
                     setOverrides({});
@@ -95,14 +134,14 @@ export function PersonalityLab() {
 
                 <div className="space-y-2">
                   <PresetStats preset={preset} />
-                  <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted/50">
-                    live from <span className="text-muted">@humanjs/core</span>
+                  <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted/80">
+                    live from <span className="text-foreground">@humanjs/core</span>
                   </p>
                 </div>
 
                 <div className="space-y-4 border-t border-hairline pt-5">
                   <div className="flex items-center justify-between">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted/70">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
                       Live overrides
                     </p>
                     {dirty && (

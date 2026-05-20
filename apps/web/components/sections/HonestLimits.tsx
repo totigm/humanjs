@@ -54,7 +54,9 @@ export function HonestLimits() {
             <ScrollReveal delay={0.2}>
               <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.22em] text-muted/60">
                 MIT licensed
-                <span className="mx-2 text-muted/40">·</span>
+                <span aria-hidden className="mx-2 text-muted/40">
+                  ·
+                </span>
                 v0.2 ships <span className="text-accent">today</span>
               </p>
             </ScrollReveal>

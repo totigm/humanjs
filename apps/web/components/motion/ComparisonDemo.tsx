@@ -337,7 +337,7 @@ function BrowserMock({
                 ✓ done
               </motion.span>
             )}
-            <span ref={timerRef} className="tabular-nums text-muted/40">
+            <span ref={timerRef} className="tabular-nums text-muted/70">
               0.0s
             </span>
           </span>

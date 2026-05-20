@@ -47,7 +47,9 @@ export function GetStarted() {
             <div>
               <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
                 <span className="text-accent">01</span>
-                <span className="mx-2 text-muted/40">/</span>
+                <span aria-hidden className="mx-2 text-muted/40">
+                  /
+                </span>
                 Install
               </p>
               <InstallCommand pkg="@humanjs/playwright" />
@@ -58,7 +60,9 @@ export function GetStarted() {
             <div>
               <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
                 <span className="text-accent">02</span>
-                <span className="mx-2 text-muted/40">/</span>
+                <span aria-hidden className="mx-2 text-muted/40">
+                  /
+                </span>
                 Use it
               </p>
               <CodeBlock code={exampleCode} accent="warm" label="example.ts" />
