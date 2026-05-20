@@ -38,9 +38,21 @@ export function CursorToggle() {
         {enabled && (
           <motion.span
             className="absolute inline-flex h-2 w-2 rounded-full bg-accent"
-            initial={{ scale: 1, opacity: 0.5 }}
-            animate={{ scale: 2.4, opacity: 0 }}
-            transition={{ duration: 1.4, repeat: Number.POSITIVE_INFINITY, ease: 'easeOut' }}
+            initial={{ scale: 1, opacity: 0 }}
+            animate={{
+              // Start AND end at opacity 0 so the loop boundary has no visible
+              // discontinuity. A single-pair animate value would snap from
+              // opacity 0 back to the initial value on every iteration — that
+              // snap reads as a flash.
+              scale: [1, 1.2, 2.4],
+              opacity: [0, 0.55, 0],
+            }}
+            transition={{
+              duration: 1.6,
+              repeat: Number.POSITIVE_INFINITY,
+              ease: 'easeOut',
+              times: [0, 0.2, 1],
+            }}
           />
         )}
       </span>
