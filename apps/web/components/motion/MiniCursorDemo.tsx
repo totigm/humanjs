@@ -1,7 +1,7 @@
 'use client';
 
 import { bezierPath, careful, createRng, humanizePath, type Point } from '@humanjs/core';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion, useInView, useReducedMotion } from 'framer-motion';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 const WIDTH = 360;
@@ -26,6 +26,8 @@ interface MiniCursorDemoProps {
 
 export function MiniCursorDemo({ className }: MiniCursorDemoProps) {
   const shouldReduceMotion = useReducedMotion();
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const inView = useInView(containerRef, { margin: '0px 0px -10% 0px' });
   const [tick, setTick] = useState(0);
   const startRef = useRef<number | null>(null);
   const visitRef = useRef(0);
@@ -52,7 +54,7 @@ export function MiniCursorDemo({ className }: MiniCursorDemoProps) {
   }, [tick]);
 
   useEffect(() => {
-    if (shouldReduceMotion) return;
+    if (shouldReduceMotion || !inView) return;
     let raf = 0;
     const loop = (now: number) => {
       if (startRef.current === null) startRef.current = now;
@@ -68,7 +70,7 @@ export function MiniCursorDemo({ className }: MiniCursorDemoProps) {
     };
     raf = window.requestAnimationFrame(loop);
     return () => window.cancelAnimationFrame(raf);
-  }, [shouldReduceMotion]);
+  }, [shouldReduceMotion, inView]);
 
   if (!cycle) return null;
 
@@ -106,7 +108,7 @@ export function MiniCursorDemo({ className }: MiniCursorDemoProps) {
   }
 
   return (
-    <div className={className}>
+    <div ref={containerRef} className={className}>
       <div className="relative overflow-hidden rounded-card-lg border border-hairline bg-surface/70 backdrop-blur-sm">
         <div className="flex items-center justify-between border-b border-hairline px-4 py-2.5">
           <div className="flex items-center gap-2">

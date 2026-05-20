@@ -5,10 +5,10 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import { useHumanCursor } from './HumanCursorProvider';
 
-const SMOOTHING = 0.14;
-const JITTER_REFRESH_FRAMES = 6;
-const JITTER_STD_DEV = 0.35;
-const TRAIL_LIFETIME_MS = 700;
+const SMOOTHING = 0.24;
+const JITTER_REFRESH_FRAMES = 7;
+const JITTER_STD_DEV = 0.3;
+const TRAIL_LIFETIME_MS = 650;
 const TRAIL_MIN_DISTANCE_PX = 4;
 
 export function HumanCursor() {

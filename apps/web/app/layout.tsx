@@ -1,7 +1,12 @@
 import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono, Instrument_Serif } from 'next/font/google';
-import { CursorToggle, HumanCursor, HumanCursorProvider } from '../components/motion';
-import { ScrollPath } from '../components/motion/ScrollPath';
+import {
+  CursorToggle,
+  HoverGhostCursor,
+  HumanCursor,
+  HumanCursorProvider,
+  ScrollPath,
+} from '../components/motion';
 import './globals.css';
 
 const geist = Geist({
@@ -75,6 +80,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <HumanCursorProvider>
           <ScrollPath />
           {children}
+          <HoverGhostCursor />
           <HumanCursor />
           <CursorToggle />
         </HumanCursorProvider>

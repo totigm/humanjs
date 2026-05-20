@@ -6,7 +6,6 @@ import { Container, ScrollReveal, Section } from '../primitives';
 interface AudienceCardData {
   icon: LucideIcon;
   title: string;
-  italic: string;
   description: string;
   examples: string;
 }
@@ -15,7 +14,6 @@ const audiences: AudienceCardData[] = [
   {
     icon: Bot,
     title: 'AI agent builders',
-    italic: 'invisible',
     description:
       'Browser Use, Stagehand, Playwright MCP — without the giveaway robotic clicks that flag your agent as a bot.',
     examples: 'Browser Use · Stagehand · MCP',
@@ -23,7 +21,6 @@ const audiences: AudienceCardData[] = [
   {
     icon: FlaskConical,
     title: 'QA engineers',
-    italic: 'real-paced',
     description:
       'Catch race conditions that only surface at real human pace. One flag flips to instant mode for fast CI.',
     examples: 'Playwright · Vitest · CI',
@@ -31,7 +28,6 @@ const audiences: AudienceCardData[] = [
   {
     icon: ClapperboardIcon,
     title: 'Demo & tutorial creators',
-    italic: 'effortless',
     description:
       'Record polished walkthroughs without driving the cursor by hand. Same script, smoother output.',
     examples: 'Loom · YouTube · screencasts',
@@ -47,7 +43,10 @@ export function Audience() {
             <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.3em] text-muted">
               Three audiences
             </p>
-            <h2 className="text-balance text-4xl font-medium leading-[1.05] tracking-[-0.02em] md:text-6xl">
+            <h2
+              className="text-balance text-4xl font-medium leading-[1.05] tracking-[-0.02em] md:text-6xl"
+              data-ghost-cursor="true"
+            >
               Built for the people who can't{' '}
               <span className="font-display italic text-accent">afford to be obvious.</span>
             </h2>
@@ -88,10 +87,7 @@ function AudienceCard({ data }: { data: AudienceCardData }) {
           <Icon className="h-4 w-4 text-accent" strokeWidth={1.75} />
         </div>
         <h3 className="text-xl font-medium tracking-tight text-foreground">{data.title}</h3>
-        <p className="mt-1 font-display text-xl italic leading-snug text-accent">
-          —&nbsp;{data.italic}
-        </p>
-        <p className="mt-4 text-sm leading-relaxed text-muted-strong">{data.description}</p>
+        <p className="mt-3 text-sm leading-relaxed text-muted-strong">{data.description}</p>
         <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.15em] text-muted/60">
           {data.examples}
         </p>

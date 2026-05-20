@@ -1,81 +1,130 @@
-import type { LucideIcon } from 'lucide-react';
-import { Layers, Shield, Workflow } from 'lucide-react';
-import { cn } from '../../lib/cn';
+import { Minus, Plus } from 'lucide-react';
 import { Container, ScrollReveal, Section } from '../primitives';
 
-interface LimitData {
-  icon: LucideIcon;
-  title: string;
-  description: string;
-}
+const inScope = [
+  'Bezier mouse paths with overshoot & micro-jitter',
+  'Typing rhythm with typo + backspace recovery',
+  'Reading dwell tied to word count',
+  'Four personalities, composable & extendable',
+  'Deterministic by seed (snapshot-friendly)',
+  'Plugin contract from day one',
+];
 
-const limits: LimitData[] = [
-  {
-    icon: Shield,
-    title: "Won't defeat sophisticated bot detection",
-    description:
-      "Cursor humanization is one signal among many. Fingerprinting, TLS, and request patterns aren't in scope — and we won't pretend otherwise.",
-  },
-  {
-    icon: Layers,
-    title: "Wraps Playwright — doesn't replace it",
-    description:
-      'Same selectors, same launch, same locator. HumanJS adds humanization on top. If you know Playwright, you know 90% of HumanJS.',
-  },
-  {
-    icon: Workflow,
-    title: 'Playwright-first for now',
-    description:
-      'Puppeteer adapter is on the v3 roadmap. Selenium support is a maybe. Playwright is where the work and the love is in v1.',
-  },
+const outOfScope = [
+  'Browser fingerprint masking',
+  'TLS / request-pattern stealth',
+  'CAPTCHA solving or bypass',
+  'Proxy rotation & IP management',
+  'Puppeteer & Selenium adapters (later)',
 ];
 
 export function HonestLimits() {
   return (
-    <Section density="default">
-      <Container width="md">
-        <ScrollReveal>
-          <div className="mb-12 max-w-2xl md:mb-14">
-            <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.3em] text-muted">
-              Honest limits
-            </p>
-            <h2 className="text-balance text-3xl font-medium leading-[1.1] tracking-[-0.02em] md:text-5xl">
-              What HumanJS <span className="font-display italic text-accent">won't</span> do.
-            </h2>
-            <p className="mt-4 max-w-xl text-base text-muted">
-              Trust is earned by being clear about boundaries.
-            </p>
-          </div>
-        </ScrollReveal>
+    <Section density="loose" className="relative overflow-hidden">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 opacity-30"
+        style={{
+          background: 'radial-gradient(80% 50% at 50% 0%, rgba(245,165,92,0.06), transparent 60%)',
+        }}
+      />
 
-        <div className="space-y-3">
-          {limits.map((limit, i) => (
-            <ScrollReveal key={limit.title} delay={i * 0.08}>
-              <LimitRow data={limit} />
+      <Container width="lg">
+        <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-16">
+          <div className="lg:col-span-5">
+            <ScrollReveal>
+              <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.3em] text-muted">
+                <span className="text-accent">·</span> Designed scope
+              </p>
             </ScrollReveal>
-          ))}
+
+            <ScrollReveal delay={0.06}>
+              <h2 className="text-balance text-4xl font-medium leading-[1.02] tracking-[-0.02em] md:text-5xl lg:text-6xl">
+                Small surface. <span className="font-display italic text-accent">Big honesty.</span>
+              </h2>
+            </ScrollReveal>
+
+            <ScrollReveal delay={0.14}>
+              <p className="mt-6 max-w-md text-balance text-base leading-relaxed text-muted-strong md:text-lg">
+                HumanJS humanizes the timing between two points. It doesn't pretend to be a full
+                anti-detection stack. Here's what we ship — and what we leave to others.
+              </p>
+            </ScrollReveal>
+
+            <ScrollReveal delay={0.2}>
+              <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.22em] text-muted/60">
+                MIT licensed
+                <span className="mx-2 text-muted/40">·</span>
+                v0.2 ships <span className="text-accent">today</span>
+              </p>
+            </ScrollReveal>
+          </div>
+
+          <div className="lg:col-span-7">
+            <ScrollReveal delay={0.12}>
+              <div className="grid grid-cols-1 overflow-hidden rounded-card-lg border border-hairline bg-surface/40 sm:grid-cols-2">
+                <div className="border-b border-hairline p-6 sm:border-b-0 sm:border-r md:p-8">
+                  <div className="mb-5 flex items-center gap-3">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent/15">
+                      <Plus className="h-3 w-3 text-accent" strokeWidth={2.5} />
+                    </span>
+                    <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-accent">
+                      In v1
+                    </p>
+                  </div>
+                  <ul className="space-y-3.5">
+                    {inScope.map((item, i) => (
+                      <ScopeItem key={item} text={item} kind="in" delay={i * 0.04} />
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="p-6 md:p-8">
+                  <div className="mb-5 flex items-center gap-3">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/5">
+                      <Minus className="h-3 w-3 text-muted" strokeWidth={2.5} />
+                    </span>
+                    <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted">
+                      Out of scope
+                    </p>
+                  </div>
+                  <ul className="space-y-3.5">
+                    {outOfScope.map((item, i) => (
+                      <ScopeItem key={item} text={item} kind="out" delay={i * 0.04} />
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </ScrollReveal>
+          </div>
         </div>
       </Container>
     </Section>
   );
 }
 
-function LimitRow({ data }: { data: LimitData }) {
-  const Icon = data.icon;
+function ScopeItem({ text, kind, delay }: { text: string; kind: 'in' | 'out'; delay: number }) {
   return (
-    <article
-      className={cn(
-        'flex gap-5 rounded-card-lg border border-hairline bg-surface p-5 md:p-6',
-        'transition-colors duration-300 hover:border-hairline-strong',
-      )}
-    >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-hairline bg-canvas">
-        <Icon className="h-4 w-4 text-muted" strokeWidth={1.75} />
-      </div>
-      <div className="min-w-0">
-        <h3 className="text-base font-medium tracking-tight text-foreground">{data.title}</h3>
-        <p className="mt-1.5 text-sm leading-relaxed text-muted-strong">{data.description}</p>
-      </div>
-    </article>
+    <ScrollReveal delay={0.2 + delay} y={8} duration={0.5}>
+      <li className="flex items-start gap-3">
+        <span
+          aria-hidden
+          className={
+            kind === 'in'
+              ? 'mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-accent shadow-[0_0_8px_rgba(245,165,92,0.5)]'
+              : 'mt-[10px] h-px w-2 shrink-0 bg-muted/60'
+          }
+        />
+        <span
+          className={
+            kind === 'in'
+              ? 'text-[15px] leading-snug text-foreground'
+              : 'text-[15px] leading-snug text-muted-strong'
+          }
+        >
+          {text}
+        </span>
+      </li>
+    </ScrollReveal>
   );
 }

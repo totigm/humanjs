@@ -8,3 +8,5 @@ export { HonestLimits } from './HonestLimits';
 export { Manifesto } from './Manifesto';
 export { Nav } from './Nav';
 export { PersonalityLab } from './PersonalityLab';
+export { Playground } from './Playground';
+export { TrustStrip } from './TrustStrip';

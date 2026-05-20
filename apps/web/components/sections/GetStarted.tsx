@@ -28,7 +28,10 @@ export function GetStarted() {
             <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.3em] text-muted">
               Get started
             </p>
-            <h2 className="text-balance text-4xl font-medium leading-[1.05] tracking-[-0.02em] md:text-6xl">
+            <h2
+              className="text-balance text-4xl font-medium leading-[1.05] tracking-[-0.02em] md:text-6xl"
+              data-ghost-cursor="true"
+            >
               One install.{' '}
               <span className="font-display italic text-accent">One line of code different.</span>
             </h2>

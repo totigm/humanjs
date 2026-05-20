@@ -29,7 +29,10 @@ export function Comparison() {
             <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.3em] text-muted">
               Side by side
             </p>
-            <h2 className="text-balance text-4xl font-medium leading-[1.05] tracking-[-0.02em] md:text-6xl">
+            <h2
+              className="text-balance text-4xl font-medium leading-[1.05] tracking-[-0.02em] md:text-6xl"
+              data-ghost-cursor="true"
+            >
               The click stays the same.{' '}
               <span className="font-display italic text-accent">Everything around it changes.</span>
             </h2>

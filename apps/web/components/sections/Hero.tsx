@@ -84,7 +84,9 @@ export function Hero() {
                 variants={shouldReduceMotion ? undefined : lineVariants}
                 className="block"
               >
-                <span className="font-display italic text-accent">Humanize</span>{' '}
+                <span className="font-display italic text-accent" data-ghost-cursor="true">
+                  Humanize
+                </span>{' '}
                 <span>the cursor.</span>
               </motion.span>
               <motion.span

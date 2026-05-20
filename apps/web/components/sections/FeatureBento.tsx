@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import { Activity, GitBranch, KeyboardIcon, Sparkles, TimerReset, Zap } from 'lucide-react';
 import { cn } from '../../lib/cn';
+import { BezierDecoration } from '../motion';
 import { Container, ScrollReveal, Section } from '../primitives';
 
 interface FeatureCell {
@@ -62,7 +63,10 @@ export function FeatureBento() {
             <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.3em] text-muted">
               Under the hood
             </p>
-            <h2 className="text-balance text-4xl font-medium leading-[1.05] tracking-[-0.02em] md:text-6xl">
+            <h2
+              className="text-balance text-4xl font-medium leading-[1.05] tracking-[-0.02em] md:text-6xl"
+              data-ghost-cursor="true"
+            >
               Realism, <span className="font-display italic text-accent">all the way down.</span>
             </h2>
           </div>
@@ -101,44 +105,6 @@ function FeatureCard({ feature }: { feature: FeatureCell }) {
         <p className="mt-2 text-sm leading-relaxed text-muted-strong">{feature.description}</p>
       </div>
     </article>
-  );
-}
-
-function BezierDecoration() {
-  return (
-    <svg
-      className="pointer-events-none absolute inset-0 h-full w-full"
-      viewBox="0 0 400 360"
-      preserveAspectRatio="xMidYMax slice"
-      aria-hidden
-    >
-      <defs>
-        <linearGradient id="bezier-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#f5a55c" stopOpacity="0" />
-          <stop offset="50%" stopColor="#f5a55c" stopOpacity="0.6" />
-          <stop offset="100%" stopColor="#f5a55c" stopOpacity="0.05" />
-        </linearGradient>
-        <linearGradient id="bezier-gradient-2" x1="0%" y1="100%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#5b7cc9" stopOpacity="0.4" />
-          <stop offset="100%" stopColor="#5b7cc9" stopOpacity="0.05" />
-        </linearGradient>
-      </defs>
-      <path
-        d="M 50 320 C 120 280, 220 340, 280 240 S 360 100, 380 60"
-        fill="none"
-        stroke="url(#bezier-gradient)"
-        strokeWidth="1.5"
-      />
-      <path
-        d="M 30 340 C 90 260, 180 320, 250 220 S 320 80, 350 40"
-        fill="none"
-        stroke="url(#bezier-gradient-2)"
-        strokeWidth="1"
-      />
-      <circle cx="380" cy="60" r="3" fill="#f5a55c" />
-      <circle cx="380" cy="60" r="8" fill="none" stroke="#f5a55c" strokeOpacity="0.3" />
-      <circle cx="50" cy="320" r="2" fill="#f5a55c" opacity="0.4" />
-    </svg>
   );
 }
 

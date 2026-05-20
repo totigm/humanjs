@@ -45,7 +45,7 @@ export function CursorToggle() {
       </span>
       <MousePointer2 className="h-3.5 w-3.5" strokeWidth={2} />
       <span className="font-mono uppercase tracking-[0.15em]">
-        {enabled ? 'human · on' : 'humanize cursor'}
+        {enabled ? 'cursor humanized' : 'humanize cursor'}
       </span>
     </motion.button>
   );

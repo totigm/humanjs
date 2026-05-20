@@ -7,7 +7,7 @@ import {
   type PresetName,
   resolvePersonality,
 } from '@humanjs/core';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion, useInView, useReducedMotion } from 'framer-motion';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 const WIDTH = 480;
@@ -23,69 +23,94 @@ const targets = [
 const REST_MS = 600;
 const DWELL_MS = 280;
 const CLICK_MS = 220;
+const START_POS = { x: 32, y: 32 };
+
+interface CursorOverrides {
+  curvature?: number;
+  jitterPx?: number;
+  travelMs?: number;
+}
 
 interface PersonalityCursorProps {
   personality: PresetName;
+  overrides?: CursorOverrides;
   className?: string;
 }
 
-export function PersonalityCursor({ personality, className }: PersonalityCursorProps) {
+export function PersonalityCursor({ personality, overrides, className }: PersonalityCursorProps) {
   const shouldReduceMotion = useReducedMotion();
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const inView = useInView(containerRef, { margin: '0px 0px -10% 0px' });
+  const [cycleIndex, setCycleIndex] = useState(0);
   const [, force] = useState(0);
-  const cycleRef = useRef(0);
+  const fromRef = useRef({ ...START_POS });
   const startRef = useRef<number | null>(null);
-  const fromRef = useRef({ x: 32, y: 32 });
 
   const config = useMemo(() => {
     const profile = resolvePersonality(personality);
     return {
-      curvature: profile.mouse.curvature,
-      travelMs: profile.mouse.travelTimeMs * 1.2,
+      curvature: overrides?.curvature ?? profile.mouse.curvature,
+      travelMs: (overrides?.travelMs ?? profile.mouse.travelTimeMs) * 1.2,
+      jitterPx: overrides?.jitterPx ?? 0.7,
       jitterPercent: profile.mouse.travelTimeJitter,
     };
-  }, [personality]);
+  }, [personality, overrides?.curvature, overrides?.jitterPx, overrides?.travelMs]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: refs intentionally excluded; we want to recompute path on the listed dependencies
+  // Recompute the path every time the cycle advances OR the configuration changes.
   const cycle = useMemo(() => {
-    const target = targets[cycleRef.current % targets.length];
+    const target = targets[cycleIndex % targets.length];
     if (!target) return null;
-    const rng = createRng(`personality-${personality}-${cycleRef.current}`);
+    const rng = createRng(
+      `personality-${personality}-${cycleIndex}-${config.curvature.toFixed(2)}`,
+    );
     const raw = bezierPath(fromRef.current, { x: target.x, y: target.y }, rng, {
       curvature: config.curvature,
       steps: 42,
     });
-    const path = humanizePath(raw, rng, { velocityProfile: 1, jitterPx: 0.7 });
+    const path = humanizePath(raw, rng, { velocityProfile: 1, jitterPx: config.jitterPx });
     return { path, target };
-  }, [personality, config.curvature]);
+  }, [personality, cycleIndex, config.curvature, config.jitterPx]);
 
-  // Reset cycle when personality changes
+  // Reset when personality or config tone changes (new RNG family / start position).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional reset on identity changes only
   useEffect(() => {
-    cycleRef.current = 0;
+    setCycleIndex(0);
     startRef.current = null;
-    fromRef.current = { x: 32, y: 32 };
-    force((v) => v + 1);
-  }, []);
+    fromRef.current = { ...START_POS };
+  }, [personality, config.curvature, config.jitterPx]);
+
+  // Read latest cycle from a ref so the RAF loop never restarts mid-flight.
+  const cycleSnapshotRef = useRef(cycle);
+  useEffect(() => {
+    cycleSnapshotRef.current = cycle;
+  }, [cycle]);
 
   useEffect(() => {
-    if (shouldReduceMotion || !cycle) return;
+    if (shouldReduceMotion || !inView) return;
     let raf = 0;
-    const total = config.travelMs + DWELL_MS + CLICK_MS + REST_MS;
     const loop = (now: number) => {
+      const current = cycleSnapshotRef.current;
+      if (!current) {
+        raf = window.requestAnimationFrame(loop);
+        return;
+      }
+      const total = config.travelMs + DWELL_MS + CLICK_MS + REST_MS;
       if (startRef.current === null) startRef.current = now;
       const elapsed = now - startRef.current;
       if (elapsed >= total) {
         startRef.current = now;
-        fromRef.current = { x: cycle.target.x, y: cycle.target.y };
-        cycleRef.current = (cycleRef.current + 1) % targets.length;
+        fromRef.current = { x: current.target.x, y: current.target.y };
+        setCycleIndex((i) => (i + 1) % targets.length);
+      } else {
+        force((v) => (v + 1) & 0xff);
       }
-      force((v) => v + 1);
       raf = window.requestAnimationFrame(loop);
     };
     raf = window.requestAnimationFrame(loop);
     return () => window.cancelAnimationFrame(raf);
-  }, [shouldReduceMotion, cycle, config.travelMs]);
+  }, [shouldReduceMotion, inView, config.travelMs]);
 
-  if (!cycle) return null;
+  if (!cycle) return <div ref={containerRef} className={className} />;
 
   const elapsed = startRef.current !== null ? performance.now() - startRef.current : 0;
 
@@ -116,7 +141,6 @@ export function PersonalityCursor({ personality, className }: PersonalityCursorP
     }
   }
 
-  // Path so far
   const pathSoFar = (() => {
     if (shouldReduceMotion || elapsed >= config.travelMs) return null;
     const upTo = Math.max(2, Math.floor((elapsed / config.travelMs) * cycle.path.length));
@@ -127,7 +151,7 @@ export function PersonalityCursor({ personality, className }: PersonalityCursorP
   })();
 
   return (
-    <div className={className}>
+    <div ref={containerRef} className={className}>
       <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="block h-auto w-full" aria-hidden>
         <defs>
           <pattern id="lab-grid" width="20" height="20" patternUnits="userSpaceOnUse">

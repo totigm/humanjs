@@ -9,6 +9,8 @@ import {
   Manifesto,
   Nav,
   PersonalityLab,
+  Playground,
+  TrustStrip,
 } from '../components/sections';
 
 export default function Page() {
@@ -19,10 +21,12 @@ export default function Page() {
         <Hero />
         <Manifesto />
         <Comparison />
+        <Playground />
         <Audience />
         <FeatureBento />
         <PersonalityLab />
         <GetStarted />
+        <TrustStrip />
         <HonestLimits />
       </main>
       <Footer />

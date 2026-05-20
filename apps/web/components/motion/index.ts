@@ -1,7 +1,11 @@
+export { BezierDecoration } from './BezierDecoration';
 export { ComparisonDemo } from './ComparisonDemo';
 export { CursorToggle } from './CursorToggle';
+export { HoverGhostCursor } from './HoverGhostCursor';
 export { HumanCursor } from './HumanCursor';
 export { HumanCursorProvider, useHumanCursor } from './HumanCursorProvider';
 export { MiniCursorDemo } from './MiniCursorDemo';
+export { PersonalityCursor } from './PersonalityCursor';
+export { Sandbox } from './Sandbox';
 export { ScrollPath } from './ScrollPath';
 export { TrajectoryCanvas } from './TrajectoryCanvas';

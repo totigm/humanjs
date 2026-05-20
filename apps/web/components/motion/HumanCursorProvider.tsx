@@ -29,11 +29,12 @@ export function HumanCursorProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // Default ON when supported. Only off if the user has explicitly opted out.
     try {
       const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (stored === 'true') setEnabled(true);
+      setEnabled(stored !== 'false');
     } catch {
-      // localStorage unavailable; ignore
+      setEnabled(true);
     }
   }, []);
 

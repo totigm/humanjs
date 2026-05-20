@@ -11,26 +11,32 @@ export function Manifesto() {
         }}
       />
       <Container width="md">
-        <ScrollReveal>
-          <p className="font-mono text-[11px] uppercase tracking-[0.32em] text-muted">
-            <span className="text-accent">·</span> A note on intent
-          </p>
-        </ScrollReveal>
+        <div className="relative">
+          <ScrollReveal>
+            <span
+              aria-hidden
+              className="font-display block text-[10rem] leading-[0.7] text-accent/15 md:text-[14rem]"
+            >
+              &ldquo;
+            </span>
+          </ScrollReveal>
 
-        <ScrollReveal delay={0.08}>
-          <p className="mt-8 text-balance text-3xl font-medium leading-[1.18] tracking-[-0.015em] text-foreground md:text-5xl lg:text-6xl">
-            The web was built by humans.{' '}
-            <span className="text-muted-strong">The automation we build to ride on top of it</span>{' '}
-            <span className="font-display italic text-accent">deserves to feel that way too.</span>
-          </p>
-        </ScrollReveal>
+          <ScrollReveal delay={0.08}>
+            <blockquote className="-mt-12 md:-mt-20">
+              <p className="font-display text-balance text-3xl italic leading-[1.18] tracking-[-0.01em] text-foreground md:text-5xl lg:text-6xl">
+                The web was built by humans. The automation we layer on top of it deserves to feel
+                that way too.
+              </p>
+            </blockquote>
+          </ScrollReveal>
 
-        <ScrollReveal delay={0.18}>
-          <p className="mt-10 max-w-xl text-base text-muted md:text-lg">
-            HumanJS is the small library that adds the bits Playwright leaves out: a Bezier path
-            instead of a teleport, a rhythm instead of an instant, a pause before the click.
-          </p>
-        </ScrollReveal>
+          <ScrollReveal delay={0.18}>
+            <footer className="mt-10 flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.25em] text-muted/70">
+              <span className="h-px w-8 bg-accent/60" aria-hidden />
+              <span>A note on intent</span>
+            </footer>
+          </ScrollReveal>
+        </div>
       </Container>
     </Section>
   );
