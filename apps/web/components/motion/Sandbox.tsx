@@ -141,6 +141,20 @@ export function Sandbox({ personality = 'careful', className }: SandboxProps) {
     sendCursorTo({ x, y });
   };
 
+  const sendRandomClick = () => {
+    sendCursorTo({
+      x: VIEW_W * (0.1 + Math.random() * 0.8),
+      y: VIEW_H * (0.15 + Math.random() * 0.7),
+    });
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      sendRandomClick();
+    }
+  };
+
   /**
    * Drive the cursor to a target point in viewBox space, generating a fresh
    * humanized path. Used by both the click handler and the "random click"
@@ -195,96 +209,113 @@ export function Sandbox({ personality = 'careful', className }: SandboxProps) {
         </span>
       </div>
 
-      <svg
-        ref={svgRef}
-        viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-        className="block h-auto w-full"
-        style={{ cursor: CURSOR_DATA_URI }}
-        onClick={handleClick}
-        aria-hidden
+      {/*
+        The interactive role lives on this wrapper div, not the svg, because
+        svg is a non-interactive element per the WAI-ARIA spec. The svg itself
+        is decorative — the wrapper is what screen readers see as a button,
+        what receives focus, and what handles keyboard activation.
+      */}
+      {/* biome-ignore lint/a11y/useSemanticElements: a real <button> can't wrap an svg of arbitrary size that responds to pointer position; click coordinates are essential for this widget */}
+      <div
+        role="button"
+        tabIndex={0}
+        onKeyDown={handleKeyDown}
+        aria-label="Click anywhere to send a humanized cursor to that point. Press Enter or Space to send the cursor to a random position."
+        className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
       >
-        <defs>
-          <pattern id={gridId} width="24" height="24" patternUnits="userSpaceOnUse">
-            <path
-              d="M 24 0 L 0 0 0 24"
-              fill="none"
-              stroke="rgba(245,230,215,0.04)"
-              strokeWidth="1"
-            />
-          </pattern>
-          <radialGradient id={vignetteId}>
-            <stop offset="0%" stopColor="rgba(245,165,92,0.06)" />
-            <stop offset="100%" stopColor="rgba(245,165,92,0)" />
-          </radialGradient>
-          <linearGradient id={trailGradId} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#f5a55c" stopOpacity="0" />
-            <stop offset="100%" stopColor="#f5a55c" stopOpacity="0.8" />
-          </linearGradient>
-        </defs>
-        <rect width={VIEW_W} height={VIEW_H} fill={`url(#${gridId})`} />
-        <rect width={VIEW_W} height={VIEW_H} fill={`url(#${vignetteId})`} />
+        <svg
+          ref={svgRef}
+          viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+          className="block h-auto w-full"
+          style={{ cursor: CURSOR_DATA_URI }}
+          onClick={handleClick}
+          aria-hidden
+        >
+          <defs>
+            <pattern id={gridId} width="24" height="24" patternUnits="userSpaceOnUse">
+              <path
+                d="M 24 0 L 0 0 0 24"
+                fill="none"
+                stroke="rgba(245,230,215,0.04)"
+                strokeWidth="1"
+              />
+            </pattern>
+            <radialGradient id={vignetteId}>
+              <stop offset="0%" stopColor="rgba(245,165,92,0.06)" />
+              <stop offset="100%" stopColor="rgba(245,165,92,0)" />
+            </radialGradient>
+            <linearGradient id={trailGradId} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#f5a55c" stopOpacity="0" />
+              <stop offset="100%" stopColor="#f5a55c" stopOpacity="0.8" />
+            </linearGradient>
+          </defs>
+          <rect width={VIEW_W} height={VIEW_H} fill={`url(#${gridId})`} />
+          <rect width={VIEW_W} height={VIEW_H} fill={`url(#${vignetteId})`} />
 
-        {!interacted && (
-          <>
-            <HintTarget x={VIEW_W * 0.18} y={VIEW_H * 0.25} label="try here" />
-            <HintTarget x={VIEW_W * 0.82} y={VIEW_H * 0.7} label="or here" />
-            <HintTarget x={VIEW_W * 0.5} y={VIEW_H * 0.5} label="anywhere" />
-          </>
-        )}
+          {!interacted && (
+            <>
+              <HintTarget x={VIEW_W * 0.18} y={VIEW_H * 0.25} label="try here" />
+              <HintTarget x={VIEW_W * 0.82} y={VIEW_H * 0.7} label="or here" />
+              <HintTarget x={VIEW_W * 0.5} y={VIEW_H * 0.5} label="anywhere" />
+            </>
+          )}
 
-        {/* Trail behind the cursor — mutated imperatively. */}
-        <path
-          ref={trailRef}
-          d=""
-          fill="none"
-          stroke={`url(#${trailGradId})`}
-          strokeWidth="1.75"
-          strokeLinecap="round"
-          opacity="0.7"
-        />
-
-        {/* Dashed full-path preview only while a travel event is active. */}
-        {event && (
-          <motion.path
-            d={toSvgPathD(event.path)}
-            fill="none"
-            stroke="rgba(245,165,92,0.2)"
-            strokeWidth="1"
-            strokeLinecap="round"
-            strokeDasharray="3 5"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.5 }}
-          />
-        )}
-
-        {ripple && (
-          <circle
-            cx={ripple.pos.x}
-            cy={ripple.pos.y}
-            r={30}
-            fill="none"
-            stroke="#f5a55c"
-            strokeWidth="1.5"
-            opacity="0.5"
-          >
-            <animate attributeName="r" from="8" to="44" dur="0.5s" repeatCount="1" />
-            <animate attributeName="opacity" from="0.7" to="0" dur="0.5s" repeatCount="1" />
-          </circle>
-        )}
-
-        <g ref={cursorGroupRef} transform={`translate(${INITIAL_CURSOR.x}, ${INITIAL_CURSOR.y})`}>
+          {/* Trail behind the cursor — mutated imperatively. */}
           <path
-            d="M 0 0 L 15 5 L 7 9 L 5 18 Z"
-            fill="#f5a55c"
-            stroke="#020203"
-            strokeWidth="0.6"
-            strokeLinejoin="round"
+            ref={trailRef}
+            d=""
+            fill="none"
+            stroke={`url(#${trailGradId})`}
+            strokeWidth="1.75"
+            strokeLinecap="round"
+            opacity="0.7"
           />
-        </g>
-      </svg>
+
+          {/* Dashed full-path preview only while a travel event is active. */}
+          {event && (
+            <motion.path
+              d={toSvgPathD(event.path)}
+              fill="none"
+              stroke="rgba(245,165,92,0.2)"
+              strokeWidth="1"
+              strokeLinecap="round"
+              strokeDasharray="3 5"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+            />
+          )}
+
+          {ripple && (
+            <circle
+              cx={ripple.pos.x}
+              cy={ripple.pos.y}
+              r={30}
+              fill="none"
+              stroke="#f5a55c"
+              strokeWidth="1.5"
+              opacity="0.5"
+            >
+              <animate attributeName="r" from="8" to="44" dur="0.5s" repeatCount="1" />
+              <animate attributeName="opacity" from="0.7" to="0" dur="0.5s" repeatCount="1" />
+            </circle>
+          )}
+
+          <g ref={cursorGroupRef} transform={`translate(${INITIAL_CURSOR.x}, ${INITIAL_CURSOR.y})`}>
+            <path
+              d="M 0 0 L 15 5 L 7 9 L 5 18 Z"
+              fill="#f5a55c"
+              stroke="#020203"
+              strokeWidth="0.6"
+              strokeLinejoin="round"
+            />
+          </g>
+        </svg>
+      </div>
 
       <div className="flex items-center justify-between border-t border-hairline px-4 py-2.5 font-mono text-[10px]">
-        <code className="text-foreground/80">
+        {/* Coordinates update ~60×/sec via imperative DOM mutation — would
+            spam screen readers if announced, so we hide from SR. */}
+        <code className="text-foreground/80" aria-hidden>
           <span className="text-muted">{`await human.click(`}</span>
           <span ref={codeRef} className="text-accent">
             {`{ x: ${INITIAL_CURSOR.x.toFixed(0)}, y: ${INITIAL_CURSOR.y.toFixed(0)} }`}
@@ -293,12 +324,8 @@ export function Sandbox({ personality = 'careful', className }: SandboxProps) {
         </code>
         <button
           type="button"
-          onClick={() =>
-            sendCursorTo({
-              x: VIEW_W * (0.1 + Math.random() * 0.8),
-              y: VIEW_H * (0.15 + Math.random() * 0.7),
-            })
-          }
+          onClick={sendRandomClick}
+          aria-label="Send a humanized cursor to a random position in the playground"
           className="rounded-md px-2 py-1 text-muted/70 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           {event ? 'traveling…' : interacted ? 'random click ↻' : 'random click'}

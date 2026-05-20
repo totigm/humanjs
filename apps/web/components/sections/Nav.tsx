@@ -2,11 +2,13 @@
 
 import { AnimatePresence, motion } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { cn } from '../../lib/cn';
 import { EASE_EXPO } from '../../lib/motion';
 import { GithubMark, Wordmark } from '../icons';
 import { Button } from '../primitives';
+
+const MOBILE_MENU_ID = 'mobile-menu';
 
 const navLinks = [
   { href: '#features', label: 'Features' },
@@ -84,6 +86,8 @@ export function Nav() {
               type="button"
               onClick={() => setMenuOpen(true)}
               aria-label="Open menu"
+              aria-expanded={menuOpen}
+              aria-controls={MOBILE_MENU_ID}
               className="flex h-10 w-10 items-center justify-center rounded-md text-foreground transition-colors hover:bg-surface md:hidden"
             >
               <Menu className="h-5 w-5" />
@@ -100,8 +104,61 @@ export function Nav() {
 }
 
 function MobileMenu({ onClose }: { onClose: () => void }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Capture whatever was focused before the menu opened and restore it on close.
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    closeButtonRef.current?.focus();
+    return () => {
+      // Defer until after framer-motion's exit animation has unmounted us.
+      window.setTimeout(() => {
+        if (previouslyFocused && document.contains(previouslyFocused)) {
+          previouslyFocused.focus();
+        }
+      }, 0);
+    };
+  }, []);
+
+  // Escape closes the menu.
+  useEffect(() => {
+    const handle = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handle);
+    return () => window.removeEventListener('keydown', handle);
+  }, [onClose]);
+
+  // Focus trap — cycle Tab inside the panel.
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Tab') return;
+    const panel = panelRef.current;
+    if (!panel) return;
+    const focusables = panel.querySelectorAll<HTMLElement>(
+      'a, button, [tabindex]:not([tabindex="-1"])',
+    );
+    if (focusables.length === 0) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    const active = document.activeElement;
+    if (e.shiftKey && active === first) {
+      e.preventDefault();
+      last?.focus();
+    } else if (!e.shiftKey && active === last) {
+      e.preventDefault();
+      first?.focus();
+    }
+  };
+
   return (
     <motion.div
+      ref={panelRef}
+      id={MOBILE_MENU_ID}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Site menu"
+      onKeyDown={handleKeyDown}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -111,6 +168,7 @@ function MobileMenu({ onClose }: { onClose: () => void }) {
       <div className="flex h-16 items-center justify-between px-6">
         <Wordmark />
         <button
+          ref={closeButtonRef}
           type="button"
           onClick={onClose}
           aria-label="Close menu"
