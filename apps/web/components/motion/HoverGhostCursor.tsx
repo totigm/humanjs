@@ -7,6 +7,8 @@ import { EASE_EXPO } from '../../lib/motion';
 import { makeHumanizedPath, pointAt } from '../../lib/path';
 import { useHumanCursor } from './HumanCursorProvider';
 
+const CURSOR_Z = 60;
+
 const TRAVEL_MS = 950;
 const DWELL_MS = 700;
 const COOLDOWN_MS = 2200;
@@ -79,8 +81,13 @@ export function HoverGhostCursor() {
   );
 }
 
+/**
+ * Position is mutated imperatively in the RAF loop via `cursorRef.current.style.transform`.
+ * React never re-renders this component during travel — only on mount and unmount —
+ * matching the pattern used by the other cursor demos.
+ */
 function GhostCursor({ ghost, onComplete }: { ghost: Ghost; onComplete: () => void }) {
-  const [pos, setPos] = useState<Point>(ghost.startPos);
+  const cursorRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const path = makeHumanizedPath(ghost.startPos, ghost.targetPos, `ghost-${ghost.id}`, {
@@ -92,14 +99,19 @@ function GhostCursor({ ghost, onComplete }: { ghost: Ghost; onComplete: () => vo
     let raf = 0;
     let dwellTimer = 0;
 
+    const writeTransform = (p: Point) => {
+      const el = cursorRef.current;
+      if (el) el.style.transform = `translate3d(${p.x}px, ${p.y}px, 0)`;
+    };
+
     const tick = (now: number) => {
       const elapsed = now - start;
       if (elapsed >= TRAVEL_MS) {
-        setPos(ghost.targetPos);
+        writeTransform(ghost.targetPos);
         dwellTimer = window.setTimeout(onComplete, DWELL_MS);
         return;
       }
-      setPos(pointAt(path, elapsed / TRAVEL_MS));
+      writeTransform(pointAt(path, elapsed / TRAVEL_MS));
       raf = window.requestAnimationFrame(tick);
     };
 
@@ -112,14 +124,15 @@ function GhostCursor({ ghost, onComplete }: { ghost: Ghost; onComplete: () => vo
 
   return (
     <div
+      ref={cursorRef}
       aria-hidden
       style={{
         position: 'fixed',
         left: 0,
         top: 0,
-        transform: `translate3d(${pos.x}px, ${pos.y}px, 0)`,
+        transform: `translate3d(${ghost.startPos.x}px, ${ghost.startPos.y}px, 0)`,
         pointerEvents: 'none',
-        zIndex: 60,
+        zIndex: CURSOR_Z,
         willChange: 'transform',
       }}
     >
