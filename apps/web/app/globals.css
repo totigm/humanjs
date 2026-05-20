@@ -102,3 +102,56 @@
     "liga" 1;
   letter-spacing: -0.01em;
 }
+
+/*
+ * Styled range input. The thumb / track pseudo-elements can't be targeted
+ * by Tailwind utilities cleanly without an unreadable arbitrary-selector
+ * chain — keep the styling here so the component JSX stays a single class.
+ */
+@layer components {
+  .range-slider {
+    display: block;
+    width: 100%;
+    appearance: none;
+    background: transparent;
+    outline: none;
+  }
+
+  .range-slider::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--color-hairline-strong);
+  }
+  .range-slider::-webkit-slider-thumb {
+    appearance: none;
+    margin-top: -6px;
+    height: 14px;
+    width: 14px;
+    border-radius: 999px;
+    background: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(245, 165, 92, 0.18);
+  }
+  .range-slider:focus-visible::-webkit-slider-thumb {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  .range-slider::-moz-range-track {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--color-hairline-strong);
+  }
+  .range-slider::-moz-range-thumb {
+    appearance: none;
+    border: 0;
+    height: 14px;
+    width: 14px;
+    border-radius: 999px;
+    background: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(245, 165, 92, 0.18);
+  }
+  .range-slider:focus-visible::-moz-range-thumb {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}

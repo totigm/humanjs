@@ -53,10 +53,14 @@ export function pointAt(path: readonly Point[], progress: number): Point {
 /**
  * Format a series of points as an SVG `d` attribute (`M x y L x y ...`).
  * Pass `upTo` to render only a prefix — useful for drawing a partial
- * trail behind a moving cursor.
+ * trail behind a moving cursor. Returns `''` when there's nothing to draw
+ * (empty path, or fewer than 2 points requested) so callers can use the
+ * result directly without painting a degenerate single-point segment.
  */
 export function toSvgPathD(path: readonly Point[], upTo?: number): string {
-  const slice = upTo === undefined ? path : path.slice(0, Math.max(2, Math.min(path.length, upTo)));
+  if (path.length < 2) return '';
+  if (upTo !== undefined && upTo < 2) return '';
+  const slice = upTo === undefined ? path : path.slice(0, Math.min(path.length, upTo));
   return slice
     .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
     .join(' ');
