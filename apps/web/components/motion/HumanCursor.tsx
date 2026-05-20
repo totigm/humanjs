@@ -114,15 +114,19 @@ export function HumanCursor() {
       raf = window.requestAnimationFrame(tick);
     };
 
+    // `mouseenter` / `mouseleave` are element-targeted events per the spec;
+    // attach them to documentElement (the <html> root) for guaranteed
+    // cross-browser firing when the pointer exits or re-enters the viewport.
+    const root = document.documentElement;
     document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseenter', onEnter);
-    document.addEventListener('mouseleave', onLeave);
+    root.addEventListener('mouseenter', onEnter);
+    root.addEventListener('mouseleave', onLeave);
     raf = window.requestAnimationFrame(tick);
 
     return () => {
       document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseenter', onEnter);
-      document.removeEventListener('mouseleave', onLeave);
+      root.removeEventListener('mouseenter', onEnter);
+      root.removeEventListener('mouseleave', onLeave);
       window.removeEventListener('resize', resize);
       window.cancelAnimationFrame(raf);
       if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);

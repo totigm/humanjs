@@ -94,6 +94,11 @@ export function PersonalityCursor({ personality, overrides, className }: Persona
     const total = config.travelMs + DWELL_MS + CLICK_MS + REST_MS;
     let raf = 0;
     let currentPhase: Phase = 'travel';
+    // Sync React state to the local `currentPhase` — otherwise scrolling the
+    // demo out then back in re-enters with a stale `'click'` / `'rest'` and
+    // the target shows a phantom pressed/hovered visual until the next phase.
+    setPhase('travel');
+    startRef.current = null;
 
     const tick = (now: number) => {
       if (startRef.current === null) startRef.current = now;

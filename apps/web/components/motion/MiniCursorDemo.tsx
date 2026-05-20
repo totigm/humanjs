@@ -73,6 +73,10 @@ export function MiniCursorDemo({ className }: MiniCursorDemoProps) {
     if (shouldReduceMotion || !inView || !cycle) return;
     let raf = 0;
     let currentPhase: Phase = 'travel';
+    // Sync React state to the local `currentPhase` so we don't carry over a
+    // stale `'click'`/`'rest'` from before the user scrolled the demo out.
+    setPhase('travel');
+    startRef.current = null;
 
     const tick = (now: number) => {
       if (startRef.current === null) startRef.current = now;
@@ -131,7 +135,6 @@ export function MiniCursorDemo({ className }: MiniCursorDemoProps) {
 
   const pressed = phase === 'click';
   const hovered = phase !== 'travel';
-  const startTransform = `translate(${cycle.from.x}, ${cycle.from.y})`;
 
   return (
     <div ref={containerRef} className={className}>
@@ -223,7 +226,10 @@ export function MiniCursorDemo({ className }: MiniCursorDemoProps) {
             </circle>
           )}
 
-          <g ref={cursorGroupRef} transform={startTransform}>
+          {/* Initial transform is the demo's constant origin; the RAF tick
+              writes a fresh transform on its first frame, so React never
+              reconciles a stale `from` over the imperatively-mutated value. */}
+          <g ref={cursorGroupRef} transform={`translate(${START_POINT.x}, ${START_POINT.y})`}>
             <HumanCursorIcon size={12} />
           </g>
         </svg>
