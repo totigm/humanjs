@@ -9,6 +9,7 @@ import { PersonalityCursor } from '../../motion/PersonalityCursor';
 import { Container, ScrollReveal, Section } from '../../primitives';
 import { ConfigSnippet } from './ConfigSnippet';
 import { PersonalityTab } from './PersonalityTab';
+import { PresetStats } from './PresetStats';
 import { personalityPresets } from './presets';
 import { Slider } from './Slider';
 
@@ -90,6 +91,13 @@ export function PersonalityLab() {
                     {preset.tagline}
                   </p>
                   <p className="mt-3 text-sm text-muted-strong">{preset.description}</p>
+                </div>
+
+                <div className="space-y-2">
+                  <PresetStats preset={preset} />
+                  <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted/50">
+                    live from <span className="text-muted">@humanjs/core</span>
+                  </p>
                 </div>
 
                 <div className="space-y-4 border-t border-hairline pt-5">

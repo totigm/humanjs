@@ -4,9 +4,12 @@ export interface PersonalityMeta {
   key: PresetName;
   tagline: string;
   description: string;
+  /** Live `mouse.travelTimeMs` from the corresponding `@humanjs/core` preset. */
   travelMs: number;
+  /** Live `mouse.curvature` from the corresponding `@humanjs/core` preset. */
   curvature: number;
-  jitterPercent: number;
+  /** Live `mouse.travelTimeJitter` from `@humanjs/core` — a fraction in `[0, 1]`. */
+  travelJitter: number;
 }
 
 export const personalityPresets: readonly PersonalityMeta[] = [
@@ -16,7 +19,7 @@ export const personalityPresets: readonly PersonalityMeta[] = [
     description: 'High dwell, medium curvature. Slow, deliberate trajectories.',
     travelMs: careful.mouse.travelTimeMs,
     curvature: careful.mouse.curvature,
-    jitterPercent: careful.mouse.travelTimeJitter,
+    travelJitter: careful.mouse.travelTimeJitter,
   },
   {
     key: 'fast',
@@ -24,7 +27,7 @@ export const personalityPresets: readonly PersonalityMeta[] = [
     description: 'Brisk travel, low dwell. Confident, no second-guessing.',
     travelMs: fast.mouse.travelTimeMs,
     curvature: fast.mouse.curvature,
-    jitterPercent: fast.mouse.travelTimeJitter,
+    travelJitter: fast.mouse.travelTimeJitter,
   },
   {
     key: 'distracted',
@@ -32,7 +35,7 @@ export const personalityPresets: readonly PersonalityMeta[] = [
     description: 'Higher curvature and jitter, variable pauses between actions.',
     travelMs: distracted.mouse.travelTimeMs,
     curvature: distracted.mouse.curvature,
-    jitterPercent: distracted.mouse.travelTimeJitter,
+    travelJitter: distracted.mouse.travelTimeJitter,
   },
   {
     key: 'precise',
@@ -40,6 +43,6 @@ export const personalityPresets: readonly PersonalityMeta[] = [
     description: 'Near-straight paths, minimal noise. Direct intent.',
     travelMs: precise.mouse.travelTimeMs,
     curvature: precise.mouse.curvature,
-    jitterPercent: precise.mouse.travelTimeJitter,
+    travelJitter: precise.mouse.travelTimeJitter,
   },
 ];
