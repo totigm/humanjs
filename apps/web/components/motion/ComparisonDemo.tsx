@@ -19,71 +19,40 @@ const BUTTON_CENTER: Point = {
   y: BUTTON_TOP_LEFT.y + BUTTON_H / 2,
 };
 
-// Synced cycle — robot clicks instantly at t=0, human takes its time
-const ROBOT_CLICK_MS = 240; // robot ripple duration
+// Synced cycle — robot clicks instantly at t=0, human takes its time.
+const ROBOT_CLICK_MS = 240;
 const HUMAN_TRAVEL_MS = 1500;
 const HUMAN_DWELL_MS = 240;
 const HUMAN_CLICK_MS = 240;
 const REST_MS = 1100;
 const CYCLE_MS = HUMAN_TRAVEL_MS + HUMAN_DWELL_MS + HUMAN_CLICK_MS + REST_MS;
 
-interface CycleState {
-  position: Point;
-  pressed: boolean;
-  hoverTarget: boolean;
-  done: boolean;
-}
-
-function getPointOnPath(path: readonly Point[], progress: number): Point {
-  if (path.length === 0) return CURSOR_START;
-  const clamped = Math.min(1, Math.max(0, progress));
-  const index = clamped * (path.length - 1);
-  const lower = Math.floor(index);
-  const upper = Math.min(path.length - 1, lower + 1);
-  const local = index - lower;
-  const a = path[lower];
-  const b = path[upper];
-  if (!a || !b) return path[0] ?? CURSOR_START;
-  return { x: a.x + (b.x - a.x) * local, y: a.y + (b.y - a.y) * local };
-}
-
-function computeHumanState(elapsed: number, path: readonly Point[]): CycleState {
-  if (elapsed < HUMAN_TRAVEL_MS) {
-    return {
-      position: getPointOnPath(path, elapsed / HUMAN_TRAVEL_MS),
-      pressed: false,
-      hoverTarget: false,
-      done: false,
-    };
-  }
-  if (elapsed < HUMAN_TRAVEL_MS + HUMAN_DWELL_MS) {
-    return { position: BUTTON_CENTER, pressed: false, hoverTarget: true, done: false };
-  }
-  if (elapsed < HUMAN_TRAVEL_MS + HUMAN_DWELL_MS + HUMAN_CLICK_MS) {
-    return { position: BUTTON_CENTER, pressed: true, hoverTarget: true, done: false };
-  }
-  return { position: BUTTON_CENTER, pressed: false, hoverTarget: true, done: true };
-}
-
-function computeRoboticState(elapsed: number): CycleState {
-  // Teleports + clicks immediately, then sits visibly DONE while the human cursor travels.
-  if (elapsed < ROBOT_CLICK_MS) {
-    return { position: BUTTON_CENTER, pressed: true, hoverTarget: true, done: false };
-  }
-  return { position: BUTTON_CENTER, pressed: false, hoverTarget: true, done: true };
-}
+type RobotPhase = 'pressing' | 'done';
+type HumanPhase = 'travel' | 'dwell' | 'click' | 'done';
 
 interface ComparisonDemoProps {
   className?: string;
 }
 
+/**
+ * Side-by-side click animation comparing instant Playwright clicks to
+ * humanized HumanJS clicks. Cursor positions, timer text, and the human
+ * trail are mutated imperatively in the RAF loop. React only re-renders
+ * on discrete phase transitions (~6 per ~3.2s cycle).
+ */
 export function ComparisonDemo({ className }: ComparisonDemoProps) {
   const shouldReduceMotion = useReducedMotion();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const inView = useInView(containerRef, { margin: '0px 0px -10% 0px' });
-  const [, force] = useState(0);
-  const startRef = useRef<number | null>(null);
-  const rafRef = useRef<number | null>(null);
+
+  const [robotPhase, setRobotPhase] = useState<RobotPhase>('pressing');
+  const [humanPhase, setHumanPhase] = useState<HumanPhase>('travel');
+
+  const robotCursorRef = useRef<SVGGElement | null>(null);
+  const humanCursorRef = useRef<SVGGElement | null>(null);
+  const humanTrailRef = useRef<SVGPathElement | null>(null);
+  const robotTimerRef = useRef<HTMLSpanElement | null>(null);
+  const humanTimerRef = useRef<HTMLSpanElement | null>(null);
 
   const humanizedPath = useMemo(() => {
     const rng = createRng('humanjs-landing-demo');
@@ -93,31 +62,96 @@ export function ComparisonDemo({ className }: ComparisonDemoProps) {
 
   useEffect(() => {
     if (shouldReduceMotion || !inView) return;
-    const loop = (timestamp: number) => {
-      if (startRef.current === null) startRef.current = timestamp;
-      const elapsed = (timestamp - startRef.current) % CYCLE_MS;
-      force(elapsed);
-      rafRef.current = window.requestAnimationFrame(loop);
-    };
-    rafRef.current = window.requestAnimationFrame(loop);
-    return () => {
-      if (rafRef.current !== null) window.cancelAnimationFrame(rafRef.current);
-      startRef.current = null;
-    };
-  }, [shouldReduceMotion, inView]);
+    let raf = 0;
+    let startTime: number | null = null;
+    let lastRobotPhase: RobotPhase = 'pressing';
+    let lastHumanPhase: HumanPhase = 'travel';
 
-  const elapsed = shouldReduceMotion
-    ? 0
-    : startRef.current !== null
-      ? (performance.now() - startRef.current) % CYCLE_MS
-      : 0;
+    const tick = (now: number) => {
+      if (startTime === null) startTime = now;
+      const elapsed = (now - startTime) % CYCLE_MS;
+      const timerText = `${(elapsed / 1000).toFixed(1)}s`;
+
+      if (robotTimerRef.current) robotTimerRef.current.textContent = timerText;
+      if (humanTimerRef.current) humanTimerRef.current.textContent = timerText;
+
+      // Human cursor & trail — interpolate along path during travel, snap to button after.
+      const humanCursor = humanCursorRef.current;
+      const humanTrail = humanTrailRef.current;
+      if (elapsed < HUMAN_TRAVEL_MS) {
+        const progress = elapsed / HUMAN_TRAVEL_MS;
+        const lastIdx = humanizedPath.length - 1;
+        const idx = Math.min(lastIdx, Math.floor(progress * lastIdx));
+        const nextIdx = Math.min(lastIdx, idx + 1);
+        const a = humanizedPath[idx];
+        const b = humanizedPath[nextIdx];
+        const local = progress * lastIdx - idx;
+        if (humanCursor && a && b) {
+          const x = a.x + (b.x - a.x) * local;
+          const y = a.y + (b.y - a.y) * local;
+          humanCursor.setAttribute('transform', `translate(${x.toFixed(2)}, ${y.toFixed(2)})`);
+        }
+        if (humanTrail) {
+          const upTo = Math.max(2, Math.floor(progress * humanizedPath.length));
+          const d = humanizedPath
+            .slice(0, upTo)
+            .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
+            .join(' ');
+          humanTrail.setAttribute('d', d);
+        }
+      } else {
+        if (humanCursor) {
+          humanCursor.setAttribute(
+            'transform',
+            `translate(${BUTTON_CENTER.x}, ${BUTTON_CENTER.y})`,
+          );
+        }
+        if (humanTrail) humanTrail.setAttribute('d', '');
+      }
+
+      // Robot cursor — already at the button (set on mount); nothing to mutate per frame.
+
+      // Discrete phase transitions.
+      const nextRobotPhase: RobotPhase = elapsed < ROBOT_CLICK_MS ? 'pressing' : 'done';
+      if (nextRobotPhase !== lastRobotPhase) {
+        lastRobotPhase = nextRobotPhase;
+        setRobotPhase(nextRobotPhase);
+      }
+
+      let nextHumanPhase: HumanPhase;
+      if (elapsed < HUMAN_TRAVEL_MS) nextHumanPhase = 'travel';
+      else if (elapsed < HUMAN_TRAVEL_MS + HUMAN_DWELL_MS) nextHumanPhase = 'dwell';
+      else if (elapsed < HUMAN_TRAVEL_MS + HUMAN_DWELL_MS + HUMAN_CLICK_MS)
+        nextHumanPhase = 'click';
+      else nextHumanPhase = 'done';
+      if (nextHumanPhase !== lastHumanPhase) {
+        lastHumanPhase = nextHumanPhase;
+        setHumanPhase(nextHumanPhase);
+      }
+
+      raf = window.requestAnimationFrame(tick);
+    };
+
+    raf = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(raf);
+  }, [shouldReduceMotion, inView, humanizedPath]);
+
+  // Resolve display state for the two sides (reduced-motion users see the end state).
+  const robot = shouldReduceMotion
+    ? { pressed: false, hoverTarget: true, done: true }
+    : {
+        pressed: robotPhase === 'pressing',
+        hoverTarget: true,
+        done: robotPhase === 'done',
+      };
 
   const human = shouldReduceMotion
-    ? { position: BUTTON_CENTER, pressed: false, hoverTarget: true, done: true }
-    : computeHumanState(elapsed, humanizedPath);
-  const robot = shouldReduceMotion
-    ? { position: BUTTON_CENTER, pressed: false, hoverTarget: true, done: true }
-    : computeRoboticState(elapsed);
+    ? { pressed: false, hoverTarget: true, done: true }
+    : {
+        pressed: humanPhase === 'click',
+        hoverTarget: humanPhase !== 'travel',
+        done: humanPhase === 'done',
+      };
 
   return (
     <div
@@ -129,7 +163,8 @@ export function ComparisonDemo({ className }: ComparisonDemoProps) {
         sublabel="page.click(selector)"
         accent="cool"
         state={robot}
-        elapsed={elapsed}
+        cursorRef={robotCursorRef}
+        timerRef={robotTimerRef}
         instant
       />
       <BrowserMock
@@ -137,24 +172,29 @@ export function ComparisonDemo({ className }: ComparisonDemoProps) {
         sublabel="human.click(selector)"
         accent="warm"
         state={human}
-        elapsed={elapsed}
-        trail={{
-          path: humanizedPath,
-          progress: Math.min(1, elapsed / HUMAN_TRAVEL_MS),
-        }}
+        cursorRef={humanCursorRef}
+        timerRef={humanTimerRef}
+        trailRef={humanTrailRef}
       />
     </div>
   );
+}
+
+interface SideState {
+  pressed: boolean;
+  hoverTarget: boolean;
+  done: boolean;
 }
 
 interface BrowserMockProps {
   label: string;
   sublabel: string;
   accent: 'cool' | 'warm';
-  state: CycleState;
-  elapsed: number;
+  state: SideState;
+  cursorRef: React.Ref<SVGGElement>;
+  timerRef: React.Ref<HTMLSpanElement>;
+  trailRef?: React.Ref<SVGPathElement>;
   instant?: boolean;
-  trail?: { path: readonly Point[]; progress: number };
 }
 
 function BrowserMock({
@@ -162,15 +202,17 @@ function BrowserMock({
   sublabel,
   accent,
   state,
-  elapsed,
+  cursorRef,
+  timerRef,
+  trailRef,
   instant,
-  trail,
 }: BrowserMockProps) {
   const accentRing = accent === 'warm' ? 'ring-accent/15' : 'ring-accent-cool/15';
   const accentText = accent === 'warm' ? 'text-accent' : 'text-accent-cool';
   const accentDot = accent === 'warm' ? 'bg-accent' : 'bg-accent-cool';
   const cursorColor = accent === 'warm' ? '#f5a55c' : '#5b7cc9';
-  const timer = (elapsed / 1000).toFixed(1);
+  // Initial cursor position: robot starts at the button, human starts at the corner.
+  const initialCursor = instant ? BUTTON_CENTER : CURSOR_START;
 
   return (
     <div
@@ -215,26 +257,17 @@ function BrowserMock({
           </defs>
           <rect width={CONTAINER_W} height={CONTAINER_H} fill={`url(#grid-${accent})`} />
 
-          {trail &&
-            trail.progress > 0 &&
-            trail.progress < 1 &&
-            (() => {
-              const upTo = Math.max(2, Math.floor(trail.progress * trail.path.length));
-              const d = trail.path
-                .slice(0, upTo)
-                .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
-                .join(' ');
-              return (
-                <path
-                  d={d}
-                  fill="none"
-                  stroke={cursorColor}
-                  strokeWidth="1.5"
-                  strokeOpacity="0.55"
-                  strokeLinecap="round"
-                />
-              );
-            })()}
+          {trailRef && (
+            <path
+              ref={trailRef}
+              d=""
+              fill="none"
+              stroke={cursorColor}
+              strokeWidth="1.5"
+              strokeOpacity="0.55"
+              strokeLinecap="round"
+            />
+          )}
 
           <g transform={`translate(${BUTTON_TOP_LEFT.x}, ${BUTTON_TOP_LEFT.y})`}>
             <rect
@@ -281,7 +314,7 @@ function BrowserMock({
             </circle>
           )}
 
-          <g style={{ transform: `translate(${state.position.x}px, ${state.position.y}px)` }}>
+          <g ref={cursorRef} transform={`translate(${initialCursor.x}, ${initialCursor.y})`}>
             <path
               d="M 0 0 L 12 4 L 5 7 L 3 14 Z"
               fill={cursorColor}
@@ -297,7 +330,7 @@ function BrowserMock({
           <span className="flex items-center gap-1.5">
             {state.done && (
               <motion.span
-                key={`done-${instant ? 'r' : 'h'}-${Math.floor(elapsed / CYCLE_MS)}`}
+                key={`done-${instant ? 'r' : 'h'}`}
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.2 }}
@@ -306,7 +339,9 @@ function BrowserMock({
                 ✓ done
               </motion.span>
             )}
-            <span className="tabular-nums text-muted/40">{timer}s</span>
+            <span ref={timerRef} className="tabular-nums text-muted/40">
+              0.0s
+            </span>
           </span>
         </div>
       </div>

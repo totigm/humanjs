@@ -4,6 +4,7 @@ import {
   bezierPath,
   createRng,
   humanizePath,
+  type Point,
   type PresetName,
   resolvePersonality,
 } from '@humanjs/core';
@@ -12,18 +13,19 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 const WIDTH = 480;
 const HEIGHT = 320;
+const REST_MS = 600;
+const DWELL_MS = 280;
+const CLICK_MS = 220;
+const START_POS: Point = { x: 32, y: 32 };
 
 const targets = [
   { id: 'a', label: 'Run query', x: 92, y: 70 },
   { id: 'b', label: 'Open file', x: 388, y: 70 },
   { id: 'c', label: 'Commit', x: 92, y: 250 },
   { id: 'd', label: 'Deploy', x: 388, y: 250 },
-];
+] as const;
 
-const REST_MS = 600;
-const DWELL_MS = 280;
-const CLICK_MS = 220;
-const START_POS = { x: 32, y: 32 };
+type Phase = 'travel' | 'dwell' | 'click' | 'rest';
 
 interface CursorOverrides {
   curvature?: number;
@@ -37,14 +39,23 @@ interface PersonalityCursorProps {
   className?: string;
 }
 
+/**
+ * A continuously-cycling humanized cursor that visits four targets in a loop.
+ * Position and trail are mutated imperatively in the RAF loop; React only
+ * re-renders on discrete phase transitions (~4 per ~3s cycle).
+ */
 export function PersonalityCursor({ personality, overrides, className }: PersonalityCursorProps) {
   const shouldReduceMotion = useReducedMotion();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const inView = useInView(containerRef, { margin: '0px 0px -10% 0px' });
+
   const [cycleIndex, setCycleIndex] = useState(0);
-  const [, force] = useState(0);
-  const fromRef = useRef({ ...START_POS });
+  const [phase, setPhase] = useState<Phase>('travel');
+
+  const fromRef = useRef<Point>({ ...START_POS });
   const startRef = useRef<number | null>(null);
+  const cursorGroupRef = useRef<SVGGElement | null>(null);
+  const trailRef = useRef<SVGPathElement | null>(null);
 
   const config = useMemo(() => {
     const profile = resolvePersonality(personality);
@@ -52,17 +63,15 @@ export function PersonalityCursor({ personality, overrides, className }: Persona
       curvature: overrides?.curvature ?? profile.mouse.curvature,
       travelMs: (overrides?.travelMs ?? profile.mouse.travelTimeMs) * 1.2,
       jitterPx: overrides?.jitterPx ?? 0.7,
-      jitterPercent: profile.mouse.travelTimeJitter,
     };
   }, [personality, overrides?.curvature, overrides?.jitterPx, overrides?.travelMs]);
 
-  // Recompute the path every time the cycle advances OR the configuration changes.
+  // Path recomputes only when the cycle advances or config changes — never per frame.
   const cycle = useMemo(() => {
     const target = targets[cycleIndex % targets.length];
     if (!target) return null;
-    const rng = createRng(
-      `personality-${personality}-${cycleIndex}-${config.curvature.toFixed(2)}`,
-    );
+    const seed = `personality-${personality}-${cycleIndex}-${config.curvature.toFixed(2)}`;
+    const rng = createRng(seed);
     const raw = bezierPath(fromRef.current, { x: target.x, y: target.y }, rng, {
       curvature: config.curvature,
       steps: 42,
@@ -71,84 +80,92 @@ export function PersonalityCursor({ personality, overrides, className }: Persona
     return { path, target };
   }, [personality, cycleIndex, config.curvature, config.jitterPx]);
 
-  // Reset when personality or config tone changes (new RNG family / start position).
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional reset on identity changes only
+  // Reset cycle on identity / tone change (refs intentionally excluded — handled inline).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refs intentionally excluded
   useEffect(() => {
     setCycleIndex(0);
+    setPhase('travel');
     startRef.current = null;
     fromRef.current = { ...START_POS };
   }, [personality, config.curvature, config.jitterPx]);
 
-  // Read latest cycle from a ref so the RAF loop never restarts mid-flight.
-  const cycleSnapshotRef = useRef(cycle);
+  // Cycle / phase driver — mutates DOM imperatively, only setState on phase transitions.
   useEffect(() => {
-    cycleSnapshotRef.current = cycle;
-  }, [cycle]);
-
-  useEffect(() => {
-    if (shouldReduceMotion || !inView) return;
+    if (shouldReduceMotion || !cycle || !inView) return;
+    const total = config.travelMs + DWELL_MS + CLICK_MS + REST_MS;
     let raf = 0;
-    const loop = (now: number) => {
-      const current = cycleSnapshotRef.current;
-      if (!current) {
-        raf = window.requestAnimationFrame(loop);
-        return;
-      }
-      const total = config.travelMs + DWELL_MS + CLICK_MS + REST_MS;
+    let currentPhase: Phase = 'travel';
+
+    const tick = (now: number) => {
       if (startRef.current === null) startRef.current = now;
       const elapsed = now - startRef.current;
+
       if (elapsed >= total) {
         startRef.current = now;
-        fromRef.current = { x: current.target.x, y: current.target.y };
+        fromRef.current = { x: cycle.target.x, y: cycle.target.y };
         setCycleIndex((i) => (i + 1) % targets.length);
-      } else {
-        force((v) => (v + 1) & 0xff);
+        raf = window.requestAnimationFrame(tick);
+        return;
       }
-      raf = window.requestAnimationFrame(loop);
+
+      const cursor = cursorGroupRef.current;
+      const trail = trailRef.current;
+
+      if (elapsed < config.travelMs) {
+        const progress = elapsed / config.travelMs;
+        const lastIdx = cycle.path.length - 1;
+        const idx = Math.min(lastIdx, Math.floor(progress * lastIdx));
+        const nextIdx = Math.min(lastIdx, idx + 1);
+        const a = cycle.path[idx];
+        const b = cycle.path[nextIdx];
+        const local = progress * lastIdx - idx;
+        if (cursor && a && b) {
+          const x = a.x + (b.x - a.x) * local;
+          const y = a.y + (b.y - a.y) * local;
+          cursor.setAttribute('transform', `translate(${x.toFixed(2)}, ${y.toFixed(2)})`);
+        }
+        if (trail) {
+          const upTo = Math.max(2, Math.floor(progress * cycle.path.length));
+          const d = cycle.path
+            .slice(0, upTo)
+            .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
+            .join(' ');
+          trail.setAttribute('d', d);
+        }
+        if (currentPhase !== 'travel') {
+          currentPhase = 'travel';
+          setPhase('travel');
+        }
+      } else {
+        // Post-travel phases — cursor sits at target, trail clears.
+        if (cursor) {
+          cursor.setAttribute('transform', `translate(${cycle.target.x}, ${cycle.target.y})`);
+        }
+        if (trail) trail.setAttribute('d', '');
+
+        const nextPhase: Phase =
+          elapsed < config.travelMs + DWELL_MS
+            ? 'dwell'
+            : elapsed < config.travelMs + DWELL_MS + CLICK_MS
+              ? 'click'
+              : 'rest';
+        if (currentPhase !== nextPhase) {
+          currentPhase = nextPhase;
+          setPhase(nextPhase);
+        }
+      }
+
+      raf = window.requestAnimationFrame(tick);
     };
-    raf = window.requestAnimationFrame(loop);
+
+    raf = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(raf);
-  }, [shouldReduceMotion, inView, config.travelMs]);
+  }, [shouldReduceMotion, cycle, config.travelMs, inView]);
 
   if (!cycle) return <div ref={containerRef} className={className} />;
 
-  const elapsed = startRef.current !== null ? performance.now() - startRef.current : 0;
-
-  let cursorX = cycle.target.x;
-  let cursorY = cycle.target.y;
-  let pressed = false;
-  let hovered = false;
-
-  if (!shouldReduceMotion) {
-    if (elapsed < config.travelMs) {
-      const progress = elapsed / config.travelMs;
-      const idx = Math.min(cycle.path.length - 1, Math.floor(progress * (cycle.path.length - 1)));
-      const next = Math.min(cycle.path.length - 1, idx + 1);
-      const a = cycle.path[idx];
-      const b = cycle.path[next];
-      const local = progress * (cycle.path.length - 1) - idx;
-      if (a && b) {
-        cursorX = a.x + (b.x - a.x) * local;
-        cursorY = a.y + (b.y - a.y) * local;
-      }
-    } else if (elapsed < config.travelMs + DWELL_MS) {
-      hovered = true;
-    } else if (elapsed < config.travelMs + DWELL_MS + CLICK_MS) {
-      hovered = true;
-      pressed = true;
-    } else {
-      hovered = true;
-    }
-  }
-
-  const pathSoFar = (() => {
-    if (shouldReduceMotion || elapsed >= config.travelMs) return null;
-    const upTo = Math.max(2, Math.floor((elapsed / config.travelMs) * cycle.path.length));
-    return cycle.path
-      .slice(0, upTo)
-      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
-      .join(' ');
-  })();
+  const pressed = phase === 'click';
+  const hovered = phase !== 'travel';
 
   return (
     <div ref={containerRef} className={className}>
@@ -169,16 +186,15 @@ export function PersonalityCursor({ personality, overrides, className }: Persona
         </defs>
         <rect width={WIDTH} height={HEIGHT} fill="url(#lab-grid)" />
 
-        {pathSoFar && (
-          <path
-            d={pathSoFar}
-            fill="none"
-            stroke="url(#lab-path)"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            opacity="0.65"
-          />
-        )}
+        <path
+          ref={trailRef}
+          d=""
+          fill="none"
+          stroke="url(#lab-path)"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          opacity="0.65"
+        />
 
         {targets.map((t) => {
           const isActive = t.id === cycle.target.id;
@@ -230,7 +246,7 @@ export function PersonalityCursor({ personality, overrides, className }: Persona
           </circle>
         )}
 
-        <g style={{ transform: `translate(${cursorX}px, ${cursorY}px)` }}>
+        <g ref={cursorGroupRef} transform={`translate(${START_POS.x}, ${START_POS.y})`}>
           <motion.path
             d="M 0 0 L 13 4 L 6 7.5 L 4 15 Z"
             fill="#f5a55c"

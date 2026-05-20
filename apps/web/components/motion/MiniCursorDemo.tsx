@@ -6,13 +6,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 const WIDTH = 360;
 const HEIGHT = 260;
-
-const targets: { id: string; label: string; x: number; y: number }[] = [
-  { id: 'submit', label: 'Submit', x: 84, y: 56 },
-  { id: 'cancel', label: 'Cancel', x: 244, y: 56 },
-  { id: 'next', label: 'Next step', x: 164, y: 196 },
-];
-
 const START_POINT: Point = { x: 32, y: 224 };
 const TRAVEL_MS = 1600;
 const DWELL_MS = 320;
@@ -20,92 +13,130 @@ const CLICK_MS = 240;
 const REST_MS = 700;
 const TOTAL_MS = TRAVEL_MS + DWELL_MS + CLICK_MS + REST_MS;
 
+const targets = [
+  { id: 'submit', label: 'Submit', x: 84, y: 56 },
+  { id: 'cancel', label: 'Cancel', x: 244, y: 56 },
+  { id: 'next', label: 'Next step', x: 164, y: 196 },
+] as const;
+
+type Phase = 'travel' | 'dwell' | 'click' | 'rest';
+
 interface MiniCursorDemoProps {
   className?: string;
 }
 
+/**
+ * Compact looping demo of `human.click()` cycling through three targets.
+ * Position and trail are mutated imperatively in the RAF loop; React renders
+ * only on cycle advance + phase transitions (~5 re-renders per ~2.9s cycle).
+ */
 export function MiniCursorDemo({ className }: MiniCursorDemoProps) {
   const shouldReduceMotion = useReducedMotion();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const inView = useInView(containerRef, { margin: '0px 0px -10% 0px' });
-  const [tick, setTick] = useState(0);
-  const startRef = useRef<number | null>(null);
-  const visitRef = useRef(0);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: tick changes drive visitRef advancement; refs intentionally excluded
+  const [visit, setVisit] = useState(0);
+  const [phase, setPhase] = useState<Phase>('travel');
+
+  const startRef = useRef<number | null>(null);
+  const cursorGroupRef = useRef<SVGGElement | null>(null);
+  const trailRef = useRef<SVGPathElement | null>(null);
+
+  // Path only regenerates when the cycle advances (not every frame).
   const cycle = useMemo(() => {
-    const seed = `mini-${visitRef.current}`;
-    const rng = createRng(seed);
-    const target = targets[visitRef.current % targets.length] ?? targets[0];
+    const target = targets[visit % targets.length];
     if (!target) return null;
     const from: Point =
-      visitRef.current === 0
+      visit === 0
         ? START_POINT
-        : (() => {
-            const prev = targets[(visitRef.current - 1) % targets.length];
+        : ((): Point => {
+            const prev = targets[(visit - 1) % targets.length];
             return prev ? { x: prev.x, y: prev.y } : START_POINT;
           })();
+    const rng = createRng(`mini-${visit}`);
     const raw = bezierPath(from, { x: target.x, y: target.y }, rng, {
       curvature: careful.mouse.curvature,
       steps: 36,
     });
     const path = humanizePath(raw, rng, { velocityProfile: 1, jitterPx: 0.6 });
     return { path, from, target };
-  }, [tick]);
+  }, [visit]);
 
+  // RAF driver — mutates DOM; only setState on cycle advance + phase transitions.
   useEffect(() => {
-    if (shouldReduceMotion || !inView) return;
+    if (shouldReduceMotion || !inView || !cycle) return;
     let raf = 0;
-    const loop = (now: number) => {
+    let currentPhase: Phase = 'travel';
+
+    const tick = (now: number) => {
       if (startRef.current === null) startRef.current = now;
       const elapsed = now - startRef.current;
+
       if (elapsed >= TOTAL_MS) {
         startRef.current = now;
-        visitRef.current = (visitRef.current + 1) % targets.length;
-        setTick((v) => v + 1);
-      } else {
-        setTick((v) => v + 1);
+        setVisit((v) => (v + 1) % targets.length);
+        raf = window.requestAnimationFrame(tick);
+        return;
       }
-      raf = window.requestAnimationFrame(loop);
+
+      const cursor = cursorGroupRef.current;
+      const trail = trailRef.current;
+
+      if (elapsed < TRAVEL_MS) {
+        const progress = elapsed / TRAVEL_MS;
+        const lastIdx = cycle.path.length - 1;
+        const idx = Math.min(lastIdx, Math.floor(progress * lastIdx));
+        const nextIdx = Math.min(lastIdx, idx + 1);
+        const a = cycle.path[idx];
+        const b = cycle.path[nextIdx];
+        const local = progress * lastIdx - idx;
+        if (cursor && a && b) {
+          const x = a.x + (b.x - a.x) * local;
+          const y = a.y + (b.y - a.y) * local;
+          cursor.setAttribute('transform', `translate(${x.toFixed(2)}, ${y.toFixed(2)})`);
+        }
+        if (trail) {
+          const upTo = Math.max(2, Math.floor(progress * cycle.path.length));
+          const d = cycle.path
+            .slice(0, upTo)
+            .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
+            .join(' ');
+          trail.setAttribute('d', d);
+        }
+        if (currentPhase !== 'travel') {
+          currentPhase = 'travel';
+          setPhase('travel');
+        }
+      } else {
+        if (cursor) {
+          cursor.setAttribute('transform', `translate(${cycle.target.x}, ${cycle.target.y})`);
+        }
+        if (trail) trail.setAttribute('d', '');
+
+        const next: Phase =
+          elapsed < TRAVEL_MS + DWELL_MS
+            ? 'dwell'
+            : elapsed < TRAVEL_MS + DWELL_MS + CLICK_MS
+              ? 'click'
+              : 'rest';
+        if (currentPhase !== next) {
+          currentPhase = next;
+          setPhase(next);
+        }
+      }
+
+      raf = window.requestAnimationFrame(tick);
     };
-    raf = window.requestAnimationFrame(loop);
+
+    raf = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(raf);
-  }, [shouldReduceMotion, inView]);
+  }, [shouldReduceMotion, inView, cycle]);
 
   if (!cycle) return null;
 
-  const elapsed =
-    startRef.current !== null ? Math.min(TOTAL_MS, performance.now() - startRef.current) : 0;
-
-  let cursorPos: Point;
-  let pressed = false;
-  let hovered = false;
-
-  if (elapsed < TRAVEL_MS) {
-    const progress = elapsed / TRAVEL_MS;
-    const i = Math.min(cycle.path.length - 1, Math.floor(progress * (cycle.path.length - 1)));
-    const j = Math.min(cycle.path.length - 1, i + 1);
-    const a = cycle.path[i];
-    const b = cycle.path[j];
-    const local = progress * (cycle.path.length - 1) - i;
-    cursorPos =
-      a && b ? { x: a.x + (b.x - a.x) * local, y: a.y + (b.y - a.y) * local } : cycle.from;
-  } else if (elapsed < TRAVEL_MS + DWELL_MS) {
-    cursorPos = { x: cycle.target.x, y: cycle.target.y };
-    hovered = true;
-  } else if (elapsed < TRAVEL_MS + DWELL_MS + CLICK_MS) {
-    cursorPos = { x: cycle.target.x, y: cycle.target.y };
-    hovered = true;
-    pressed = true;
-  } else {
-    cursorPos = { x: cycle.target.x, y: cycle.target.y };
-    hovered = true;
-  }
-
-  if (shouldReduceMotion) {
-    cursorPos = { x: cycle.target.x, y: cycle.target.y };
-    hovered = true;
-  }
+  const pressed = phase === 'click';
+  const hovered = phase !== 'travel';
+  const startTransform = `translate(${cycle.from.x}, ${cycle.from.y})`;
 
   return (
     <div ref={containerRef} className={className}>
@@ -137,25 +168,16 @@ export function MiniCursorDemo({ className }: MiniCursorDemoProps) {
           </defs>
           <rect width={WIDTH} height={HEIGHT} fill="url(#mini-grid)" />
 
-          {/* Render the traced path so far */}
-          {elapsed < TRAVEL_MS && !shouldReduceMotion && (
-            <path
-              d={(() => {
-                const upTo = Math.floor((elapsed / TRAVEL_MS) * cycle.path.length);
-                const points = cycle.path.slice(0, Math.max(2, upTo));
-                return points
-                  .map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
-                  .join(' ');
-              })()}
-              fill="none"
-              stroke="url(#mini-path-grad)"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              opacity="0.6"
-            />
-          )}
+          <path
+            ref={trailRef}
+            d=""
+            fill="none"
+            stroke="url(#mini-path-grad)"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            opacity="0.6"
+          />
 
-          {/* Targets */}
           {targets.map((t) => {
             const isActive = t.id === cycle.target.id;
             const isPressed = isActive && pressed;
@@ -191,7 +213,6 @@ export function MiniCursorDemo({ className }: MiniCursorDemoProps) {
             );
           })}
 
-          {/* Click ripple */}
           {pressed && (
             <circle
               cx={cycle.target.x}
@@ -207,8 +228,7 @@ export function MiniCursorDemo({ className }: MiniCursorDemoProps) {
             </circle>
           )}
 
-          {/* Cursor */}
-          <g style={{ transform: `translate(${cursorPos.x}px, ${cursorPos.y}px)` }}>
+          <g ref={cursorGroupRef} transform={startTransform}>
             <path
               d="M 0 0 L 12 4 L 5 7 L 3 14 Z"
               fill="#f5a55c"

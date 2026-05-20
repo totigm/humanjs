@@ -119,7 +119,6 @@ export function PersonalityLab() {
             <div className="grid grid-cols-1 lg:grid-cols-5">
               <div className="border-b border-hairline p-5 md:p-6 lg:col-span-3 lg:border-b-0 lg:border-r">
                 <PersonalityCursor
-                  key={`${active}-${effectiveCurvature}-${effectiveJitter}`}
                   personality={active}
                   overrides={{ curvature: effectiveCurvature, jitterPx: effectiveJitter }}
                 />

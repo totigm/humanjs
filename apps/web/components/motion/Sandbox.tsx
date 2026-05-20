@@ -15,15 +15,16 @@ import { cn } from '../../lib/cn';
 const VIEW_W = 720;
 const VIEW_H = 400;
 const RIPPLE_MS = 500;
+const INITIAL_CURSOR: Point = { x: VIEW_W * 0.5, y: VIEW_H * 0.5 };
 
-// Inline HumanJS cursor used as a custom CSS cursor over the playground.
+// Inline HumanJS cursor used as the custom CSS pointer over the playground.
 const CURSOR_DATA_URI =
   "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='24' viewBox='0 0 22 24'><path d='M 0 0 L 16 6 L 8 9.5 L 5 19 Z' fill='%23f5a55c' stroke='%23020203' stroke-width='0.7' stroke-linejoin='round'/></svg>\") 2 2, crosshair";
 
 interface ClickEvent {
   id: number;
   target: Point;
-  path: Point[];
+  path: readonly Point[];
   startedAt: number;
   travelMs: number;
 }
@@ -33,59 +34,119 @@ interface SandboxProps {
   className?: string;
 }
 
+/**
+ * Interactive playground. The user clicks anywhere → cursor draws a real
+ * humanized Bezier path to that point. Cursor + trail are mutated
+ * imperatively in the RAF loop; React only re-renders on discrete events
+ * (click start, ripple show/hide, first interaction).
+ */
 export function Sandbox({ personality = 'careful', className }: SandboxProps) {
   const shouldReduceMotion = useReducedMotion();
   const svgRef = useRef<SVGSVGElement | null>(null);
-  const [cursor, setCursor] = useState<Point>({ x: VIEW_W * 0.5, y: VIEW_H * 0.5 });
-  const cursorRef = useRef<Point>({ x: VIEW_W * 0.5, y: VIEW_H * 0.5 });
+  const cursorGroupRef = useRef<SVGGElement | null>(null);
+  const trailRef = useRef<SVGPathElement | null>(null);
+  const codeRef = useRef<HTMLSpanElement | null>(null);
+
+  // The cursor's authoritative position lives here, not in state.
+  const cursorRef = useRef<Point>({ ...INITIAL_CURSOR });
+
   const [event, setEvent] = useState<ClickEvent | null>(null);
   const [ripple, setRipple] = useState<{ id: number; pos: Point } | null>(null);
   const [interacted, setInteracted] = useState(false);
   const idRef = useRef(0);
-  const [trail, setTrail] = useState<{ path: Point[]; progress: number } | null>(null);
+  const rippleTimerRef = useRef<number | null>(null);
 
   const config = useMemo(() => {
     const profile = resolvePersonality(personality);
     return {
       curvature: profile.mouse.curvature,
-      // Scale roughly to viewport distance — clamp so the demo still feels live
+      // Scale roughly to viewport distance — clamp so the demo still feels live.
       travelMs: Math.min(1700, Math.max(700, profile.mouse.travelTimeMs * 0.6)),
-      jitterPercent: profile.mouse.travelTimeJitter,
     };
   }, [personality]);
 
+  // RAF driver — animates the cursor along the active event's path.
+  // No companion "sync" effect needed: the JSX renders INITIAL_CURSOR on mount,
+  // the RAF updates the DOM during travel, and on completion writes the final
+  // target — which persists in the DOM until the next event starts.
   useEffect(() => {
     if (!event) return;
     let raf = 0;
+
     const tick = (now: number) => {
       const elapsed = now - event.startedAt;
+
       if (elapsed >= event.travelMs) {
         cursorRef.current = event.target;
-        setCursor(event.target);
+        if (cursorGroupRef.current) {
+          cursorGroupRef.current.setAttribute(
+            'transform',
+            `translate(${event.target.x.toFixed(2)}, ${event.target.y.toFixed(2)})`,
+          );
+        }
+        if (trailRef.current) trailRef.current.setAttribute('d', '');
+        if (codeRef.current) {
+          codeRef.current.textContent = `{ x: ${event.target.x.toFixed(0)}, y: ${event.target.y.toFixed(0)} }`;
+        }
         setRipple({ id: event.id, pos: event.target });
-        setTrail(null);
-        window.setTimeout(() => setRipple((r) => (r?.id === event.id ? null : r)), RIPPLE_MS);
+        rippleTimerRef.current = window.setTimeout(() => {
+          setRipple((r) => (r?.id === event.id ? null : r));
+          rippleTimerRef.current = null;
+        }, RIPPLE_MS);
         setEvent(null);
         return;
       }
+
       const progress = elapsed / event.travelMs;
-      const path = event.path;
-      const idx = Math.min(path.length - 1, Math.floor(progress * (path.length - 1)));
-      const next = Math.min(path.length - 1, idx + 1);
-      const a = path[idx];
-      const b = path[next];
-      const local = progress * (path.length - 1) - idx;
+      const lastIdx = event.path.length - 1;
+      const idx = Math.min(lastIdx, Math.floor(progress * lastIdx));
+      const nextIdx = Math.min(lastIdx, idx + 1);
+      const a = event.path[idx];
+      const b = event.path[nextIdx];
+      const local = progress * lastIdx - idx;
+
       if (a && b) {
-        const pos = { x: a.x + (b.x - a.x) * local, y: a.y + (b.y - a.y) * local };
-        cursorRef.current = pos;
-        setCursor(pos);
+        const x = a.x + (b.x - a.x) * local;
+        const y = a.y + (b.y - a.y) * local;
+        cursorRef.current = { x, y };
+        if (cursorGroupRef.current) {
+          cursorGroupRef.current.setAttribute(
+            'transform',
+            `translate(${x.toFixed(2)}, ${y.toFixed(2)})`,
+          );
+        }
+        if (codeRef.current) {
+          codeRef.current.textContent = `{ x: ${x.toFixed(0)}, y: ${y.toFixed(0)} }`;
+        }
       }
-      setTrail({ path, progress });
+
+      if (trailRef.current) {
+        const upTo = Math.max(2, Math.floor(progress * event.path.length));
+        const d = event.path
+          .slice(0, upTo)
+          .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
+          .join(' ');
+        trailRef.current.setAttribute('d', d);
+      }
+
       raf = window.requestAnimationFrame(tick);
     };
+
     raf = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(raf);
+    return () => {
+      window.cancelAnimationFrame(raf);
+    };
   }, [event]);
+
+  // Cancel pending ripple timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (rippleTimerRef.current !== null) {
+        window.clearTimeout(rippleTimerRef.current);
+        rippleTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
     const svg = svgRef.current;
@@ -93,40 +154,45 @@ export function Sandbox({ personality = 'careful', className }: SandboxProps) {
     const rect = svg.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * VIEW_W;
     const y = ((e.clientY - rect.top) / rect.height) * VIEW_H;
+    sendCursorTo({ x, y });
+  };
+
+  /**
+   * Drive the cursor to a target point in viewBox space, generating a fresh
+   * humanized path. Used by both the click handler and the "random click"
+   * button — keeping a single code path avoids synthesizing fake MouseEvents.
+   */
+  const sendCursorTo = (target: Point) => {
+    setInteracted(true);
 
     if (shouldReduceMotion) {
-      cursorRef.current = { x, y };
-      setCursor({ x, y });
-      const newRipple = { id: idRef.current++, pos: { x, y } };
+      cursorRef.current = target;
+      if (cursorGroupRef.current) {
+        cursorGroupRef.current.setAttribute(
+          'transform',
+          `translate(${target.x.toFixed(2)}, ${target.y.toFixed(2)})`,
+        );
+      }
+      if (codeRef.current) {
+        codeRef.current.textContent = `{ x: ${target.x.toFixed(0)}, y: ${target.y.toFixed(0)} }`;
+      }
+      const newRipple = { id: idRef.current++, pos: target };
       setRipple(newRipple);
       window.setTimeout(() => setRipple((r) => (r?.id === newRipple.id ? null : r)), RIPPLE_MS);
-      setInteracted(true);
       return;
     }
 
     const id = idRef.current++;
-    const rng = createRng(`sandbox-${personality}-${id}-${x.toFixed(0)}-${y.toFixed(0)}`);
-    const from = { ...cursorRef.current };
-    const target = { x, y };
-    const raw = bezierPath(from, target, rng, {
+    const rng = createRng(
+      `sandbox-${personality}-${id}-${target.x.toFixed(0)}-${target.y.toFixed(0)}`,
+    );
+    const raw = bezierPath({ ...cursorRef.current }, target, rng, {
       curvature: config.curvature,
       steps: 36,
     });
     const path = humanizePath(raw, rng, { velocityProfile: 1, jitterPx: 0.7 });
     setEvent({ id, target, path, startedAt: performance.now(), travelMs: config.travelMs });
-    setInteracted(true);
   };
-
-  const trailPath =
-    trail && trail.progress > 0 && trail.progress < 1
-      ? (() => {
-          const upTo = Math.max(2, Math.floor(trail.progress * trail.path.length));
-          return trail.path
-            .slice(0, upTo)
-            .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
-            .join(' ');
-        })()
-      : null;
 
   return (
     <div
@@ -184,19 +250,18 @@ export function Sandbox({ personality = 'careful', className }: SandboxProps) {
           </>
         )}
 
-        {/* Trail behind the cursor */}
-        {trailPath && (
-          <path
-            d={trailPath}
-            fill="none"
-            stroke="url(#sandbox-trail)"
-            strokeWidth="1.75"
-            strokeLinecap="round"
-            opacity="0.7"
-          />
-        )}
+        {/* Trail behind the cursor — mutated imperatively. */}
+        <path
+          ref={trailRef}
+          d=""
+          fill="none"
+          stroke="url(#sandbox-trail)"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+          opacity="0.7"
+        />
 
-        {/* Path preview (dashed full path) */}
+        {/* Dashed full-path preview only while a travel event is active. */}
         {event && (
           <motion.path
             d={event.path
@@ -227,7 +292,7 @@ export function Sandbox({ personality = 'careful', className }: SandboxProps) {
           </circle>
         )}
 
-        <g style={{ transform: `translate(${cursor.x}px, ${cursor.y}px)` }}>
+        <g ref={cursorGroupRef} transform={`translate(${INITIAL_CURSOR.x}, ${INITIAL_CURSOR.y})`}>
           <path
             d="M 0 0 L 15 5 L 7 9 L 5 18 Z"
             fill="#f5a55c"
@@ -241,20 +306,19 @@ export function Sandbox({ personality = 'careful', className }: SandboxProps) {
       <div className="flex items-center justify-between border-t border-hairline px-4 py-2.5 font-mono text-[10px]">
         <code className="text-foreground/80">
           <span className="text-muted">{`await human.click(`}</span>
-          <span className="text-accent">
-            {`{ x: ${cursor.x.toFixed(0)}, y: ${cursor.y.toFixed(0)} }`}
+          <span ref={codeRef} className="text-accent">
+            {`{ x: ${INITIAL_CURSOR.x.toFixed(0)}, y: ${INITIAL_CURSOR.y.toFixed(0)} }`}
           </span>
           <span className="text-muted">);</span>
         </code>
         <button
           type="button"
-          onClick={() => {
-            const rect = svgRef.current?.getBoundingClientRect();
-            handleClick({
-              clientX: (rect?.left ?? 0) + (rect?.width ?? VIEW_W) * Math.random(),
-              clientY: (rect?.top ?? 0) + (rect?.height ?? VIEW_H) * Math.random(),
-            } as unknown as React.MouseEvent<SVGSVGElement>);
-          }}
+          onClick={() =>
+            sendCursorTo({
+              x: VIEW_W * (0.1 + Math.random() * 0.8),
+              y: VIEW_H * (0.15 + Math.random() * 0.7),
+            })
+          }
           className="rounded-md px-2 py-1 text-muted/70 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           {event ? 'traveling…' : interacted ? 'random click ↻' : 'random click'}
