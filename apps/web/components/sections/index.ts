@@ -5,5 +5,6 @@ export { Footer } from './Footer';
 export { GetStarted } from './GetStarted';
 export { Hero } from './Hero';
 export { HonestLimits } from './HonestLimits';
+export { Manifesto } from './Manifesto';
 export { Nav } from './Nav';
-export { Personalities } from './Personalities';
+export { PersonalityLab } from './PersonalityLab';

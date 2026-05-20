@@ -22,31 +22,33 @@ await human.click('button[type=submit]');
 
 export function Comparison() {
   return (
-    <Section id="features">
+    <Section id="features" density="loose">
       <Container width="lg">
         <ScrollReveal>
-          <div className="mb-12 text-center md:mb-16">
-            <p className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-muted">
+          <div className="mb-14 max-w-3xl md:mb-20">
+            <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.3em] text-muted">
               Side by side
             </p>
-            <h2 className="text-balance text-3xl font-semibold tracking-[-0.02em] md:text-5xl">
-              What changes when a click becomes <span className="text-accent">human</span>.
+            <h2 className="text-balance text-4xl font-medium leading-[1.05] tracking-[-0.02em] md:text-6xl">
+              The click stays the same.{' '}
+              <span className="font-display italic text-accent">Everything around it changes.</span>
             </h2>
-            <p className="mx-auto mt-5 max-w-xl text-balance text-base text-muted md:text-lg">
-              Same selector, same target, same Playwright underneath. Different signal.
+            <p className="mt-6 max-w-xl text-balance text-base text-muted-strong md:text-lg">
+              Same selector. Same Playwright underneath. The library only edits how it gets to the
+              button — and how it leaves.
             </p>
           </div>
         </ScrollReveal>
 
-        <ScrollReveal delay={0.1}>
-          <ComparisonDemo className="mx-auto mb-12 max-w-3xl" />
+        <ScrollReveal delay={0.08}>
+          <ComparisonDemo className="mx-auto mb-14 max-w-3xl md:mb-20" />
         </ScrollReveal>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
-          <ScrollReveal delay={0.15}>
+          <ScrollReveal delay={0.12}>
             <CodeBlock label="Playwright" accent="cool" code={playwrightCode} />
           </ScrollReveal>
-          <ScrollReveal delay={0.2}>
+          <ScrollReveal delay={0.18}>
             <CodeBlock label="HumanJS" accent="warm" code={humanjsCode} />
           </ScrollReveal>
         </div>

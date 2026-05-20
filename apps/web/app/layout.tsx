@@ -1,20 +1,27 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, JetBrains_Mono } from 'next/font/google';
+import { Geist, Geist_Mono, Instrument_Serif } from 'next/font/google';
 import { CursorToggle, HumanCursor, HumanCursorProvider } from '../components/motion';
+import { ScrollPath } from '../components/motion/ScrollPath';
 import './globals.css';
 
-const inter = Inter({
+const geist = Geist({
   subsets: ['latin'],
-  variable: '--inter',
+  variable: '--geist',
   display: 'swap',
-  weight: ['300', '400', '500', '600', '700'],
 });
 
-const jetbrainsMono = JetBrains_Mono({
+const geistMono = Geist_Mono({
   subsets: ['latin'],
-  variable: '--jetbrains-mono',
+  variable: '--geist-mono',
   display: 'swap',
-  weight: ['400', '500', '700'],
+});
+
+const instrumentSerif = Instrument_Serif({
+  subsets: ['latin'],
+  variable: '--instrument-serif',
+  weight: '400',
+  style: ['normal', 'italic'],
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
@@ -60,9 +67,13 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+    <html
+      lang="en"
+      className={`${geist.variable} ${geistMono.variable} ${instrumentSerif.variable}`}
+    >
       <body>
         <HumanCursorProvider>
+          <ScrollPath />
           {children}
           <HumanCursor />
           <CursorToggle />

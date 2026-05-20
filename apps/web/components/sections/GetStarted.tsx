@@ -21,18 +21,20 @@ await browser.close();`;
 
 export function GetStarted() {
   return (
-    <Section id="install" density="default">
+    <Section id="install" density="loose">
       <Container width="lg">
         <ScrollReveal>
-          <div className="mb-12 text-center md:mb-16">
-            <p className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-muted">
+          <div className="mb-12 max-w-3xl md:mb-16">
+            <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.3em] text-muted">
               Get started
             </p>
-            <h2 className="text-balance text-3xl font-semibold tracking-[-0.02em] md:text-5xl">
-              Drop it in. <span className="text-accent">Looks like a human.</span>
+            <h2 className="text-balance text-4xl font-medium leading-[1.05] tracking-[-0.02em] md:text-6xl">
+              One install.{' '}
+              <span className="font-display italic text-accent">One line of code different.</span>
             </h2>
-            <p className="mx-auto mt-5 max-w-xl text-balance text-base text-muted md:text-lg">
-              Wraps Playwright. Same selectors, same APIs you already know — humanized.
+            <p className="mt-6 max-w-xl text-balance text-base text-muted-strong md:text-lg">
+              HumanJS wraps Playwright. Same selectors, same locator API. The only thing that
+              changes is what happens between two points.
             </p>
           </div>
         </ScrollReveal>
@@ -41,7 +43,9 @@ export function GetStarted() {
           <ScrollReveal delay={0.05}>
             <div>
               <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
-                1 · Install
+                <span className="text-accent">01</span>
+                <span className="mx-2 text-muted/40">/</span>
+                Install
               </p>
               <InstallCommand pkg="@humanjs/playwright" />
             </div>
@@ -50,7 +54,9 @@ export function GetStarted() {
           <ScrollReveal delay={0.15}>
             <div>
               <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
-                2 · Use it
+                <span className="text-accent">02</span>
+                <span className="mx-2 text-muted/40">/</span>
+                Use it
               </p>
               <CodeBlock code={exampleCode} accent="warm" label="example.ts" />
             </div>

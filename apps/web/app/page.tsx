@@ -6,8 +6,9 @@ import {
   GetStarted,
   Hero,
   HonestLimits,
+  Manifesto,
   Nav,
-  Personalities,
+  PersonalityLab,
 } from '../components/sections';
 
 export default function Page() {
@@ -16,10 +17,11 @@ export default function Page() {
       <Nav />
       <main>
         <Hero />
+        <Manifesto />
         <Comparison />
         <Audience />
         <FeatureBento />
-        <Personalities />
+        <PersonalityLab />
         <GetStarted />
         <HonestLimits />
       </main>

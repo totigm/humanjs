@@ -8,7 +8,6 @@ interface FeatureCell {
   title: string;
   description: string;
   span: string;
-  span2?: string;
   decoration?: 'bezier' | 'pulse' | 'none';
 }
 
@@ -59,17 +58,17 @@ export function FeatureBento() {
     <Section density="default">
       <Container width="lg">
         <ScrollReveal>
-          <div className="mb-12 text-center md:mb-16">
-            <p className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-muted">
+          <div className="mb-12 max-w-3xl md:mb-16">
+            <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.3em] text-muted">
               Under the hood
             </p>
-            <h2 className="text-balance text-3xl font-semibold tracking-[-0.02em] md:text-5xl">
-              Realism, all the way down.
+            <h2 className="text-balance text-4xl font-medium leading-[1.05] tracking-[-0.02em] md:text-6xl">
+              Realism, <span className="font-display italic text-accent">all the way down.</span>
             </h2>
           </div>
         </ScrollReveal>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-6 md:gap-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-6 md:gap-5">
           {features.map((feature, i) => (
             <ScrollReveal key={feature.title} delay={i * 0.06} className={cn(feature.span)}>
               <FeatureCard feature={feature} />
@@ -87,7 +86,7 @@ function FeatureCard({ feature }: { feature: FeatureCell }) {
     <article
       className={cn(
         'group relative flex h-full flex-col overflow-hidden rounded-card-lg border border-hairline bg-surface p-6 transition-all duration-300',
-        'hover:border-white/15 hover:bg-white/[0.04]',
+        'hover:border-hairline-strong hover:bg-surface-elevated',
         feature.decoration === 'bezier' && 'min-h-[360px] md:p-8',
       )}
     >
@@ -98,8 +97,8 @@ function FeatureCard({ feature }: { feature: FeatureCell }) {
         <div className="mb-5 flex h-9 w-9 items-center justify-center rounded-md border border-hairline bg-canvas">
           <Icon className="h-4 w-4 text-accent" strokeWidth={1.75} />
         </div>
-        <h3 className="text-base font-semibold tracking-tight text-foreground">{feature.title}</h3>
-        <p className="mt-2 text-sm leading-relaxed text-muted">{feature.description}</p>
+        <h3 className="text-base font-medium tracking-tight text-foreground">{feature.title}</h3>
+        <p className="mt-2 text-sm leading-relaxed text-muted-strong">{feature.description}</p>
       </div>
     </article>
   );
