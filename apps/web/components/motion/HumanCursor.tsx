@@ -105,7 +105,10 @@ export function HumanCursor() {
 
       const el = cursorRef.current;
       if (el) {
-        el.style.transform = `translate3d(${renderX}px, ${renderY}px, 0) translate(-50%, -50%)`;
+        // Positioning only — never scale/opacity. The inner motion.div owns those,
+        // and we keep transform-writers on separate elements so framer-motion's
+        // scale animation doesn't fight the RAF tick (which would flicker the dot).
+        el.style.transform = `translate3d(${renderX}px, ${renderY}px, 0)`;
       }
 
       raf = window.requestAnimationFrame(tick);
@@ -131,23 +134,33 @@ export function HumanCursor() {
   return (
     <>
       <canvas ref={canvasRef} aria-hidden className="pointer-events-none fixed inset-0 z-[78]" />
-      <AnimatePresence>
-        {visible && (
-          <motion.div
-            ref={cursorRef}
-            aria-hidden
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.5 }}
-            transition={{ duration: 0.25, ease: EASE_EXPO }}
-            className="pointer-events-none fixed left-0 top-0 z-[80] h-3 w-3 rounded-full bg-accent will-change-transform"
-            style={{
-              boxShadow:
-                '0 0 0 1px rgba(245, 165, 92, 0.5), 0 0 16px rgba(245, 165, 92, 0.6), 0 0 36px rgba(245, 165, 92, 0.3)',
-            }}
-          />
-        )}
-      </AnimatePresence>
+      <div
+        ref={cursorRef}
+        aria-hidden
+        className="pointer-events-none fixed left-0 top-0 z-[80] will-change-transform"
+        style={{ transform: 'translate3d(0, 0, 0)' }}
+      >
+        <AnimatePresence>
+          {visible && (
+            <motion.div
+              aria-hidden
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.5 }}
+              transition={{ duration: 0.25, ease: EASE_EXPO }}
+              className="absolute h-3 w-3 rounded-full bg-accent"
+              style={{
+                // Center the 12×12 dot on the outer div's origin via CSS, not
+                // transform — so the scale animation has free reign on `transform`.
+                left: -6,
+                top: -6,
+                boxShadow:
+                  '0 0 0 1px rgba(245, 165, 92, 0.5), 0 0 16px rgba(245, 165, 92, 0.6), 0 0 36px rgba(245, 165, 92, 0.3)',
+              }}
+            />
+          )}
+        </AnimatePresence>
+      </div>
     </>
   );
 }
