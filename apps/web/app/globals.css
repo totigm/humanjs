@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+@theme {
+  /* Surfaces — dark-first, never pure #000 (OLED smear) */
+  --color-ink: #020203;
+  --color-canvas: #050506;
+  --color-surface: #0a0a0c;
+  --color-hairline: rgba(255, 255, 255, 0.08);
+
+  /* Text */
+  --color-foreground: #ededef;
+  --color-muted: #8a8f98;
+
+  /* Brand */
+  --color-accent: #f5a55c;
+  --color-accent-cool: #5b7cc9;
+  --color-accent-glow: rgba(245, 165, 92, 0.18);
+
+  /* Radii */
+  --radius-card: 12px;
+  --radius-card-lg: 16px;
+
+  /* Motion */
+  --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Fonts — fed by next/font CSS vars */
+  --font-sans: var(--inter), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--jetbrains-mono), ui-monospace, "SF Mono", monospace;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--color-canvas);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: var(--color-accent);
+    color: var(--color-ink);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      /* biome-ignore lint/complexity/noImportantStyles: required to override JS-driven animations */
+      animation-duration: 0.01ms !important;
+      /* biome-ignore lint/complexity/noImportantStyles: required to override JS-driven animations */
+      animation-iteration-count: 1 !important;
+      /* biome-ignore lint/complexity/noImportantStyles: required to override JS-driven animations */
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
