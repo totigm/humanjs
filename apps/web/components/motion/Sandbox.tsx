@@ -5,15 +5,17 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { cn } from '../../lib/cn';
 import { makeHumanizedPath, pointAt, toSvgPathD } from '../../lib/path';
+import { HUMAN_CURSOR_PATH, HumanCursorIcon } from './HumanCursorIcon';
 
 const VIEW_W = 720;
 const VIEW_H = 400;
 const RIPPLE_MS = 500;
 const INITIAL_CURSOR: Point = { x: VIEW_W * 0.5, y: VIEW_H * 0.5 };
 
-// Inline HumanJS cursor used as the custom CSS pointer over the playground.
-const CURSOR_DATA_URI =
-  "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='24' viewBox='0 0 22 24'><path d='M 0 0 L 16 6 L 8 9.5 L 5 19 Z' fill='%23f5a55c' stroke='%23020203' stroke-width='0.7' stroke-linejoin='round'/></svg>\") 2 2, crosshair";
+// HumanJS cursor as a CSS custom-pointer data URI. Re-uses the canonical
+// path; this is the one place where the path lives inside a string instead
+// of JSX, so the duplication of literal coords is intentional.
+const CURSOR_DATA_URI = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='24' viewBox='0 0 22 24'><path d='${HUMAN_CURSOR_PATH}' fill='%23f5a55c' stroke='%23020203' stroke-width='0.7' stroke-linejoin='round'/></svg>") 2 2, crosshair`;
 
 interface ClickEvent {
   id: number;
@@ -301,13 +303,7 @@ export function Sandbox({ personality = 'careful', className }: SandboxProps) {
           )}
 
           <g ref={cursorGroupRef} transform={`translate(${INITIAL_CURSOR.x}, ${INITIAL_CURSOR.y})`}>
-            <path
-              d="M 0 0 L 15 5 L 7 9 L 5 18 Z"
-              fill="#f5a55c"
-              stroke="#020203"
-              strokeWidth="0.6"
-              strokeLinejoin="round"
-            />
+            <HumanCursorIcon size={15} />
           </g>
         </svg>
       </div>

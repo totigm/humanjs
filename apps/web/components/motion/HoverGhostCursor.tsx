@@ -5,6 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import { EASE_EXPO } from '../../lib/motion';
 import { makeHumanizedPath, pointAt } from '../../lib/path';
+import { HumanCursorIcon } from './HumanCursorIcon';
 import { useHumanCursor } from './HumanCursorProvider';
 
 const CURSOR_Z = 60;
@@ -144,13 +145,7 @@ function GhostCursor({ ghost, onComplete }: { ghost: Ghost; onComplete: () => vo
         style={{ transformOrigin: '0 0' }}
       >
         <svg width="22" height="24" viewBox="0 0 22 24" aria-hidden>
-          <path
-            d="M 0 0 L 16 6 L 8 9.5 L 5 19 Z"
-            fill="#f5a55c"
-            stroke="#020203"
-            strokeWidth="0.7"
-            strokeLinejoin="round"
-          />
+          <HumanCursorIcon strokeWidth={0.7} />
         </svg>
         <span
           className="absolute left-6 top-7 whitespace-nowrap rounded-full border border-accent/30 bg-canvas/90 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-accent backdrop-blur"

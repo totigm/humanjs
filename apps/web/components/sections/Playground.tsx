@@ -73,7 +73,7 @@ export function Playground() {
                 </button>
               ))}
             </div>
-            <Sandbox key={personality} personality={personality} />
+            <Sandbox personality={personality} />
           </div>
         </ScrollReveal>
       </Container>

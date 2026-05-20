@@ -5,6 +5,7 @@ import { motion, useInView, useReducedMotion } from 'framer-motion';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { IN_VIEW_MARGIN } from '../../lib/motion';
 import { makeHumanizedPath, pointAt, toSvgPathD } from '../../lib/path';
+import { HUMAN_CURSOR_PATH } from './HumanCursorIcon';
 
 const WIDTH = 480;
 const HEIGHT = 320;
@@ -234,11 +235,15 @@ export function PersonalityCursor({ personality, overrides, className }: Persona
         )}
 
         <g ref={cursorGroupRef} transform={`translate(${START_POS.x}, ${START_POS.y})`}>
+          {/* SVG attribute `transform` is composed under framer-motion's CSS
+              `transform`, so the static size scale (13/16) and the animated
+              press scale (0.85 ↔ 1) stack without fighting each other. */}
           <motion.path
-            d="M 0 0 L 13 4 L 6 7.5 L 4 15 Z"
+            d={HUMAN_CURSOR_PATH}
+            transform={`scale(${13 / 16})`}
             fill="#f5a55c"
             stroke="#020203"
-            strokeWidth="0.6"
+            strokeWidth={(0.6 * 16) / 13}
             strokeLinejoin="round"
             animate={pressed ? { scale: 0.85 } : { scale: 1 }}
             transition={{ duration: 0.1 }}

@@ -6,6 +6,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { cn } from '../../lib/cn';
 import { IN_VIEW_MARGIN } from '../../lib/motion';
 import { makeHumanizedPath, pointAt, toSvgPathD } from '../../lib/path';
+import { HumanCursorIcon } from './HumanCursorIcon';
 
 const CONTAINER_W = 320;
 const CONTAINER_H = 200;
@@ -313,13 +314,7 @@ function BrowserMock({
           )}
 
           <g ref={cursorRef} transform={`translate(${initialCursor.x}, ${initialCursor.y})`}>
-            <path
-              d="M 0 0 L 12 4 L 5 7 L 3 14 Z"
-              fill={cursorColor}
-              stroke="#020203"
-              strokeWidth="0.5"
-              strokeLinejoin="round"
-            />
+            <HumanCursorIcon size={12} fill={cursorColor} strokeWidth={0.5} />
           </g>
         </svg>
 

@@ -5,6 +5,7 @@ import { motion, useInView, useReducedMotion } from 'framer-motion';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { IN_VIEW_MARGIN } from '../../lib/motion';
 import { makeHumanizedPath, pointAt, toSvgPathD } from '../../lib/path';
+import { HumanCursorIcon } from './HumanCursorIcon';
 
 const WIDTH = 360;
 const HEIGHT = 260;
@@ -223,13 +224,7 @@ export function MiniCursorDemo({ className }: MiniCursorDemoProps) {
           )}
 
           <g ref={cursorGroupRef} transform={startTransform}>
-            <path
-              d="M 0 0 L 12 4 L 5 7 L 3 14 Z"
-              fill="#f5a55c"
-              stroke="#020203"
-              strokeWidth="0.6"
-              strokeLinejoin="round"
-            />
+            <HumanCursorIcon size={12} />
           </g>
         </svg>
 
