@@ -2,13 +2,14 @@
 
 import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
+import { EASE_EXPO } from '../../lib/motion';
 import { GithubMark } from '../icons';
 import { MiniCursorDemo } from '../motion';
 import { Button } from '../primitives';
 
 const eyebrowVariants = {
   hidden: { opacity: 0, y: 8 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] as const } },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: EASE_EXPO } },
 };
 
 const lineContainerVariants = {
@@ -18,11 +19,7 @@ const lineContainerVariants = {
 
 const lineVariants = {
   hidden: { opacity: 0, y: 30 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.85, ease: [0.16, 1, 0.3, 1] as const },
-  },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.85, ease: EASE_EXPO } },
 };
 
 const subVariants = {
@@ -30,7 +27,7 @@ const subVariants = {
   visible: (delay: number) => ({
     opacity: 1,
     y: 0,
-    transition: { duration: 0.7, delay, ease: [0.16, 1, 0.3, 1] as const },
+    transition: { duration: 0.7, delay, ease: EASE_EXPO },
   }),
 };
 

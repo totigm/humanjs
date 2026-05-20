@@ -1,19 +1,12 @@
 'use client';
 
-import {
-  bezierPath,
-  careful,
-  createRng,
-  distracted,
-  fast,
-  humanizePath,
-  type PresetName,
-  precise,
-} from '@humanjs/core';
+import { careful, distracted, fast, type PresetName, precise } from '@humanjs/core';
 import { AnimatePresence, motion } from 'framer-motion';
 import { RotateCcw } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { cn } from '../../lib/cn';
+import { EASE_EXPO } from '../../lib/motion';
+import { makeHumanizedPath, toSvgPathD } from '../../lib/path';
 import { PersonalityCursor } from '../motion/PersonalityCursor';
 import { Container, ScrollReveal, Section } from '../primitives';
 
@@ -128,7 +121,7 @@ export function PersonalityLab() {
                 key={active}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                transition={{ duration: 0.4, ease: EASE_EXPO }}
                 className="flex flex-col gap-6 p-5 md:p-6 lg:col-span-2"
               >
                 <div>
@@ -195,7 +188,7 @@ export function PersonalityLab() {
                         exit={{ opacity: 0, height: 0, y: -4 }}
                         transition={{
                           duration: 0.32,
-                          ease: [0.16, 1, 0.3, 1],
+                          ease: EASE_EXPO,
                           opacity: { duration: 0.24 },
                         }}
                         className="block overflow-hidden pl-2"
@@ -281,17 +274,14 @@ function TrajectoryThumbnail({
   active: boolean;
 }) {
   const d = useMemo(() => {
-    const rng = createRng(`thumb-${personality}`);
     const preset = presets.find((p) => p.key === personality);
     if (!preset) return '';
-    const raw = bezierPath({ x: 6, y: 26 }, { x: 74, y: 6 }, rng, {
+    const path = makeHumanizedPath({ x: 6, y: 26 }, { x: 74, y: 6 }, `thumb-${personality}`, {
       curvature: preset.curvature,
       steps: 24,
+      jitterPx: 0.4,
     });
-    const path = humanizePath(raw, rng, { velocityProfile: 1, jitterPx: 0.4 });
-    return path
-      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
-      .join(' ');
+    return toSvgPathD(path);
   }, [personality]);
 
   return (

@@ -1,8 +1,10 @@
 'use client';
 
-import { bezierPath, careful, createRng, humanizePath, type Point } from '@humanjs/core';
+import { careful, type Point } from '@humanjs/core';
 import { motion, useInView, useReducedMotion } from 'framer-motion';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { IN_VIEW_MARGIN } from '../../lib/motion';
+import { makeHumanizedPath, pointAt, toSvgPathD } from '../../lib/path';
 
 const WIDTH = 360;
 const HEIGHT = 260;
@@ -33,7 +35,7 @@ interface MiniCursorDemoProps {
 export function MiniCursorDemo({ className }: MiniCursorDemoProps) {
   const shouldReduceMotion = useReducedMotion();
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const inView = useInView(containerRef, { margin: '0px 0px -10% 0px' });
+  const inView = useInView(containerRef, { margin: IN_VIEW_MARGIN });
 
   const [visit, setVisit] = useState(0);
   const [phase, setPhase] = useState<Phase>('travel');
@@ -41,6 +43,10 @@ export function MiniCursorDemo({ className }: MiniCursorDemoProps) {
   const startRef = useRef<number | null>(null);
   const cursorGroupRef = useRef<SVGGElement | null>(null);
   const trailRef = useRef<SVGPathElement | null>(null);
+
+  const reactId = useId();
+  const gridId = `mini-grid-${reactId}`;
+  const pathGradId = `mini-path-${reactId}`;
 
   // Path only regenerates when the cycle advances (not every frame).
   const cycle = useMemo(() => {
@@ -53,12 +59,11 @@ export function MiniCursorDemo({ className }: MiniCursorDemoProps) {
             const prev = targets[(visit - 1) % targets.length];
             return prev ? { x: prev.x, y: prev.y } : START_POINT;
           })();
-    const rng = createRng(`mini-${visit}`);
-    const raw = bezierPath(from, { x: target.x, y: target.y }, rng, {
+    const path = makeHumanizedPath(from, { x: target.x, y: target.y }, `mini-${visit}`, {
       curvature: careful.mouse.curvature,
       steps: 36,
+      jitterPx: 0.6,
     });
-    const path = humanizePath(raw, rng, { velocityProfile: 1, jitterPx: 0.6 });
     return { path, from, target };
   }, [visit]);
 
@@ -84,24 +89,13 @@ export function MiniCursorDemo({ className }: MiniCursorDemoProps) {
 
       if (elapsed < TRAVEL_MS) {
         const progress = elapsed / TRAVEL_MS;
-        const lastIdx = cycle.path.length - 1;
-        const idx = Math.min(lastIdx, Math.floor(progress * lastIdx));
-        const nextIdx = Math.min(lastIdx, idx + 1);
-        const a = cycle.path[idx];
-        const b = cycle.path[nextIdx];
-        const local = progress * lastIdx - idx;
-        if (cursor && a && b) {
-          const x = a.x + (b.x - a.x) * local;
-          const y = a.y + (b.y - a.y) * local;
-          cursor.setAttribute('transform', `translate(${x.toFixed(2)}, ${y.toFixed(2)})`);
+        const p = pointAt(cycle.path, progress);
+        if (cursor) {
+          cursor.setAttribute('transform', `translate(${p.x.toFixed(2)}, ${p.y.toFixed(2)})`);
         }
         if (trail) {
-          const upTo = Math.max(2, Math.floor(progress * cycle.path.length));
-          const d = cycle.path
-            .slice(0, upTo)
-            .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
-            .join(' ');
-          trail.setAttribute('d', d);
+          const upTo = Math.floor(progress * cycle.path.length);
+          trail.setAttribute('d', toSvgPathD(cycle.path, upTo));
         }
         if (currentPhase !== 'travel') {
           currentPhase = 'travel';
@@ -153,7 +147,7 @@ export function MiniCursorDemo({ className }: MiniCursorDemoProps) {
 
         <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="block h-auto w-full" aria-hidden>
           <defs>
-            <pattern id="mini-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+            <pattern id={gridId} width="20" height="20" patternUnits="userSpaceOnUse">
               <path
                 d="M 20 0 L 0 0 0 20"
                 fill="none"
@@ -161,18 +155,18 @@ export function MiniCursorDemo({ className }: MiniCursorDemoProps) {
                 strokeWidth="1"
               />
             </pattern>
-            <linearGradient id="mini-path-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <linearGradient id={pathGradId} x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stopColor="#f5a55c" stopOpacity="0" />
               <stop offset="100%" stopColor="#f5a55c" stopOpacity="0.7" />
             </linearGradient>
           </defs>
-          <rect width={WIDTH} height={HEIGHT} fill="url(#mini-grid)" />
+          <rect width={WIDTH} height={HEIGHT} fill={`url(#${gridId})`} />
 
           <path
             ref={trailRef}
             d=""
             fill="none"
-            stroke="url(#mini-path-grad)"
+            stroke={`url(#${pathGradId})`}
             strokeWidth="1.5"
             strokeLinecap="round"
             opacity="0.6"

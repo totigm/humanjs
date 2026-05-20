@@ -3,6 +3,7 @@
 import { createRng } from '@humanjs/core';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
+import { EASE_EXPO } from '../../lib/motion';
 import { useHumanCursor } from './HumanCursorProvider';
 
 const SMOOTHING = 0.24;
@@ -138,7 +139,7 @@ export function HumanCursor() {
             initial={{ opacity: 0, scale: 0.5 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.5 }}
-            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.25, ease: EASE_EXPO }}
             className="pointer-events-none fixed left-0 top-0 z-[80] h-3 w-3 rounded-full bg-accent will-change-transform"
             style={{
               boxShadow:

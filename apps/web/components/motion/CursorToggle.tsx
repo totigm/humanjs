@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { MousePointer2 } from 'lucide-react';
 import { cn } from '../../lib/cn';
+import { EASE_EXPO } from '../../lib/motion';
 import { useHumanCursor } from './HumanCursorProvider';
 
 export function CursorToggle() {
@@ -17,7 +18,7 @@ export function CursorToggle() {
       aria-pressed={enabled}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: 1.6, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.5, delay: 1.6, ease: EASE_EXPO }}
       className={cn(
         'group fixed bottom-5 right-5 z-[70] flex items-center gap-2.5 rounded-full border bg-canvas/85 px-3.5 py-2 text-xs font-medium tracking-tight backdrop-blur-md transition-all duration-300',
         'shadow-[0_8px_24px_-12px_rgba(0,0,0,0.6)]',

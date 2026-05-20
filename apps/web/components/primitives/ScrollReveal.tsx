@@ -2,6 +2,7 @@
 
 import { motion, useReducedMotion } from 'framer-motion';
 import type { ReactNode } from 'react';
+import { EASE_EXPO, IN_VIEW_MARGIN } from '../../lib/motion';
 
 interface ScrollRevealProps {
   children: ReactNode;
@@ -30,8 +31,8 @@ export function ScrollReveal({
     <motion.div
       initial={{ opacity: 0, y }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once, margin: '0px 0px -10% 0px' }}
-      transition={{ duration, delay, ease: [0.16, 1, 0.3, 1] }}
+      viewport={{ once, margin: IN_VIEW_MARGIN }}
+      transition={{ duration, delay, ease: EASE_EXPO }}
       className={className}
     >
       {children}

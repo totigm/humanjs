@@ -1,15 +1,10 @@
 'use client';
 
-import {
-  bezierPath,
-  createRng,
-  humanizePath,
-  type Point,
-  type PresetName,
-  resolvePersonality,
-} from '@humanjs/core';
+import { type Point, type PresetName, resolvePersonality } from '@humanjs/core';
 import { motion, useInView, useReducedMotion } from 'framer-motion';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { IN_VIEW_MARGIN } from '../../lib/motion';
+import { makeHumanizedPath, pointAt, toSvgPathD } from '../../lib/path';
 
 const WIDTH = 480;
 const HEIGHT = 320;
@@ -47,7 +42,7 @@ interface PersonalityCursorProps {
 export function PersonalityCursor({ personality, overrides, className }: PersonalityCursorProps) {
   const shouldReduceMotion = useReducedMotion();
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const inView = useInView(containerRef, { margin: '0px 0px -10% 0px' });
+  const inView = useInView(containerRef, { margin: IN_VIEW_MARGIN });
 
   const [cycleIndex, setCycleIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>('travel');
@@ -56,6 +51,10 @@ export function PersonalityCursor({ personality, overrides, className }: Persona
   const startRef = useRef<number | null>(null);
   const cursorGroupRef = useRef<SVGGElement | null>(null);
   const trailRef = useRef<SVGPathElement | null>(null);
+
+  const reactId = useId();
+  const gridId = `lab-grid-${reactId}`;
+  const pathGradId = `lab-path-${reactId}`;
 
   const config = useMemo(() => {
     const profile = resolvePersonality(personality);
@@ -71,12 +70,11 @@ export function PersonalityCursor({ personality, overrides, className }: Persona
     const target = targets[cycleIndex % targets.length];
     if (!target) return null;
     const seed = `personality-${personality}-${cycleIndex}-${config.curvature.toFixed(2)}`;
-    const rng = createRng(seed);
-    const raw = bezierPath(fromRef.current, { x: target.x, y: target.y }, rng, {
+    const path = makeHumanizedPath(fromRef.current, { x: target.x, y: target.y }, seed, {
       curvature: config.curvature,
       steps: 42,
+      jitterPx: config.jitterPx,
     });
-    const path = humanizePath(raw, rng, { velocityProfile: 1, jitterPx: config.jitterPx });
     return { path, target };
   }, [personality, cycleIndex, config.curvature, config.jitterPx]);
 
@@ -113,24 +111,13 @@ export function PersonalityCursor({ personality, overrides, className }: Persona
 
       if (elapsed < config.travelMs) {
         const progress = elapsed / config.travelMs;
-        const lastIdx = cycle.path.length - 1;
-        const idx = Math.min(lastIdx, Math.floor(progress * lastIdx));
-        const nextIdx = Math.min(lastIdx, idx + 1);
-        const a = cycle.path[idx];
-        const b = cycle.path[nextIdx];
-        const local = progress * lastIdx - idx;
-        if (cursor && a && b) {
-          const x = a.x + (b.x - a.x) * local;
-          const y = a.y + (b.y - a.y) * local;
-          cursor.setAttribute('transform', `translate(${x.toFixed(2)}, ${y.toFixed(2)})`);
+        const p = pointAt(cycle.path, progress);
+        if (cursor) {
+          cursor.setAttribute('transform', `translate(${p.x.toFixed(2)}, ${p.y.toFixed(2)})`);
         }
         if (trail) {
-          const upTo = Math.max(2, Math.floor(progress * cycle.path.length));
-          const d = cycle.path
-            .slice(0, upTo)
-            .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
-            .join(' ');
-          trail.setAttribute('d', d);
+          const upTo = Math.floor(progress * cycle.path.length);
+          trail.setAttribute('d', toSvgPathD(cycle.path, upTo));
         }
         if (currentPhase !== 'travel') {
           currentPhase = 'travel';
@@ -171,7 +158,7 @@ export function PersonalityCursor({ personality, overrides, className }: Persona
     <div ref={containerRef} className={className}>
       <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="block h-auto w-full" aria-hidden>
         <defs>
-          <pattern id="lab-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+          <pattern id={gridId} width="20" height="20" patternUnits="userSpaceOnUse">
             <path
               d="M 20 0 L 0 0 0 20"
               fill="none"
@@ -179,18 +166,18 @@ export function PersonalityCursor({ personality, overrides, className }: Persona
               strokeWidth="1"
             />
           </pattern>
-          <linearGradient id="lab-path" x1="0%" y1="0%" x2="100%" y2="100%">
+          <linearGradient id={pathGradId} x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#f5a55c" stopOpacity="0" />
             <stop offset="100%" stopColor="#f5a55c" stopOpacity="0.7" />
           </linearGradient>
         </defs>
-        <rect width={WIDTH} height={HEIGHT} fill="url(#lab-grid)" />
+        <rect width={WIDTH} height={HEIGHT} fill={`url(#${gridId})`} />
 
         <path
           ref={trailRef}
           d=""
           fill="none"
-          stroke="url(#lab-path)"
+          stroke={`url(#${pathGradId})`}
           strokeWidth="1.5"
           strokeLinecap="round"
           opacity="0.65"

@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { cn } from '../../lib/cn';
+import { EASE_EXPO } from '../../lib/motion';
 import { GithubMark, Wordmark } from '../icons';
 import { Button } from '../primitives';
 
@@ -38,7 +39,7 @@ export function Nav() {
       <motion.header
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.6, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.6, delay: 0.2, ease: EASE_EXPO }}
         className={cn(
           'fixed inset-x-0 top-0 z-50 transition-[background-color,backdrop-filter,border-color] duration-300',
           scrolled
@@ -134,7 +135,7 @@ function MobileMenu({ onClose }: { onClose: () => void }) {
             onClick={onClose}
             variants={{
               hidden: { opacity: 0, y: 10 },
-              visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } },
+              visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: EASE_EXPO } },
             }}
             className="border-b border-hairline py-5 text-2xl font-medium text-foreground"
           >
@@ -148,7 +149,7 @@ function MobileMenu({ onClose }: { onClose: () => void }) {
           onClick={onClose}
           variants={{
             hidden: { opacity: 0, y: 10 },
-            visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } },
+            visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: EASE_EXPO } },
           }}
           className="flex items-center gap-3 border-b border-hairline py-5 text-2xl font-medium text-foreground"
         >
@@ -158,7 +159,7 @@ function MobileMenu({ onClose }: { onClose: () => void }) {
         <motion.div
           variants={{
             hidden: { opacity: 0, y: 10 },
-            visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } },
+            visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: EASE_EXPO } },
           }}
           className="mt-8"
         >

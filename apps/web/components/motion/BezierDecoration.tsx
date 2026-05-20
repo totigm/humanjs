@@ -1,7 +1,8 @@
 'use client';
 
 import { motion, useInView, useReducedMotion } from 'framer-motion';
-import { useRef } from 'react';
+import { useId, useRef } from 'react';
+import { EASE_EXPO, IN_VIEW_MARGIN } from '../../lib/motion';
 
 const PATH_A = 'M 50 320 C 120 280, 220 340, 280 240 S 360 100, 380 60';
 const PATH_B = 'M 30 340 C 90 260, 180 320, 250 220 S 320 80, 350 40';
@@ -9,7 +10,11 @@ const PATH_B = 'M 30 340 C 90 260, 180 320, 250 220 S 320 80, 350 40';
 export function BezierDecoration() {
   const shouldReduceMotion = useReducedMotion();
   const ref = useRef<SVGSVGElement | null>(null);
-  const inView = useInView(ref, { margin: '0px 0px -10% 0px', once: true });
+  const inView = useInView(ref, { margin: IN_VIEW_MARGIN, once: true });
+
+  const reactId = useId();
+  const warmGradId = `bz-warm-${reactId}`;
+  const coolGradId = `bz-cool-${reactId}`;
 
   return (
     <svg
@@ -20,12 +25,12 @@ export function BezierDecoration() {
       aria-hidden
     >
       <defs>
-        <linearGradient id="bezier-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id={warmGradId} x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#f5a55c" stopOpacity="0" />
           <stop offset="50%" stopColor="#f5a55c" stopOpacity="0.7" />
           <stop offset="100%" stopColor="#f5a55c" stopOpacity="0.1" />
         </linearGradient>
-        <linearGradient id="bezier-gradient-2" x1="0%" y1="100%" x2="100%" y2="0%">
+        <linearGradient id={coolGradId} x1="0%" y1="100%" x2="100%" y2="0%">
           <stop offset="0%" stopColor="#5b7cc9" stopOpacity="0.45" />
           <stop offset="100%" stopColor="#5b7cc9" stopOpacity="0.05" />
         </linearGradient>
@@ -34,22 +39,22 @@ export function BezierDecoration() {
       <motion.path
         d={PATH_A}
         fill="none"
-        stroke="url(#bezier-gradient)"
+        stroke={`url(#${warmGradId})`}
         strokeWidth="1.75"
         strokeLinecap="round"
         initial={shouldReduceMotion ? { pathLength: 1 } : { pathLength: 0, opacity: 0 }}
         animate={inView ? { pathLength: 1, opacity: 1 } : undefined}
-        transition={{ duration: 1.6, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 1.6, ease: EASE_EXPO }}
       />
       <motion.path
         d={PATH_B}
         fill="none"
-        stroke="url(#bezier-gradient-2)"
+        stroke={`url(#${coolGradId})`}
         strokeWidth="1.25"
         strokeLinecap="round"
         initial={shouldReduceMotion ? { pathLength: 1 } : { pathLength: 0, opacity: 0 }}
         animate={inView ? { pathLength: 1, opacity: 1 } : undefined}
-        transition={{ duration: 1.8, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 1.8, delay: 0.25, ease: EASE_EXPO }}
       />
 
       <motion.g

@@ -1,14 +1,10 @@
 'use client';
 
-import {
-  bezierPath,
-  createRng,
-  humanizePath,
-  type PresetName,
-  resolvePersonality,
-} from '@humanjs/core';
+import { type PresetName, resolvePersonality } from '@humanjs/core';
 import { motion, useReducedMotion } from 'framer-motion';
-import { useMemo } from 'react';
+import { useId, useMemo } from 'react';
+import { EASE_EXPO, IN_VIEW_MARGIN } from '../../lib/motion';
+import { makeHumanizedPath, toSvgPathD } from '../../lib/path';
 
 interface TrajectoryCanvasProps {
   personality: PresetName;
@@ -24,29 +20,25 @@ export function TrajectoryCanvas({
   accent = '#f5a55c',
 }: TrajectoryCanvasProps) {
   const shouldReduceMotion = useReducedMotion();
+  const reactId = useId();
+  const gradId = `traj-${reactId}`;
 
   const { d, totalLength } = useMemo(() => {
     const resolved = resolvePersonality(personality);
-    const rng = createRng(`landing-trajectory-${personality}`);
-    const raw = bezierPath({ x: 16, y: height - 16 }, { x: width - 16, y: 16 }, rng, {
-      curvature: resolved.mouse.curvature,
-      steps: 50,
-    });
-    const humanized = humanizePath(raw, rng, { velocityProfile: 1, jitterPx: 0.6 });
-    const dStr = humanized
-      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
-      .join(' ');
-
-    // Approximate path length: sum of segment lengths.
+    const path = makeHumanizedPath(
+      { x: 16, y: height - 16 },
+      { x: width - 16, y: 16 },
+      `landing-trajectory-${personality}`,
+      { curvature: resolved.mouse.curvature, steps: 50, jitterPx: 0.6 },
+    );
     let length = 0;
-    for (let i = 1; i < humanized.length; i++) {
-      const a = humanized[i - 1];
-      const b = humanized[i];
+    for (let i = 1; i < path.length; i++) {
+      const a = path[i - 1];
+      const b = path[i];
       if (!a || !b) continue;
       length += Math.hypot(b.x - a.x, b.y - a.y);
     }
-
-    return { d: dStr, totalLength: length };
+    return { d: toSvgPathD(path), totalLength: length };
   }, [personality, width, height]);
 
   return (
@@ -58,7 +50,7 @@ export function TrajectoryCanvas({
       className="overflow-visible"
     >
       <defs>
-        <linearGradient id={`traj-${personality}`} x1="0%" y1="100%" x2="100%" y2="0%">
+        <linearGradient id={gradId} x1="0%" y1="100%" x2="100%" y2="0%">
           <stop offset="0%" stopColor={accent} stopOpacity="0.15" />
           <stop offset="100%" stopColor={accent} stopOpacity="0.95" />
         </linearGradient>
@@ -93,7 +85,7 @@ export function TrajectoryCanvas({
         <path
           d={d}
           fill="none"
-          stroke={`url(#traj-${personality})`}
+          stroke={`url(#${gradId})`}
           strokeWidth="1.75"
           strokeLinecap="round"
         />
@@ -101,13 +93,13 @@ export function TrajectoryCanvas({
         <motion.path
           d={d}
           fill="none"
-          stroke={`url(#traj-${personality})`}
+          stroke={`url(#${gradId})`}
           strokeWidth="1.75"
           strokeLinecap="round"
           initial={{ strokeDasharray: totalLength, strokeDashoffset: totalLength }}
           whileInView={{ strokeDashoffset: 0 }}
-          viewport={{ once: true, margin: '0px 0px -10% 0px' }}
-          transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
+          viewport={{ once: true, margin: IN_VIEW_MARGIN }}
+          transition={{ duration: 1.4, ease: EASE_EXPO }}
         />
       )}
     </svg>

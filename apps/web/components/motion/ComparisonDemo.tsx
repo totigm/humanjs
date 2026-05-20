@@ -1,9 +1,11 @@
 'use client';
 
-import { bezierPath, createRng, humanizePath, type Point } from '@humanjs/core';
+import type { Point } from '@humanjs/core';
 import { motion, useInView, useReducedMotion } from 'framer-motion';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { cn } from '../../lib/cn';
+import { IN_VIEW_MARGIN } from '../../lib/motion';
+import { makeHumanizedPath, pointAt, toSvgPathD } from '../../lib/path';
 
 const CONTAINER_W = 320;
 const CONTAINER_H = 200;
@@ -43,7 +45,7 @@ interface ComparisonDemoProps {
 export function ComparisonDemo({ className }: ComparisonDemoProps) {
   const shouldReduceMotion = useReducedMotion();
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const inView = useInView(containerRef, { margin: '0px 0px -10% 0px' });
+  const inView = useInView(containerRef, { margin: IN_VIEW_MARGIN });
 
   const [robotPhase, setRobotPhase] = useState<RobotPhase>('pressing');
   const [humanPhase, setHumanPhase] = useState<HumanPhase>('travel');
@@ -54,11 +56,15 @@ export function ComparisonDemo({ className }: ComparisonDemoProps) {
   const robotTimerRef = useRef<HTMLSpanElement | null>(null);
   const humanTimerRef = useRef<HTMLSpanElement | null>(null);
 
-  const humanizedPath = useMemo(() => {
-    const rng = createRng('humanjs-landing-demo');
-    const raw = bezierPath(CURSOR_START, BUTTON_CENTER, rng, { curvature: 0.4, steps: 40 });
-    return humanizePath(raw, rng, { velocityProfile: 1, jitterPx: 0.6 });
-  }, []);
+  const humanizedPath = useMemo(
+    () =>
+      makeHumanizedPath(CURSOR_START, BUTTON_CENTER, 'humanjs-landing-demo', {
+        curvature: 0.4,
+        steps: 40,
+        jitterPx: 0.6,
+      }),
+    [],
+  );
 
   useEffect(() => {
     if (shouldReduceMotion || !inView) return;
@@ -80,24 +86,13 @@ export function ComparisonDemo({ className }: ComparisonDemoProps) {
       const humanTrail = humanTrailRef.current;
       if (elapsed < HUMAN_TRAVEL_MS) {
         const progress = elapsed / HUMAN_TRAVEL_MS;
-        const lastIdx = humanizedPath.length - 1;
-        const idx = Math.min(lastIdx, Math.floor(progress * lastIdx));
-        const nextIdx = Math.min(lastIdx, idx + 1);
-        const a = humanizedPath[idx];
-        const b = humanizedPath[nextIdx];
-        const local = progress * lastIdx - idx;
-        if (humanCursor && a && b) {
-          const x = a.x + (b.x - a.x) * local;
-          const y = a.y + (b.y - a.y) * local;
-          humanCursor.setAttribute('transform', `translate(${x.toFixed(2)}, ${y.toFixed(2)})`);
+        const p = pointAt(humanizedPath, progress);
+        if (humanCursor) {
+          humanCursor.setAttribute('transform', `translate(${p.x.toFixed(2)}, ${p.y.toFixed(2)})`);
         }
         if (humanTrail) {
-          const upTo = Math.max(2, Math.floor(progress * humanizedPath.length));
-          const d = humanizedPath
-            .slice(0, upTo)
-            .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
-            .join(' ');
-          humanTrail.setAttribute('d', d);
+          const upTo = Math.floor(progress * humanizedPath.length);
+          humanTrail.setAttribute('d', toSvgPathD(humanizedPath, upTo));
         }
       } else {
         if (humanCursor) {
@@ -214,6 +209,9 @@ function BrowserMock({
   // Initial cursor position: robot starts at the button, human starts at the corner.
   const initialCursor = instant ? BUTTON_CENTER : CURSOR_START;
 
+  const reactId = useId();
+  const gridId = `cmp-grid-${reactId}`;
+
   return (
     <div
       className={cn(
@@ -246,7 +244,7 @@ function BrowserMock({
           aria-hidden
         >
           <defs>
-            <pattern id={`grid-${accent}`} width="16" height="16" patternUnits="userSpaceOnUse">
+            <pattern id={gridId} width="16" height="16" patternUnits="userSpaceOnUse">
               <path
                 d="M 16 0 L 0 0 0 16"
                 fill="none"
@@ -255,7 +253,7 @@ function BrowserMock({
               />
             </pattern>
           </defs>
-          <rect width={CONTAINER_W} height={CONTAINER_H} fill={`url(#grid-${accent})`} />
+          <rect width={CONTAINER_W} height={CONTAINER_H} fill={`url(#${gridId})`} />
 
           {trailRef && (
             <path

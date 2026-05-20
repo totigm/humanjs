@@ -1,16 +1,10 @@
 'use client';
 
-import {
-  bezierPath,
-  createRng,
-  humanizePath,
-  type Point,
-  type PresetName,
-  resolvePersonality,
-} from '@humanjs/core';
+import { type Point, type PresetName, resolvePersonality } from '@humanjs/core';
 import { motion, useReducedMotion } from 'framer-motion';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { cn } from '../../lib/cn';
+import { makeHumanizedPath, pointAt, toSvgPathD } from '../../lib/path';
 
 const VIEW_W = 720;
 const VIEW_H = 400;
@@ -56,6 +50,11 @@ export function Sandbox({ personality = 'careful', className }: SandboxProps) {
   const idRef = useRef(0);
   const rippleTimerRef = useRef<number | null>(null);
 
+  const reactId = useId();
+  const gridId = `sb-grid-${reactId}`;
+  const vignetteId = `sb-vignette-${reactId}`;
+  const trailGradId = `sb-trail-${reactId}`;
+
   const config = useMemo(() => {
     const profile = resolvePersonality(personality);
     return {
@@ -98,35 +97,20 @@ export function Sandbox({ personality = 'careful', className }: SandboxProps) {
       }
 
       const progress = elapsed / event.travelMs;
-      const lastIdx = event.path.length - 1;
-      const idx = Math.min(lastIdx, Math.floor(progress * lastIdx));
-      const nextIdx = Math.min(lastIdx, idx + 1);
-      const a = event.path[idx];
-      const b = event.path[nextIdx];
-      const local = progress * lastIdx - idx;
-
-      if (a && b) {
-        const x = a.x + (b.x - a.x) * local;
-        const y = a.y + (b.y - a.y) * local;
-        cursorRef.current = { x, y };
-        if (cursorGroupRef.current) {
-          cursorGroupRef.current.setAttribute(
-            'transform',
-            `translate(${x.toFixed(2)}, ${y.toFixed(2)})`,
-          );
-        }
-        if (codeRef.current) {
-          codeRef.current.textContent = `{ x: ${x.toFixed(0)}, y: ${y.toFixed(0)} }`;
-        }
+      const p = pointAt(event.path, progress);
+      cursorRef.current = p;
+      if (cursorGroupRef.current) {
+        cursorGroupRef.current.setAttribute(
+          'transform',
+          `translate(${p.x.toFixed(2)}, ${p.y.toFixed(2)})`,
+        );
       }
-
+      if (codeRef.current) {
+        codeRef.current.textContent = `{ x: ${p.x.toFixed(0)}, y: ${p.y.toFixed(0)} }`;
+      }
       if (trailRef.current) {
-        const upTo = Math.max(2, Math.floor(progress * event.path.length));
-        const d = event.path
-          .slice(0, upTo)
-          .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
-          .join(' ');
-        trailRef.current.setAttribute('d', d);
+        const upTo = Math.floor(progress * event.path.length);
+        trailRef.current.setAttribute('d', toSvgPathD(event.path, upTo));
       }
 
       raf = window.requestAnimationFrame(tick);
@@ -183,14 +167,12 @@ export function Sandbox({ personality = 'careful', className }: SandboxProps) {
     }
 
     const id = idRef.current++;
-    const rng = createRng(
-      `sandbox-${personality}-${id}-${target.x.toFixed(0)}-${target.y.toFixed(0)}`,
-    );
-    const raw = bezierPath({ ...cursorRef.current }, target, rng, {
+    const seed = `sandbox-${personality}-${id}-${target.x.toFixed(0)}-${target.y.toFixed(0)}`;
+    const path = makeHumanizedPath({ ...cursorRef.current }, target, seed, {
       curvature: config.curvature,
       steps: 36,
+      jitterPx: 0.7,
     });
-    const path = humanizePath(raw, rng, { velocityProfile: 1, jitterPx: 0.7 });
     setEvent({ id, target, path, startedAt: performance.now(), travelMs: config.travelMs });
   };
 
@@ -222,7 +204,7 @@ export function Sandbox({ personality = 'careful', className }: SandboxProps) {
         aria-hidden
       >
         <defs>
-          <pattern id="sandbox-grid" width="24" height="24" patternUnits="userSpaceOnUse">
+          <pattern id={gridId} width="24" height="24" patternUnits="userSpaceOnUse">
             <path
               d="M 24 0 L 0 0 0 24"
               fill="none"
@@ -230,17 +212,17 @@ export function Sandbox({ personality = 'careful', className }: SandboxProps) {
               strokeWidth="1"
             />
           </pattern>
-          <radialGradient id="sandbox-vignette">
+          <radialGradient id={vignetteId}>
             <stop offset="0%" stopColor="rgba(245,165,92,0.06)" />
             <stop offset="100%" stopColor="rgba(245,165,92,0)" />
           </radialGradient>
-          <linearGradient id="sandbox-trail" x1="0%" y1="0%" x2="100%" y2="100%">
+          <linearGradient id={trailGradId} x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#f5a55c" stopOpacity="0" />
             <stop offset="100%" stopColor="#f5a55c" stopOpacity="0.8" />
           </linearGradient>
         </defs>
-        <rect width={VIEW_W} height={VIEW_H} fill="url(#sandbox-grid)" />
-        <rect width={VIEW_W} height={VIEW_H} fill="url(#sandbox-vignette)" />
+        <rect width={VIEW_W} height={VIEW_H} fill={`url(#${gridId})`} />
+        <rect width={VIEW_W} height={VIEW_H} fill={`url(#${vignetteId})`} />
 
         {!interacted && (
           <>
@@ -255,7 +237,7 @@ export function Sandbox({ personality = 'careful', className }: SandboxProps) {
           ref={trailRef}
           d=""
           fill="none"
-          stroke="url(#sandbox-trail)"
+          stroke={`url(#${trailGradId})`}
           strokeWidth="1.75"
           strokeLinecap="round"
           opacity="0.7"
@@ -264,9 +246,7 @@ export function Sandbox({ personality = 'careful', className }: SandboxProps) {
         {/* Dashed full-path preview only while a travel event is active. */}
         {event && (
           <motion.path
-            d={event.path
-              .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
-              .join(' ')}
+            d={toSvgPathD(event.path)}
             fill="none"
             stroke="rgba(245,165,92,0.2)"
             strokeWidth="1"

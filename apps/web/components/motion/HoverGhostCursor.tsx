@@ -1,8 +1,10 @@
 'use client';
 
-import { bezierPath, careful, createRng, humanizePath, type Point } from '@humanjs/core';
+import { careful, type Point } from '@humanjs/core';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
+import { EASE_EXPO } from '../../lib/motion';
+import { makeHumanizedPath, pointAt } from '../../lib/path';
 import { useHumanCursor } from './HumanCursorProvider';
 
 const TRAVEL_MS = 950;
@@ -81,12 +83,11 @@ function GhostCursor({ ghost, onComplete }: { ghost: Ghost; onComplete: () => vo
   const [pos, setPos] = useState<Point>(ghost.startPos);
 
   useEffect(() => {
-    const rng = createRng(`ghost-${ghost.id}`);
-    const raw = bezierPath(ghost.startPos, ghost.targetPos, rng, {
+    const path = makeHumanizedPath(ghost.startPos, ghost.targetPos, `ghost-${ghost.id}`, {
       curvature: careful.mouse.curvature * 1.4,
       steps: 36,
+      jitterPx: 0.6,
     });
-    const path = humanizePath(raw, rng, { velocityProfile: 1, jitterPx: 0.6 });
     const start = performance.now();
     let raf = 0;
     let dwellTimer = 0;
@@ -98,15 +99,7 @@ function GhostCursor({ ghost, onComplete }: { ghost: Ghost; onComplete: () => vo
         dwellTimer = window.setTimeout(onComplete, DWELL_MS);
         return;
       }
-      const progress = elapsed / TRAVEL_MS;
-      const idx = Math.min(path.length - 1, Math.floor(progress * (path.length - 1)));
-      const next = Math.min(path.length - 1, idx + 1);
-      const a = path[idx];
-      const b = path[next];
-      const local = progress * (path.length - 1) - idx;
-      if (a && b) {
-        setPos({ x: a.x + (b.x - a.x) * local, y: a.y + (b.y - a.y) * local });
-      }
+      setPos(pointAt(path, elapsed / TRAVEL_MS));
       raf = window.requestAnimationFrame(tick);
     };
 
@@ -134,7 +127,7 @@ function GhostCursor({ ghost, onComplete }: { ghost: Ghost; onComplete: () => vo
         initial={{ opacity: 0, scale: 0.6 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.6 }}
-        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.25, ease: EASE_EXPO }}
         style={{ transformOrigin: '0 0' }}
       >
         <svg width="22" height="24" viewBox="0 0 22 24" aria-hidden>
