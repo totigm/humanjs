@@ -54,7 +54,7 @@ export function CodeBlock({
       )}
     >
       {label && (
-        <div className="flex items-center justify-between border-b border-hairline px-4 py-2.5">
+        <div className="flex items-center justify-between gap-3 border-b border-hairline px-4 py-2.5">
           <span
             className={cn(
               'font-mono text-[11px] uppercase tracking-[0.18em]',
@@ -63,26 +63,38 @@ export function CodeBlock({
           >
             {label}
           </span>
-          <span className="font-mono text-[10px] text-muted/60">{language}</span>
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-[10px] text-muted/60">{language}</span>
+            {showCopy && <CopyButton copied={copied} onCopy={handleCopy} />}
+          </div>
         </div>
       )}
       <pre className="overflow-x-auto p-5 text-sm">
         <code className="font-mono text-foreground/90 leading-relaxed">{code}</code>
       </pre>
-      {showCopy && (
-        <button
-          type="button"
-          onClick={handleCopy}
-          aria-label={copied ? 'Copied' : 'Copy code'}
-          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-md border border-hairline bg-canvas/80 text-muted opacity-0 backdrop-blur transition-opacity duration-200 hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-        >
-          {copied ? (
-            <Check className="h-3.5 w-3.5 text-accent" />
-          ) : (
-            <Copy className="h-3.5 w-3.5" />
-          )}
-        </button>
+      {!label && showCopy && (
+        <div className="absolute right-3 top-3 opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100">
+          <CopyButton copied={copied} onCopy={handleCopy} />
+        </div>
       )}
     </div>
+  );
+}
+
+interface CopyButtonProps {
+  copied: boolean;
+  onCopy: () => void;
+}
+
+function CopyButton({ copied, onCopy }: CopyButtonProps) {
+  return (
+    <button
+      type="button"
+      onClick={onCopy}
+      aria-label={copied ? 'Copied' : 'Copy code'}
+      className="flex h-6 w-6 items-center justify-center rounded text-muted/70 transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+    >
+      {copied ? <Check className="h-3.5 w-3.5 text-accent" /> : <Copy className="h-3.5 w-3.5" />}
+    </button>
   );
 }
