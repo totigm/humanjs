@@ -12,7 +12,7 @@ import {
 import type { Locator, Page } from 'playwright';
 import { executeType } from './keyboard';
 import { executeClick } from './mouse';
-import { executeRead, type ReadOptions, type ReadTarget } from './reading';
+import { executeRead, type ReadOptions, type ReadResult, type ReadTarget } from './reading';
 
 export type {
   ActionResult,
@@ -141,8 +141,12 @@ export interface Human {
    *
    * In `speed: 'instant'`, dwell collapses to 0 ms but the action still fires
    * so observability stays consistent.
+   *
+   * Returns a {@link ReadResult} with the word count, final kind (after
+   * auto-detection), and total dwell duration — useful for assertions in
+   * tests or for surfacing reading metadata to a UI.
    */
-  read(target: ReadTarget, options?: ReadOptions): Promise<void>;
+  read(target: ReadTarget, options?: ReadOptions): Promise<ReadResult>;
 }
 
 /**
@@ -239,7 +243,7 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
       // Same privacy posture as `type`: never echo arbitrary content into
       // action params. `target` description, words (when known up front), and
       // kind are inert metadata; the text itself never lands here.
-      await performAction(
+      return performAction(
         {
           type: 'read',
           params: {
@@ -247,8 +251,8 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
             kind: options?.kind,
           },
         },
-        async () => {
-          await executeRead(
+        () =>
+          executeRead(
             target,
             {
               page,
@@ -264,8 +268,7 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
               },
             },
             options,
-          );
-        },
+          ),
       );
     },
   };

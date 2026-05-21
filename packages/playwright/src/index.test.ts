@@ -546,6 +546,25 @@ describe('createHuman', () => {
       expect(locator.innerText).not.toHaveBeenCalled();
     });
 
+    it('returns a ReadResult with words, durationMs, and final kind', async () => {
+      const { page } = makeReadingMockPage();
+      const human = await createHuman(page, { speed: 'instant' });
+      const result = await human.read({ words: 42, text: 'ignored when words present' });
+      expect(result).toBeDefined();
+      expect(result.words).toBe(42);
+      expect(result.kind).toBe('prose');
+      expect(typeof result.durationMs).toBe('number');
+      // `speed: 'instant'` collapses dwell to 0 ms.
+      expect(result.durationMs).toBe(0);
+    });
+
+    it('returns the auto-detected kind in the ReadResult when caller did not specify', async () => {
+      const { page } = makeReadingMockPage({ text: 'const x = 1;', tagName: 'pre' });
+      const human = await createHuman(page, { speed: 'instant' });
+      const result = await human.read('.snippet');
+      expect(result.kind).toBe('code');
+    });
+
     it('auto-detects the kind from the element tag when caller did not specify', async () => {
       const { page, locator } = makeReadingMockPage({ text: 'const x = 1;', tagName: 'pre' });
       const human = await createHuman(page, { speed: 'instant' });
