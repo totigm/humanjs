@@ -40,7 +40,8 @@
     "clean": "turbo run clean && rm -rf node_modules",
     "prepare": "lefthook install",
     "demo:click": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples click",
-    "demo:compare": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples compare"
+    "demo:compare": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples compare",
+    "demo:type": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples type"
   },
   "commitlint": {
     "extends": [
