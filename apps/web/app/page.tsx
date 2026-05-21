@@ -6,7 +6,6 @@ import {
   GetStarted,
   Hero,
   HonestLimits,
-  Manifesto,
   Nav,
   PersonalityLab,
   Playground,
@@ -19,7 +18,6 @@ export default function Page() {
       <Nav />
       <main>
         <Hero />
-        <Manifesto />
         <Comparison />
         <Playground />
         <Audience />
