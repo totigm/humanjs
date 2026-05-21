@@ -83,6 +83,40 @@ export function blend(a: PersonalityConfig, b: PersonalityConfig, ratio: number)
       wpm: lerp(personalityA.reading.wpm, personalityB.reading.wpm, t),
       jitter: lerp(personalityA.reading.jitter, personalityB.reading.jitter, t),
     },
+    scroll: {
+      segmentsPerKpx: lerp(
+        personalityA.scroll.segmentsPerKpx,
+        personalityB.scroll.segmentsPerKpx,
+        t,
+      ),
+      segmentDelayMs: lerp(
+        personalityA.scroll.segmentDelayMs,
+        personalityB.scroll.segmentDelayMs,
+        t,
+      ),
+      segmentDelayJitter: lerp(
+        personalityA.scroll.segmentDelayJitter,
+        personalityB.scroll.segmentDelayJitter,
+        t,
+      ),
+      pauseProbability: lerp(
+        personalityA.scroll.pauseProbability,
+        personalityB.scroll.pauseProbability,
+        t,
+      ),
+      pauseMs: lerp(personalityA.scroll.pauseMs, personalityB.scroll.pauseMs, t),
+      pauseMsJitter: lerp(personalityA.scroll.pauseMsJitter, personalityB.scroll.pauseMsJitter, t),
+      overshootProbability: lerp(
+        personalityA.scroll.overshootProbability,
+        personalityB.scroll.overshootProbability,
+        t,
+      ),
+      overshootRatio: lerp(
+        personalityA.scroll.overshootRatio,
+        personalityB.scroll.overshootRatio,
+        t,
+      ),
+    },
     dwell: {
       preClickMs: lerp(personalityA.dwell.preClickMs, personalityB.dwell.preClickMs, t),
       preClickJitter: lerp(personalityA.dwell.preClickJitter, personalityB.dwell.preClickJitter, t),

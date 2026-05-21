@@ -31,6 +31,16 @@ export const fast: Personality = {
     wpm: 350,
     jitter: 0.15,
   },
+  scroll: {
+    segmentsPerKpx: 40,
+    segmentDelayMs: 8,
+    segmentDelayJitter: 0.2,
+    pauseProbability: 0.025,
+    pauseMs: 100,
+    pauseMsJitter: 0.3,
+    overshootProbability: 0.02,
+    overshootRatio: 0.1,
+  },
   dwell: {
     preClickMs: 50,
     preClickJitter: 0.25,
