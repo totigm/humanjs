@@ -268,8 +268,8 @@ function FollowingCursor({ target }: { target: { x: number; y: number } }) {
       initial={{ x: target.x, y: target.y, opacity: 0 }}
       animate={{ x: target.x, y: target.y, opacity: 1 }}
       transition={{
-        x: { type: 'spring', stiffness: 240, damping: 26, mass: 0.55 },
-        y: { type: 'spring', stiffness: 240, damping: 26, mass: 0.55 },
+        x: { type: 'spring', stiffness: 140, damping: 20, mass: 0.75 },
+        y: { type: 'spring', stiffness: 140, damping: 20, mass: 0.75 },
         opacity: { duration: 0.4 },
       }}
     >
