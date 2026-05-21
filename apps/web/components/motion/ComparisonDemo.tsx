@@ -23,7 +23,9 @@ const BUTTON_CENTER: Point = {
   y: BUTTON_TOP_LEFT.y + BUTTON_H / 2,
 };
 
-// Synced cycle — robot clicks instantly at t=0, human takes its time.
+// Synced cycle — both sides start at the corner. Robot waits briefly so the
+// teleport is visible, then snaps to the button. Human takes its time.
+const ROBOT_WAIT_MS = 220;
 const ROBOT_CLICK_MS = 240;
 const HUMAN_TRAVEL_MS = 1500;
 const HUMAN_DWELL_MS = 240;
@@ -31,7 +33,7 @@ const HUMAN_CLICK_MS = 240;
 const REST_MS = 1100;
 const CYCLE_MS = HUMAN_TRAVEL_MS + HUMAN_DWELL_MS + HUMAN_CLICK_MS + REST_MS;
 
-type RobotPhase = 'pressing' | 'done';
+type RobotPhase = 'waiting' | 'pressing' | 'done';
 type HumanPhase = 'travel' | 'dwell' | 'click' | 'done';
 
 interface ComparisonDemoProps {
@@ -49,7 +51,7 @@ export function ComparisonDemo({ className }: ComparisonDemoProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const inView = useInView(containerRef, { margin: IN_VIEW_MARGIN });
 
-  const [robotPhase, setRobotPhase] = useState<RobotPhase>('pressing');
+  const [robotPhase, setRobotPhase] = useState<RobotPhase>('waiting');
   const [humanPhase, setHumanPhase] = useState<HumanPhase>('travel');
 
   const robotCursorRef = useRef<SVGGElement | null>(null);
@@ -72,8 +74,12 @@ export function ComparisonDemo({ className }: ComparisonDemoProps) {
     if (shouldReduceMotion || !inView) return;
     let raf = 0;
     let startTime: number | null = null;
-    let lastRobotPhase: RobotPhase = 'pressing';
+    let lastRobotPhase: RobotPhase = 'waiting';
     let lastHumanPhase: HumanPhase = 'travel';
+    // Sync React state with the local trackers so scroll-out/scroll-in
+    // doesn't leave the side stuck on a stale 'done'/'click' from a previous cycle.
+    setRobotPhase('waiting');
+    setHumanPhase('travel');
 
     const tick = (now: number) => {
       if (startTime === null) startTime = now;
@@ -106,10 +112,20 @@ export function ComparisonDemo({ className }: ComparisonDemoProps) {
         if (humanTrail) humanTrail.setAttribute('d', '');
       }
 
-      // Robot cursor — already at the button (set on mount); nothing to mutate per frame.
+      // Robot cursor — sits at the corner during the wait, then teleports to
+      // the button on the first frame past ROBOT_WAIT_MS. The svg `transform`
+      // attribute has no animation, so this snap is intentionally instant.
+      const robotCursor = robotCursorRef.current;
+      if (robotCursor) {
+        const pos = elapsed < ROBOT_WAIT_MS ? CURSOR_START : BUTTON_CENTER;
+        robotCursor.setAttribute('transform', `translate(${pos.x}, ${pos.y})`);
+      }
 
       // Discrete phase transitions.
-      const nextRobotPhase: RobotPhase = elapsed < ROBOT_CLICK_MS ? 'pressing' : 'done';
+      let nextRobotPhase: RobotPhase;
+      if (elapsed < ROBOT_WAIT_MS) nextRobotPhase = 'waiting';
+      else if (elapsed < ROBOT_WAIT_MS + ROBOT_CLICK_MS) nextRobotPhase = 'pressing';
+      else nextRobotPhase = 'done';
       if (nextRobotPhase !== lastRobotPhase) {
         lastRobotPhase = nextRobotPhase;
         setRobotPhase(nextRobotPhase);
@@ -138,7 +154,9 @@ export function ComparisonDemo({ className }: ComparisonDemoProps) {
     ? { pressed: false, hoverTarget: true, done: true }
     : {
         pressed: robotPhase === 'pressing',
-        hoverTarget: true,
+        // No hover while the cursor still sits in the corner — the button
+        // shouldn't pre-light up before the click actually lands.
+        hoverTarget: robotPhase !== 'waiting',
         done: robotPhase === 'done',
       };
 
@@ -208,8 +226,10 @@ function BrowserMock({
   const accentText = accent === 'warm' ? 'text-accent' : 'text-accent-cool';
   const accentDot = accent === 'warm' ? 'bg-accent' : 'bg-accent-cool';
   const cursorColor = accent === 'warm' ? '#f5a55c' : '#5b7cc9';
-  // Initial cursor position: robot starts at the button, human starts at the corner.
-  const initialCursor = instant ? BUTTON_CENTER : CURSOR_START;
+  // Both sides start at the corner. The robot teleports to the button on
+  // the first RAF tick past ROBOT_WAIT_MS; the human travels via a real
+  // Bezier path. JSX uses CURSOR_START as the pre-RAF fallback.
+  const initialCursor = CURSOR_START;
 
   const reactId = useId();
   const gridId = `cmp-grid-${reactId}`;
