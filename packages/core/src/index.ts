@@ -25,8 +25,13 @@ export type {
   PluginContext,
 } from './plugin';
 export { careful, distracted, fast, precise } from './presets';
-export type { ComputeReadingDwellOptions, ReadKind } from './reading';
-export { computeReadingDwellMs, countWords } from './reading';
+export type {
+  BoundingBox,
+  ComputeReadingDwellOptions,
+  PlanReadingScanOptions,
+  ReadKind,
+} from './reading';
+export { computeReadingDwellMs, countWords, planReadingScan } from './reading';
 export type {
   PersonalityConfig,
   PersonalityExtension,

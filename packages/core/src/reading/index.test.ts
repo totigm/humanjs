@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { careful } from '../presets';
 import { createRng } from '../rng';
-import { computeReadingDwellMs, countWords } from './index';
+import { computeReadingDwellMs, countWords, planReadingScan } from './index';
 
 const NO_JITTER = { wpm: 250, jitter: 0 };
 
@@ -88,5 +88,50 @@ describe('computeReadingDwellMs', () => {
     const a = computeReadingDwellMs(120, careful.reading, createRng('rd-a'));
     const b = computeReadingDwellMs(120, careful.reading, createRng('rd-b'));
     expect(a).not.toBe(b);
+  });
+});
+
+describe('planReadingScan', () => {
+  const box = { x: 100, y: 200, width: 600, height: 200 };
+
+  it('produces a non-empty path that lands inside the box after the approach', () => {
+    const path = planReadingScan(box, createRng('s1'), { start: { x: 50, y: 50 } });
+    expect(path.length).toBeGreaterThan(0);
+    // The path starts at the cursor's current position (which can be
+    // anywhere) and walks INTO the box. Skip the entry approach (first
+    // segment) and assert the rest of the path stays roughly inside the
+    // bounding box.
+    const scanPoints = path.slice(Math.floor(path.length / 4));
+    for (const p of scanPoints) {
+      expect(p.x).toBeGreaterThan(box.x - 5);
+      expect(p.x).toBeLessThan(box.x + box.width + 5);
+      expect(p.y).toBeGreaterThan(box.y - 5);
+      expect(p.y).toBeLessThan(box.y + box.height + 5);
+    }
+  });
+
+  it('descends through the box (last point below the first)', () => {
+    const path = planReadingScan(box, createRng('s2'), {
+      start: { x: 50, y: 50 },
+      lines: 3,
+      paddingPx: 10,
+    });
+    const first = path[0];
+    const last = path[path.length - 1];
+    expect(first).toBeDefined();
+    expect(last).toBeDefined();
+    if (first && last) expect(last.y).toBeGreaterThan(first.y);
+  });
+
+  it('is deterministic given the same seed and inputs', () => {
+    const a = planReadingScan(box, createRng('det'), { start: { x: 0, y: 0 } });
+    const b = planReadingScan(box, createRng('det'), { start: { x: 0, y: 0 } });
+    expect(a).toEqual(b);
+  });
+
+  it('grows path length with the lines override', () => {
+    const two = planReadingScan(box, createRng('l2'), { start: { x: 0, y: 0 }, lines: 2 });
+    const four = planReadingScan(box, createRng('l4'), { start: { x: 0, y: 0 }, lines: 4 });
+    expect(four.length).toBeGreaterThan(two.length);
   });
 });

@@ -9,6 +9,7 @@ interface MockLocator {
   innerText?: ReturnType<typeof vi.fn>;
   evaluate?: ReturnType<typeof vi.fn>;
   scrollIntoViewIfNeeded?: ReturnType<typeof vi.fn>;
+  boundingBox?: ReturnType<typeof vi.fn>;
 }
 
 interface MockPage {
@@ -64,9 +65,16 @@ function makeKeyboardMockPage(): MockPage {
  * Page mock for reading tests: locator returns `innerText` + `evaluate` so
  * the adapter can extract text and auto-detect the kind from the tag name.
  */
-function makeReadingMockPage(options: { text?: string; tagName?: string } = {}): {
+function makeReadingMockPage(
+  options: {
+    text?: string;
+    tagName?: string;
+    boundingBox?: { x: number; y: number; width: number; height: number } | null;
+  } = {},
+): {
   page: Page;
   locator: MockLocator;
+  mouseMoves: Array<{ x: number; y: number }>;
 } {
   const locator: MockLocator = {
     focus: vi.fn().mockResolvedValue(undefined),
@@ -74,13 +82,27 @@ function makeReadingMockPage(options: { text?: string; tagName?: string } = {}):
     innerText: vi.fn().mockResolvedValue(options.text ?? ''),
     evaluate: vi.fn().mockResolvedValue(options.tagName ?? 'div'),
     scrollIntoViewIfNeeded: vi.fn().mockResolvedValue(undefined),
+    boundingBox: vi
+      .fn()
+      .mockResolvedValue(
+        options.boundingBox === undefined
+          ? { x: 100, y: 200, width: 600, height: 200 }
+          : options.boundingBox,
+      ),
   };
+  const mouseMoves: Array<{ x: number; y: number }> = [];
   const page = {
     goto: vi.fn().mockResolvedValue(null),
     locator: vi.fn().mockReturnValue(locator as unknown as Locator),
     keyboard: { press: vi.fn().mockResolvedValue(undefined) },
+    mouse: {
+      move: vi.fn().mockImplementation((x: number, y: number) => {
+        mouseMoves.push({ x, y });
+        return Promise.resolve();
+      }),
+    },
   } as unknown as Page;
-  return { page, locator };
+  return { page, locator, mouseMoves };
 }
 
 describe('createHuman', () => {
@@ -602,6 +624,78 @@ describe('createHuman', () => {
       await human.read('.long-paragraph');
       const elapsed = performance.now() - startedAt;
       expect(elapsed).toBeLessThan(50);
+    });
+
+    it('does NOT move the mouse during a default read (withMotion off)', async () => {
+      const { page, mouseMoves } = makeReadingMockPage({ text: 'a b c d e' });
+      const human = await createHuman(page, { speed: 'instant' });
+      await human.read('.passage');
+      expect(mouseMoves).toEqual([]);
+    });
+
+    it('walks the cursor through the bounding box when withMotion is enabled', async () => {
+      const { page, locator, mouseMoves } = makeReadingMockPage({
+        text: 'a b c d e f g h i j',
+        boundingBox: { x: 100, y: 200, width: 600, height: 200 },
+      });
+      // Need a non-instant speed so durationMs > 0 and the motion branch fires.
+      // wpmMultiplier keeps the dwell tiny so the test stays quick.
+      const human = await createHuman(page, { speed: 'human', seed: 'motion-1' });
+      await human.read('.passage', { withMotion: true, wpmMultiplier: 1000 });
+      expect(locator.boundingBox).toHaveBeenCalledTimes(1);
+      expect(mouseMoves.length).toBeGreaterThan(0);
+      // Final move should land inside the box (the planner ends at the last
+      // zigzag waypoint).
+      const last = mouseMoves[mouseMoves.length - 1];
+      expect(last).toBeDefined();
+      if (last) {
+        expect(last.x).toBeGreaterThanOrEqual(100);
+        expect(last.x).toBeLessThanOrEqual(700);
+        expect(last.y).toBeGreaterThanOrEqual(200);
+        expect(last.y).toBeLessThanOrEqual(400);
+      }
+    });
+
+    it('falls back to a plain sleep when the bounding box is null', async () => {
+      const { page, mouseMoves } = makeReadingMockPage({
+        text: 'a b c',
+        boundingBox: null,
+      });
+      const human = await createHuman(page, { speed: 'human', seed: 'no-box' });
+      // Should complete without throwing even though there's no box to scan.
+      await human.read('.gone', { withMotion: true, wpmMultiplier: 1000 });
+      expect(mouseMoves).toEqual([]);
+    });
+
+    it('updates the tracked cursor position to the scan endpoint', async () => {
+      // Two reads in a row — the second's scan starts from where the first's
+      // ended. Verifies the session's lastMousePosition gets updated.
+      const { page, mouseMoves } = makeReadingMockPage({
+        text: 'a b c d e f g',
+        boundingBox: { x: 100, y: 200, width: 600, height: 200 },
+      });
+      const human = await createHuman(page, { speed: 'human', seed: 'motion-track' });
+      await human.read('.first', { withMotion: true, wpmMultiplier: 1000 });
+      const firstScanEnd = mouseMoves[mouseMoves.length - 1];
+      const firstScanLen = mouseMoves.length;
+      await human.read('.second', { withMotion: true, wpmMultiplier: 1000 });
+      // The second scan's first move should be very close to the first scan's
+      // final position (cursor didn't teleport between reads).
+      const secondScanStart = mouseMoves[firstScanLen];
+      expect(firstScanEnd).toBeDefined();
+      expect(secondScanStart).toBeDefined();
+      if (firstScanEnd && secondScanStart) {
+        expect(Math.abs(secondScanStart.x - firstScanEnd.x)).toBeLessThan(40);
+        expect(Math.abs(secondScanStart.y - firstScanEnd.y)).toBeLessThan(40);
+      }
+    });
+
+    it('ignores withMotion when target is { text } (no bounding box available)', async () => {
+      const { page, mouseMoves } = makeReadingMockPage();
+      const human = await createHuman(page, { speed: 'human', seed: 'no-loc' });
+      // No selector, no Locator → no box → motion is silently a no-op.
+      await human.read({ text: 'a b c d' }, { withMotion: true, wpmMultiplier: 1000 });
+      expect(mouseMoves).toEqual([]);
     });
   });
 

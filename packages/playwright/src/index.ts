@@ -246,7 +246,23 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
           },
         },
         async () => {
-          await executeRead(target, { page, personality, rng, speed }, options);
+          await executeRead(
+            target,
+            {
+              page,
+              personality,
+              rng,
+              speed,
+              // Read shares the session's tracked cursor position so an eye
+              // scan starts from where the last click left off, and the next
+              // click starts from where the scan ended.
+              getMousePosition: () => lastMousePosition,
+              setMousePosition: (point) => {
+                lastMousePosition = point;
+              },
+            },
+            options,
+          );
         },
       );
     },
