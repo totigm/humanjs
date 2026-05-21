@@ -9,6 +9,7 @@ import {
   Nav,
   PersonalityLab,
   Playground,
+  ReadingShowcase,
   TrustStrip,
   TypingShowcase,
 } from '../components/sections';
@@ -22,6 +23,7 @@ export default function Page() {
         <Comparison />
         <Playground />
         <TypingShowcase />
+        <ReadingShowcase />
         <Audience />
         <FeatureBento />
         <PersonalityLab />

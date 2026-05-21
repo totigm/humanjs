@@ -8,5 +8,6 @@ export { HonestLimits } from './HonestLimits';
 export { Nav } from './Nav';
 export { PersonalityLab } from './PersonalityLab';
 export { Playground } from './Playground';
+export { ReadingShowcase } from './ReadingShowcase';
 export { TrustStrip } from './TrustStrip';
 export { TypingShowcase } from './TypingShowcase';
