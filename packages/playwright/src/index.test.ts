@@ -6,6 +6,9 @@ import { createHuman } from './index';
 interface MockLocator {
   focus: ReturnType<typeof vi.fn>;
   pressSequentially: ReturnType<typeof vi.fn>;
+  innerText?: ReturnType<typeof vi.fn>;
+  evaluate?: ReturnType<typeof vi.fn>;
+  scrollIntoViewIfNeeded?: ReturnType<typeof vi.fn>;
 }
 
 interface MockPage {
@@ -55,6 +58,29 @@ function makeKeyboardMockPage(): MockPage {
     },
   } as unknown as Page;
   return { page, locator, pressedKeys };
+}
+
+/**
+ * Page mock for reading tests: locator returns `innerText` + `evaluate` so
+ * the adapter can extract text and auto-detect the kind from the tag name.
+ */
+function makeReadingMockPage(options: { text?: string; tagName?: string } = {}): {
+  page: Page;
+  locator: MockLocator;
+} {
+  const locator: MockLocator = {
+    focus: vi.fn().mockResolvedValue(undefined),
+    pressSequentially: vi.fn().mockResolvedValue(undefined),
+    innerText: vi.fn().mockResolvedValue(options.text ?? ''),
+    evaluate: vi.fn().mockResolvedValue(options.tagName ?? 'div'),
+    scrollIntoViewIfNeeded: vi.fn().mockResolvedValue(undefined),
+  };
+  const page = {
+    goto: vi.fn().mockResolvedValue(null),
+    locator: vi.fn().mockReturnValue(locator as unknown as Locator),
+    keyboard: { press: vi.fn().mockResolvedValue(undefined) },
+  } as unknown as Page;
+  return { page, locator };
 }
 
 describe('createHuman', () => {
@@ -449,6 +475,133 @@ describe('createHuman', () => {
       const action = beforeAction.mock.calls[0]?.[0];
       expect(action.params).not.toHaveProperty('value');
       expect(JSON.stringify(action.params)).not.toContain('sup3r-secret');
+    });
+  });
+
+  describe('read', () => {
+    it('extracts innerText from a selector and counts words', async () => {
+      const { page, locator } = makeReadingMockPage({
+        text: 'one two three four',
+        tagName: 'div',
+      });
+      const beforeAction = vi.fn();
+      const human = await createHuman(page, {
+        // speed: 'instant' so the test doesn't actually sleep for the dwell
+        speed: 'instant',
+        plugins: [{ name: 'p', beforeAction }],
+      });
+      await human.read('.banner');
+      expect(page.locator).toHaveBeenCalledWith('.banner');
+      expect(locator.innerText).toHaveBeenCalledTimes(1);
+      expect(beforeAction).toHaveBeenCalledWith({
+        type: 'read',
+        params: { target: '.banner', kind: undefined },
+      });
+    });
+
+    it('reads a Locator directly without going through page.locator()', async () => {
+      const { page, locator } = makeReadingMockPage({ text: 'hello world' });
+      const human = await createHuman(page, { speed: 'instant' });
+      await human.read(locator as unknown as Locator);
+      // We passed the Locator directly — page.locator should not be called.
+      expect(page.locator).not.toHaveBeenCalled();
+      expect(locator.innerText).toHaveBeenCalledTimes(1);
+    });
+
+    it('counts words from `{ text }` without touching the DOM', async () => {
+      const { page, locator } = makeReadingMockPage();
+      const human = await createHuman(page, { speed: 'instant' });
+      await human.read({ text: 'four words right here' });
+      expect(page.locator).not.toHaveBeenCalled();
+      expect(locator.innerText).not.toHaveBeenCalled();
+    });
+
+    it('uses `{ words }` as a pre-counted value without touching the DOM', async () => {
+      const { page, locator } = makeReadingMockPage();
+      const human = await createHuman(page, { speed: 'instant' });
+      await human.read({ words: 30 });
+      expect(page.locator).not.toHaveBeenCalled();
+      expect(locator.innerText).not.toHaveBeenCalled();
+    });
+
+    it('auto-detects the kind from the element tag when caller did not specify', async () => {
+      const { page, locator } = makeReadingMockPage({ text: 'const x = 1;', tagName: 'pre' });
+      const human = await createHuman(page, { speed: 'instant' });
+      await human.read('.snippet');
+      // Auto-detect runs the tag inspection (evaluate). The resolved 'code'
+      // kind flows into the dwell calculation downstream.
+      expect(locator.evaluate).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips auto-detection when caller passes an explicit kind', async () => {
+      const { page, locator } = makeReadingMockPage({ text: 'const x = 1;', tagName: 'pre' });
+      const beforeAction = vi.fn();
+      const human = await createHuman(page, {
+        speed: 'instant',
+        plugins: [{ name: 'p', beforeAction }],
+      });
+      await human.read('.snippet', { kind: 'scan' });
+      // No tag inspection needed — the caller's kind wins.
+      expect(locator.evaluate).not.toHaveBeenCalled();
+      expect(beforeAction).toHaveBeenCalledWith({
+        type: 'read',
+        params: { target: '.snippet', kind: 'scan' },
+      });
+    });
+
+    it('scrolls into view when requested', async () => {
+      const { page, locator } = makeReadingMockPage({ text: 'a b c' });
+      const human = await createHuman(page, { speed: 'instant' });
+      await human.read('.modal-body', { scrollIntoView: true });
+      expect(locator.scrollIntoViewIfNeeded).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not scroll into view by default', async () => {
+      const { page, locator } = makeReadingMockPage({ text: 'a b c' });
+      const human = await createHuman(page, { speed: 'instant' });
+      await human.read('.banner');
+      expect(locator.scrollIntoViewIfNeeded).not.toHaveBeenCalled();
+    });
+
+    it('does NOT echo literal text content into action params (privacy)', async () => {
+      const beforeAction = vi.fn();
+      const human = await createHuman(makeReadingMockPage().page, {
+        speed: 'instant',
+        plugins: [{ name: 'p', beforeAction }],
+      });
+      await human.read({ text: 'sup3r-secret-confirmation-token-xyz' });
+      const action = beforeAction.mock.calls[0]?.[0];
+      expect(JSON.stringify(action.params)).not.toContain('sup3r-secret');
+      expect(JSON.stringify(action.params)).not.toContain('xyz');
+    });
+
+    it("emits a 'read' action with target description for plugins", async () => {
+      const beforeAction = vi.fn();
+      const afterAction = vi.fn();
+      const human = await createHuman(makeReadingMockPage({ text: 'a b c' }).page, {
+        speed: 'instant',
+        plugins: [{ name: 'p', beforeAction, afterAction }],
+      });
+      await human.read('.welcome');
+      expect(beforeAction).toHaveBeenCalledWith({
+        type: 'read',
+        params: { target: '.welcome', kind: undefined },
+      });
+      const result = afterAction.mock.calls[0]?.[1];
+      expect(result.type).toBe('read');
+      expect(typeof result.durationMs).toBe('number');
+      expect(result.durationMs).toBeGreaterThanOrEqual(0);
+    });
+
+    it('returns dwell of 0 in instant mode', async () => {
+      const { page } = makeReadingMockPage({ text: 'a b c d e f g h i j' });
+      // We can't directly observe the dwell from the public API (read returns void),
+      // but in instant mode no sleep should happen. Smoke test: complete fast.
+      const human = await createHuman(page, { speed: 'instant' });
+      const startedAt = performance.now();
+      await human.read('.long-paragraph');
+      const elapsed = performance.now() - startedAt;
+      expect(elapsed).toBeLessThan(50);
     });
   });
 
