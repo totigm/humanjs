@@ -13,7 +13,7 @@
  *   PERSONALITY=distracted  pnpm demo:read
  */
 
-import { createHuman } from '@humanjs/playwright';
+import { createHuman, installMouseHelper } from '@humanjs/playwright';
 import { chromium } from 'playwright';
 import { parsePersonality } from './lib';
 
@@ -148,6 +148,10 @@ async function main() {
     const context = await browser.newContext({ viewport: { width: 1100, height: 820 } });
     const page = await context.newPage();
     await page.setContent(DEMO_HTML);
+    // Inject the HumanJS cursor overlay so synthetic mouse motion is visible
+    // in headed Chrome — `page.mouse.move()` doesn't render a system pointer.
+    // Installed AFTER setContent because setContent replaces the document.
+    await installMouseHelper(page);
 
     console.log(`Personality: ${personality}\n`);
 
@@ -175,16 +179,21 @@ async function main() {
     // visible alongside the cursor itself, so the headed browser shows where
     // attention is and how it moves.
 
+    // Target the content elements directly, not the outer `.block` wrappers
+    // — the wrappers also contain an absolutely-positioned `<span class="label">`
+    // ("prose", "code (auto-detected)", "scan"), and `withMotion`'s
+    // per-line-rect scan would otherwise include those labels too.
+
     // 1. Prose — defaults to kind 'prose'
-    await human.read('#passage', { withMotion: true });
+    await human.read('.passage', { withMotion: true });
     await new Promise((resolve) => setTimeout(resolve, 600));
 
     // 2. Code — auto-detected from <pre> tag, no explicit kind
-    await human.read('#code', { withMotion: true });
+    await human.read('.code-snippet', { withMotion: true });
     await new Promise((resolve) => setTimeout(resolve, 600));
 
     // 3. Scan — explicit kind to skim a list
-    await human.read('#list', { kind: 'scan', withMotion: true });
+    await human.read('.scan-list', { kind: 'scan', withMotion: true });
 
     console.log('\nDone. Browser will stay open for 5 seconds.');
     console.log('Tip: re-run with PERSONALITY=fast (or precise / distracted) to compare.');

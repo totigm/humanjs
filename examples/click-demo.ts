@@ -12,7 +12,7 @@
  *   PERSONALITY=distracted pnpm demo:click   (default)
  */
 
-import { createHuman } from '@humanjs/playwright';
+import { createHuman, installMouseHelper } from '@humanjs/playwright';
 import { chromium } from 'playwright';
 import { parsePersonality } from './lib';
 
@@ -192,6 +192,10 @@ async function main() {
     const page = await context.newPage();
 
     await page.setContent(DEMO_HTML);
+    // Inject the HumanJS cursor overlay so synthetic mouse motion is visible
+    // in headed Chrome — `page.mouse.move()` doesn't render a system pointer.
+    // Installed AFTER setContent because setContent replaces the document.
+    await installMouseHelper(page);
 
     // Park the real cursor immediately so the demo's starting position is
     // visible the moment the page renders. HumanJS's tracker is aligned via
