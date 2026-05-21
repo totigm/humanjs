@@ -82,14 +82,6 @@ const DEMO_HTML = /* html */ `
         border-radius: 14px;
         transition: border-color 0.4s ease, box-shadow 0.4s ease, color 0.4s ease;
       }
-      .block.reading {
-        border-color: rgba(245, 165, 92, 0.55);
-        box-shadow: 0 0 28px rgba(245, 165, 92, 0.18);
-      }
-      .block.read {
-        border-color: rgba(245, 230, 215, 0.12);
-        color: #777;
-      }
       .label {
         position: absolute;
         top: 12px;
@@ -173,46 +165,26 @@ async function main() {
             );
           },
         },
-        {
-          // Pulses the element being read so the headed browser shows where
-          // attention currently lives. Stripping a single line from the demo
-          // here would lose the brand-relevant visual; the plugin uses the
-          // public observability API the library already exposes.
-          name: 'pulse',
-          beforeAction: async (action) => {
-            if (action.type !== 'read') return;
-            const sel = action.params?.target;
-            if (typeof sel !== 'string') return;
-            await page.evaluate((s) => {
-              document.querySelector(s)?.classList.add('reading');
-            }, sel);
-          },
-          afterAction: async (action) => {
-            if (action.type !== 'read') return;
-            const sel = action.params?.target;
-            if (typeof sel !== 'string') return;
-            await page.evaluate((s) => {
-              const el = document.querySelector(s);
-              el?.classList.remove('reading');
-              el?.classList.add('read');
-            }, sel);
-          },
-        },
       ],
     });
 
     await new Promise((resolve) => setTimeout(resolve, 500));
 
+    // `withMotion: true` walks a humanized cursor scan through each element's
+    // bounding box as the dwell elapses — the third pillar (the pace) made
+    // visible alongside the cursor itself, so the headed browser shows where
+    // attention is and how it moves.
+
     // 1. Prose — defaults to kind 'prose'
-    await human.read('#passage');
+    await human.read('#passage', { withMotion: true });
     await new Promise((resolve) => setTimeout(resolve, 600));
 
     // 2. Code — auto-detected from <pre> tag, no explicit kind
-    await human.read('#code');
+    await human.read('#code', { withMotion: true });
     await new Promise((resolve) => setTimeout(resolve, 600));
 
     // 3. Scan — explicit kind to skim a list
-    await human.read('#list', { kind: 'scan' });
+    await human.read('#list', { kind: 'scan', withMotion: true });
 
     console.log('\nDone. Browser will stay open for 5 seconds.');
     console.log('Tip: re-run with PERSONALITY=fast (or precise / distracted) to compare.');
