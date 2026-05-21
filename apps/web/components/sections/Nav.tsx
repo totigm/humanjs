@@ -87,7 +87,8 @@ export function Nav() {
               onClick={() => setMenuOpen(true)}
               aria-label="Open menu"
               aria-expanded={menuOpen}
-              aria-controls={MOBILE_MENU_ID}
+              // `aria-controls` must reference an element that exists; only point at the panel while it's mounted.
+              aria-controls={menuOpen ? MOBILE_MENU_ID : undefined}
               className="flex h-10 w-10 items-center justify-center rounded-md text-foreground transition-colors hover:bg-surface md:hidden"
             >
               <Menu className="h-5 w-5" />

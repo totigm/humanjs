@@ -47,11 +47,13 @@ export function Button(props: ButtonProps) {
   if ('href' in rest && rest.href !== undefined) {
     const anchorProps = rest as AnchorHTMLAttributes<HTMLAnchorElement>;
     const isExternal = anchorProps.href?.startsWith('http');
+    // Spread caller props first, then layer the external-link guards on top
+    // so a stray `target='_self'` on an external href can't drop our `rel`.
     return (
       <a
         className={classes}
-        {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
         {...anchorProps}
+        {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
       >
         {children}
       </a>

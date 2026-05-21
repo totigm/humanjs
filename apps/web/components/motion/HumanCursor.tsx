@@ -129,7 +129,7 @@ export function HumanCursor() {
       root.removeEventListener('mouseleave', onLeave);
       window.removeEventListener('resize', resize);
       window.cancelAnimationFrame(raf);
-      if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
     };
   }, [enabled]);
 

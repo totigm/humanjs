@@ -1,6 +1,7 @@
 'use client';
 
 import { motion, useReducedMotion, useScroll, useSpring, useTransform } from 'framer-motion';
+import { useId } from 'react';
 
 /**
  * A continuous bezier line that runs down the right edge of the page,
@@ -13,6 +14,8 @@ export function ScrollPath() {
   const smoothed = useSpring(scrollYProgress, { stiffness: 80, damping: 30, mass: 0.5 });
   const dashOffset = useTransform(smoothed, [0, 1], [1200, 0]);
   const endpointOpacity = useTransform(smoothed, [0.95, 1], [0, 1]);
+  const reactId = useId();
+  const gradId = `scroll-path-${reactId}`;
 
   if (shouldReduceMotion) return null;
 
@@ -24,7 +27,7 @@ export function ScrollPath() {
       preserveAspectRatio="none"
     >
       <defs>
-        <linearGradient id="scroll-path-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+        <linearGradient id={gradId} x1="0%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" stopColor="#f5a55c" stopOpacity="0" />
           <stop offset="10%" stopColor="#f5a55c" stopOpacity="0.6" />
           <stop offset="50%" stopColor="#f5a55c" stopOpacity="0.85" />
@@ -35,7 +38,7 @@ export function ScrollPath() {
       <motion.path
         d="M 32 0 C 12 200, 56 380, 28 560 S 8 920, 32 1200"
         fill="none"
-        stroke="url(#scroll-path-gradient)"
+        stroke={`url(#${gradId})`}
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeDasharray="1200"

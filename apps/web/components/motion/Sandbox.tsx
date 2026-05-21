@@ -178,7 +178,13 @@ export function Sandbox({ personality = 'careful', className }: SandboxProps) {
       }
       const newRipple = { id: idRef.current++, pos: target };
       setRipple(newRipple);
-      window.setTimeout(() => setRipple((r) => (r?.id === newRipple.id ? null : r)), RIPPLE_MS);
+      // Track the handle on the shared ref so the unmount cleanup clears it,
+      // matching the RAF-branch behavior and avoiding setState-after-unmount.
+      if (rippleTimerRef.current !== null) window.clearTimeout(rippleTimerRef.current);
+      rippleTimerRef.current = window.setTimeout(() => {
+        setRipple((r) => (r?.id === newRipple.id ? null : r));
+        rippleTimerRef.current = null;
+      }, RIPPLE_MS);
       return;
     }
 
