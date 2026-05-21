@@ -6,7 +6,9 @@ node_modules
 dist
 build
 .turbo
+.next
 *.tsbuildinfo
+next-env.d.ts
 
 # Test outputs
 coverage

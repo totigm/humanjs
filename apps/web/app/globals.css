@@ -1,0 +1,157 @@
+@import "tailwindcss";
+
+@theme {
+  /* Surfaces — dark editorial, never pure black */
+  --color-ink: #020203;
+  --color-canvas: #060604;
+  --color-surface: #0c0b0a;
+  --color-surface-elevated: #110f0d;
+  --color-hairline: rgba(245, 230, 215, 0.06);
+  --color-hairline-strong: rgba(245, 230, 215, 0.12);
+
+  /* Text */
+  --color-foreground: #f0ece5;
+  --color-foreground-warm: #f5ede0;
+  --color-muted: #8a857c;
+  --color-muted-strong: #aaa49a;
+
+  /* Brand */
+  --color-accent: #f5a55c;
+  --color-accent-bright: #ffb87a;
+  --color-accent-deep: #c47a3a;
+  --color-accent-cool: #5b7cc9;
+  --color-accent-glow: rgba(245, 165, 92, 0.22);
+
+  /* Paper warm — used very sparingly for editorial contrast */
+  --color-paper: #f5ede0;
+
+  /* Radii */
+  --radius-card: 12px;
+  --radius-card-lg: 18px;
+  --radius-pill: 999px;
+
+  /* Motion */
+  --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-quint: cubic-bezier(0.83, 0, 0.17, 1);
+
+  /* Fonts */
+  --font-sans: var(--geist), system-ui, -apple-system, sans-serif;
+  --font-serif: var(--instrument-serif), Georgia, serif;
+  --font-mono: var(--geist-mono), ui-monospace, "SF Mono", monospace;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    color-scheme: dark;
+  }
+
+  body {
+    background:
+      radial-gradient(ellipse at top, rgba(245, 165, 92, 0.04) 0%, transparent 50%),
+      var(--color-canvas);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: clip;
+  }
+
+  ::selection {
+    background: var(--color-accent);
+    color: var(--color-ink);
+  }
+
+  ::-webkit-scrollbar {
+    width: 12px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-ink);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(245, 230, 215, 0.08);
+    border-radius: 999px;
+    border: 3px solid var(--color-ink);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(245, 165, 92, 0.3);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      /* biome-ignore lint/complexity/noImportantStyles: required to override JS-driven animations */
+      animation-duration: 0.01ms !important;
+      /* biome-ignore lint/complexity/noImportantStyles: required to override JS-driven animations */
+      animation-iteration-count: 1 !important;
+      /* biome-ignore lint/complexity/noImportantStyles: required to override JS-driven animations */
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@utility font-display {
+  font-family: var(--font-serif);
+  font-feature-settings:
+    "kern" 1,
+    "liga" 1;
+  letter-spacing: -0.01em;
+}
+
+/*
+ * Styled range input. The thumb / track pseudo-elements can't be targeted
+ * by Tailwind utilities cleanly without an unreadable arbitrary-selector
+ * chain — keep the styling here so the component JSX stays a single class.
+ */
+@layer components {
+  .range-slider {
+    display: block;
+    width: 100%;
+    appearance: none;
+    background: transparent;
+    outline: none;
+  }
+
+  .range-slider::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--color-hairline-strong);
+  }
+  .range-slider::-webkit-slider-thumb {
+    appearance: none;
+    margin-top: -6px;
+    height: 14px;
+    width: 14px;
+    border-radius: 999px;
+    background: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(245, 165, 92, 0.18);
+  }
+  .range-slider:focus-visible::-webkit-slider-thumb {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  .range-slider::-moz-range-track {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--color-hairline-strong);
+  }
+  .range-slider::-moz-range-thumb {
+    appearance: none;
+    border: 0;
+    height: 14px;
+    width: 14px;
+    border-radius: 999px;
+    background: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(245, 165, 92, 0.18);
+  }
+  .range-slider:focus-visible::-moz-range-thumb {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
