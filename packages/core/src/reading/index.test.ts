@@ -134,4 +134,26 @@ describe('planReadingScan', () => {
     const four = planReadingScan(box, createRng('l4'), { start: { x: 0, y: 0 }, lines: 4 });
     expect(four.length).toBeGreaterThan(two.length);
   });
+
+  it('uses lineRects to scope sweeps to actual text edges, not the full box', () => {
+    // Mimic a code block: lines are much narrower than the container. The
+    // first line is 80px wide; the second is 200px. Without lineRects, the
+    // scan would sweep the entire box width (600px). With lineRects, each
+    // sweep stops at the line's right edge.
+    const tightRects = [
+      { x: 110, y: 210, width: 80, height: 22 },
+      { x: 110, y: 260, width: 200, height: 22 },
+    ];
+    const path = planReadingScan(box, createRng('lr'), {
+      start: { x: 0, y: 0 },
+      lineRects: tightRects,
+    });
+    // Skip the entry approach.
+    const scanPoints = path.slice(Math.floor(path.length / 4));
+    const maxX = Math.max(...scanPoints.map((p) => p.x));
+    // The sweep should respect the widest line (200px → reaches ~310) and
+    // never extend to the container's right edge (which is x = 700 here).
+    expect(maxX).toBeLessThan(360);
+    expect(maxX).toBeGreaterThan(290);
+  });
 });

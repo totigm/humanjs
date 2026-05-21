@@ -101,6 +101,17 @@ export interface PlanReadingScanOptions {
   readonly curvature?: number;
   /** Number of bezier samples per segment. Higher = smoother motion. Defaults to 12. */
   readonly stepsPerSegment?: number;
+  /**
+   * Per-line rects, in the same coordinate space as `box`. When provided,
+   * each rect's `(x, y + height/2)` and `(x + width, y + height/2)` become
+   * the L→R sweep endpoints for that line — so the scan lands on actual
+   * rendered text instead of the container's full width.
+   *
+   * Typical source: `Range.getClientRects()` on the target element via
+   * Playwright's `locator.evaluate()`. When omitted, the planner falls
+   * back to distributing `lines` evenly inside `box`.
+   */
+  readonly lineRects?: readonly BoundingBox[];
 }
 
 /**
@@ -134,24 +145,36 @@ export function planReadingScan(
 ): readonly Point[] {
   const padding = options.paddingPx ?? 12;
   const curvature = options.curvature ?? 0.15;
-  const stepsPerSegment = options.stepsPerSegment ?? 12;
+  // 30 ≈ one point every 33 ms at a typical reading dwell, which is dense
+  // enough that the path-walker pushes mouse updates fast enough to look
+  // continuous (with a small CSS interpolation in the cursor overlay).
+  const stepsPerSegment = options.stepsPerSegment ?? 30;
 
   const innerX = box.x + padding;
   const innerXEnd = box.x + Math.max(box.width - padding, padding);
   const innerY = box.y + padding;
   const innerHeight = Math.max(1, box.height - padding * 2);
 
-  const lineCount = options.lines ?? Math.min(4, Math.max(2, Math.floor(box.height / 50)));
-
   // Build waypoints: every line sweeps L→R at its band's vertical center, so
   // the path crosses where text actually sits. The bezier segment between
-  // (innerXEnd, y_i) and (innerX, y_{i+1}) becomes the return saccade — a
+  // (lineEnd, y_i) and (lineStart, y_{i+1}) becomes the return saccade — a
   // natural eye-pattern arc back to the start of the next line.
   const waypoints: Point[] = [];
-  for (let i = 0; i < lineCount; i++) {
-    const y = innerY + (innerHeight / lineCount) * (i + 0.5);
-    waypoints.push({ x: innerX, y });
-    waypoints.push({ x: innerXEnd, y });
+  if (options.lineRects && options.lineRects.length > 0) {
+    // Per-line rects from the DOM — sweeps land on actual rendered text
+    // edges instead of the container's bounding box.
+    for (const rect of options.lineRects) {
+      const y = rect.y + rect.height / 2;
+      waypoints.push({ x: rect.x, y });
+      waypoints.push({ x: rect.x + rect.width, y });
+    }
+  } else {
+    const lineCount = options.lines ?? Math.min(4, Math.max(2, Math.floor(box.height / 50)));
+    for (let i = 0; i < lineCount; i++) {
+      const y = innerY + (innerHeight / lineCount) * (i + 0.5);
+      waypoints.push({ x: innerX, y });
+      waypoints.push({ x: innerXEnd, y });
+    }
   }
 
   // Chain humanized bezier segments between consecutive waypoints, starting

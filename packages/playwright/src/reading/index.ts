@@ -147,12 +147,19 @@ export async function executeRead(
   });
 
   if (options.withMotion && locator && durationMs > 0) {
-    // Walk a humanized scan path across the bounding box over the dwell
+    // Walk a humanized scan path across the rendered text over the dwell
     // duration. `walkMouseAlongPath` paces the steps so motion ends exactly
     // as the read does — no extra sleep needed.
     const box = await locator.boundingBox().catch(() => null);
     if (box) {
-      const path = planReadingScan(box, ctx.rng, { start: ctx.getMousePosition() });
+      // Per-line rects make sweeps land on actual text edges, not the
+      // element's full width — important for `<pre>` / `<code>` blocks
+      // where individual lines are far narrower than the container.
+      const lineRects = await getLineRects(locator).catch(() => []);
+      const path = planReadingScan(box, ctx.rng, {
+        start: ctx.getMousePosition(),
+        lineRects: lineRects.length > 0 ? lineRects : undefined,
+      });
       await walkMouseAlongPath(ctx.page, path, durationMs);
       const final = path[path.length - 1];
       if (final) ctx.setMousePosition(final);
@@ -175,6 +182,78 @@ export async function executeRead(
  * be too magical. Returns undefined for anything else, so the caller's
  * resolution chain falls back to `'prose'`.
  */
+/**
+ * Returns one rect per visible line of *text* inside the element, in
+ * viewport coordinates (same space as `locator.boundingBox()`).
+ *
+ * Walks text-node descendants and collects each text node's line rects via
+ * `Range.getClientRects()`. This is the only way to get tight per-line
+ * geometry when the target contains block-level descendants — calling
+ * `selectNodeContents` over a `<ul>` or `<div>` would return the block's
+ * content box (full container width), not the rendered text edges.
+ *
+ * Rects on the same visual line (e.g. text broken by `<strong>` / `<em>`)
+ * are merged so the planner sweeps each line as a single L→R stroke
+ * rather than zigzagging through inline siblings.
+ */
+async function getLineRects(
+  locator: Locator,
+): Promise<Array<{ x: number; y: number; width: number; height: number }>> {
+  const result = await locator.evaluate((el) => {
+    type Rect = { x: number; y: number; width: number; height: number };
+    // `4` === `NodeFilter.SHOW_TEXT`. Hardcoded so we don't depend on the
+    // global `NodeFilter` being in the Node-side TS lib.
+    const walker = el.ownerDocument.createTreeWalker(el, 4);
+    const rects: Rect[] = [];
+    let node = walker.nextNode();
+    while (node) {
+      const text = node.textContent ?? '';
+      if (text.trim().length > 0) {
+        const range = el.ownerDocument.createRange();
+        range.selectNodeContents(node);
+        for (const r of Array.from(range.getClientRects())) {
+          if (r.width > 0 && r.height > 0) {
+            rects.push({ x: r.x, y: r.y, width: r.width, height: r.height });
+          }
+        }
+      }
+      node = walker.nextNode();
+    }
+
+    // Merge rects that sit on the same visual line — text broken by inline
+    // siblings ("hello <strong>bold</strong> world") produces three rects
+    // with the same y. Merged, that becomes a single L→R stroke across the
+    // full line of text.
+    rects.sort((a, b) => a.y - b.y || a.x - b.x);
+    const merged: Rect[] = [];
+    for (const r of rects) {
+      const last = merged[merged.length - 1];
+      if (last && Math.abs(last.y - r.y) < 1 && r.x - (last.x + last.width) < 6) {
+        const right = Math.max(last.x + last.width, r.x + r.width);
+        const bottom = Math.max(last.y + last.height, r.y + r.height);
+        last.width = right - last.x;
+        last.height = bottom - last.y;
+      } else {
+        merged.push({ ...r });
+      }
+    }
+    return merged;
+  });
+  // Defensive: validate the evaluate result is an array of rect-shaped
+  // objects before handing it to the planner. Cheap, and keeps the planner
+  // from ever seeing junk from a mocked evaluate or an exotic test harness.
+  if (!Array.isArray(result)) return [];
+  return result.filter(
+    (r): r is { x: number; y: number; width: number; height: number } =>
+      r != null &&
+      typeof r === 'object' &&
+      typeof (r as { x?: unknown }).x === 'number' &&
+      typeof (r as { y?: unknown }).y === 'number' &&
+      typeof (r as { width?: unknown }).width === 'number' &&
+      typeof (r as { height?: unknown }).height === 'number',
+  );
+}
+
 async function detectKindFromTag(locator: Locator): Promise<ReadKind | undefined> {
   // `evaluate` runs the function in the browser context; Playwright's types
   // give the callback a DOM Element here without needing the lib.dom ref
