@@ -10,6 +10,7 @@ import {
   resolvePersonality,
 } from '@humanjs/core';
 import type { Locator, Page } from 'playwright';
+import { executeType } from './keyboard';
 import { executeClick } from './mouse';
 
 export type {
@@ -20,11 +21,13 @@ export type {
   HumanAction,
   HumanizePathOptions,
   HumanPlugin,
+  Keystroke,
   KnownActionType,
   MouseProfile,
   Personality,
   PersonalityConfig,
   PersonalityExtension,
+  PlanTypingOptions,
   PluginContext,
   Point,
   PresetName,
@@ -43,6 +46,7 @@ export {
   distracted,
   fast,
   humanizePath,
+  planTypeKeystrokes,
   precise,
   resolvePersonality,
 } from '@humanjs/core';
@@ -96,6 +100,17 @@ export interface Human {
    * native `locator.click()` is used directly.
    */
   click(target: Locator | string): Promise<void>;
+  /**
+   * Type `value` into `target` with humanized per-key timing, optional typo
+   * injection (with backspace recovery), and occasional think-pauses.
+   *
+   * Per-key `keydown`/`press`/`up` events fire for each character, so
+   * handlers like autocomplete dropdowns still receive every keystroke.
+   *
+   * In `speed: 'instant'`, falls back to `locator.pressSequentially` with
+   * zero inter-key delay — events still fire, but humanization is skipped.
+   */
+  type(target: Locator | string, value: string): Promise<void>;
 }
 
 /**
@@ -175,6 +190,17 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
           },
         });
       });
+    },
+    async type(target, value) {
+      const description = typeof target === 'string' ? target : (target.toString?.() ?? 'locator');
+      // `value` itself is intentionally not echoed into params — typed input may
+      // be sensitive (passwords, tokens). Expose length only for observability.
+      await performAction(
+        { type: 'type', params: { target: description, length: value.length } },
+        async () => {
+          await executeType(target, value, { page, personality, rng, speed });
+        },
+      );
     },
   };
 }

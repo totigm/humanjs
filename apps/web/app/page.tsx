@@ -10,6 +10,7 @@ import {
   PersonalityLab,
   Playground,
   TrustStrip,
+  TypingShowcase,
 } from '../components/sections';
 
 export default function Page() {
@@ -20,6 +21,7 @@ export default function Page() {
         <Hero />
         <Comparison />
         <Playground />
+        <TypingShowcase />
         <Audience />
         <FeatureBento />
         <PersonalityLab />

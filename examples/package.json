@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "click": "tsx click-demo.ts",
-    "compare": "tsx compare-demo.ts"
+    "compare": "tsx compare-demo.ts",
+    "type": "tsx type-demo.ts"
   },
   "dependencies": {
     "@humanjs/playwright": "workspace:*",
