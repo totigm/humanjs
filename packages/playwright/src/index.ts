@@ -55,6 +55,8 @@ export {
   precise,
   resolvePersonality,
 } from '@humanjs/core';
+export type { InstallMouseHelperOptions } from './mouse-helper';
+export { installMouseHelper } from './mouse-helper';
 export type { ReadOptions, ReadResult, ReadTarget } from './reading';
 
 /**
