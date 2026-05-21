@@ -13,6 +13,7 @@ import type { Locator, Page } from 'playwright';
 import { executeType } from './keyboard';
 import { executeClick } from './mouse';
 import { executeRead, type ReadOptions, type ReadResult, type ReadTarget } from './reading';
+import { executeScroll, type ScrollOptions, type ScrollResult, type ScrollTarget } from './scroll';
 
 export type {
   ActionResult,
@@ -36,6 +37,8 @@ export type {
   ReadingProfile,
   ReadKind,
   Rng,
+  ScrollProfile,
+  ScrollSegment,
   TypingProfile,
 } from '@humanjs/core';
 // Re-exports of the public core API so consumers have one import surface.
@@ -51,6 +54,7 @@ export {
   distracted,
   fast,
   humanizePath,
+  planScroll,
   planTypeKeystrokes,
   precise,
   resolvePersonality,
@@ -58,6 +62,7 @@ export {
 export type { InstallMouseHelperOptions } from './mouse-helper';
 export { installMouseHelper } from './mouse-helper';
 export type { ReadOptions, ReadResult, ReadTarget } from './reading';
+export type { ScrollOptions, ScrollResult, ScrollTarget } from './scroll';
 
 /**
  * How fast the humanized session runs.
@@ -147,6 +152,30 @@ export interface Human {
    * tests or for surfacing reading metadata to a UI.
    */
   read(target: ReadTarget, options?: ReadOptions): Promise<ReadResult>;
+  /**
+   * Scroll the page humanly. Multi-segment wheel motion with a bell-curve
+   * velocity profile, optional mid-scroll micro-pauses, and (for the
+   * `distracted` personality) the occasional overshoot + correction.
+   *
+   * **Targets:**
+   *  - `'natural'` (default): scroll ~one viewport down — what a real reader does
+   *  - `'end'` / `'top'`: jump to the document edges, humanized along the way
+   *  - `string`: a Playwright-compatible selector — scroll until in view
+   *  - `Locator`: same, but with a pre-built handle
+   *  - `{ by: n }`: relative pixel delta (negative = up)
+   *  - `{ to: n }`: absolute `window.scrollY` target
+   *
+   * Plugins observe `'scroll'` actions with `{ target, fromY, toY, distance }`
+   * — all inert metadata, safe to log.
+   *
+   * In `speed: 'instant'`, the page is moved with a single `window.scrollTo`
+   * call. No wheel events, no segments — but the action still fires for
+   * observability.
+   *
+   * Returns a {@link ScrollResult} with the resolved Y coordinates and
+   * elapsed motion time, useful for assertions in tests.
+   */
+  scroll(target?: ScrollTarget, options?: ScrollOptions): Promise<ScrollResult>;
 }
 
 /**
@@ -271,7 +300,30 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
           ),
       );
     },
+    async scroll(target, options) {
+      const description = describeScrollTarget(target);
+      return performAction(
+        {
+          type: 'scroll',
+          params: { target: description },
+        },
+        () => executeScroll(target, { page, personality, rng, speed }, options),
+      );
+    },
   };
+}
+
+/**
+ * Human-readable description of a scroll target for action params. Strings
+ * (presets + selectors) pass through; objects describe their shape; the
+ * Locator branch falls back to `toString()`.
+ */
+function describeScrollTarget(target: ScrollTarget | undefined): string {
+  if (target === undefined) return 'natural';
+  if (typeof target === 'string') return target;
+  if ('by' in target) return `by:${target.by}`;
+  if ('to' in target) return `to:${target.to}`;
+  return target.toString?.() ?? 'locator';
 }
 
 /**
