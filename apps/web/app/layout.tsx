@@ -1,3 +1,5 @@
+import { Analytics } from '@vercel/analytics/next';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono, Instrument_Serif } from 'next/font/google';
 import {
@@ -84,6 +86,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <HumanCursor />
           <CursorToggle />
         </HumanCursorProvider>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
