@@ -6,17 +6,12 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { cn } from '../../lib/cn';
 import { makeHumanizedPath, pointAt, toSvgPathD } from '../../lib/path';
 import { DemoStatusBar } from './DemoStatusBar';
-import { HUMAN_CURSOR_PATH, HumanCursorIcon } from './HumanCursorIcon';
+import { HUMAN_CURSOR_CSS, HumanCursorIcon } from './HumanCursorIcon';
 
 const VIEW_W = 720;
 const VIEW_H = 400;
 const RIPPLE_MS = 500;
 const INITIAL_CURSOR: Point = { x: VIEW_W * 0.5, y: VIEW_H * 0.5 };
-
-// HumanJS cursor as a CSS custom-pointer data URI. Re-uses the canonical
-// path; this is the one place where the path lives inside a string instead
-// of JSX, so the duplication of literal coords is intentional.
-const CURSOR_DATA_URI = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='24' viewBox='0 0 22 24'><path d='${HUMAN_CURSOR_PATH}' fill='%23f5a55c' stroke='%23020203' stroke-width='0.7' stroke-linejoin='round'/></svg>") 2 2, crosshair`;
 
 interface ClickEvent {
   id: number;
@@ -233,7 +228,7 @@ export function Sandbox({ personality = 'careful', className }: SandboxProps) {
           ref={svgRef}
           viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
           className="block h-auto w-full"
-          style={{ cursor: CURSOR_DATA_URI }}
+          style={{ cursor: HUMAN_CURSOR_CSS }}
           onClick={handleClick}
           aria-hidden
         >
