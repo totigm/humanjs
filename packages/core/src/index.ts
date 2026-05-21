@@ -14,6 +14,7 @@ export type {
   MouseProfile,
   Personality,
   ReadingProfile,
+  ScrollProfile,
   TypingProfile,
 } from './personality';
 export type {
@@ -40,5 +41,7 @@ export type {
 export { resolvePersonality } from './resolve';
 export type { Rng } from './rng';
 export { createRng } from './rng';
+export type { PlanScrollOptions, ScrollSegment } from './scroll';
+export { planScroll } from './scroll';
 export type { Keystroke, PlanTypingOptions } from './typing';
 export { planTypeKeystrokes } from './typing';
