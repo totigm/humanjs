@@ -18,6 +18,7 @@ import {
   bezierPath,
   createRng,
   humanizePath,
+  installMouseHelper,
   type Personality,
   type Point,
   resolvePersonality,
@@ -402,6 +403,10 @@ async function main() {
     });
     const page = await context.newPage();
     await page.setContent(makeDemoHtml(personalityA, personalityB));
+    // Inject the HumanJS cursor overlay so synthetic mouse motion is visible
+    // in headed Chrome — `page.mouse.move()` doesn't render a system pointer.
+    // Installed AFTER setContent because setContent replaces the document.
+    await installMouseHelper(page);
 
     await new Promise((resolve) => setTimeout(resolve, 1200));
 

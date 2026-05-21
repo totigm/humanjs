@@ -12,11 +12,13 @@ import {
 import type { Locator, Page } from 'playwright';
 import { executeType } from './keyboard';
 import { executeClick } from './mouse';
+import { executeRead, type ReadOptions, type ReadResult, type ReadTarget } from './reading';
 
 export type {
   ActionResult,
   ActionType,
   BezierPathOptions,
+  ComputeReadingDwellOptions,
   DwellProfile,
   HumanAction,
   HumanizePathOptions,
@@ -32,6 +34,7 @@ export type {
   Point,
   PresetName,
   ReadingProfile,
+  ReadKind,
   Rng,
   TypingProfile,
 } from '@humanjs/core';
@@ -42,6 +45,8 @@ export {
   bezierPath,
   blend,
   careful,
+  computeReadingDwellMs,
+  countWords,
   createRng,
   distracted,
   fast,
@@ -50,6 +55,9 @@ export {
   precise,
   resolvePersonality,
 } from '@humanjs/core';
+export type { InstallMouseHelperOptions } from './mouse-helper';
+export { installMouseHelper } from './mouse-helper';
+export type { ReadOptions, ReadResult, ReadTarget } from './reading';
 
 /**
  * How fast the humanized session runs.
@@ -111,6 +119,34 @@ export interface Human {
    * zero inter-key delay — events still fire, but humanization is skipped.
    */
   type(target: Locator | string, value: string): Promise<void>;
+  /**
+   * Dwell as if reading `target` — the third pillar of humanization after
+   * the cursor and the keyboard. Real users pause to read; HumanJS models
+   * that pause from word count + the personality's reading WPM (+ jitter).
+   *
+   * **Targets:**
+   *  - `string`: a Playwright-compatible selector (matches `click()`/`type()`).
+   *  - `Locator`: a pre-built Locator.
+   *  - `{ text }`: literal text in hand (no DOM lookup).
+   *  - `{ words }`: pre-counted — skip text extraction entirely.
+   *
+   * **Smart defaults** (only when the caller doesn't override):
+   *  - `kind` auto-detects as `'code'` for `<pre>` and `<code>` tags;
+   *    everything else falls back to `'prose'`. Explicit `kind` always wins.
+   *  - `scrollIntoView: false` — most flows already scrolled to the content.
+   *
+   * Plugins observe `'read'` actions with `{ target, words, kind }` in params.
+   * The text content itself is never echoed — passwords, tokens, and other
+   * sensitive strings stay out of telemetry by default.
+   *
+   * In `speed: 'instant'`, dwell collapses to 0 ms but the action still fires
+   * so observability stays consistent.
+   *
+   * Returns a {@link ReadResult} with the word count, final kind (after
+   * auto-detection), and total dwell duration — useful for assertions in
+   * tests or for surfacing reading metadata to a UI.
+   */
+  read(target: ReadTarget, options?: ReadOptions): Promise<ReadResult>;
 }
 
 /**
@@ -202,5 +238,52 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
         },
       );
     },
+    async read(target, options) {
+      const description = describeReadTarget(target);
+      // Same privacy posture as `type`: never echo arbitrary content into
+      // action params. `target` description, words (when known up front), and
+      // kind are inert metadata; the text itself never lands here.
+      return performAction(
+        {
+          type: 'read',
+          params: {
+            target: description,
+            kind: options?.kind,
+          },
+        },
+        () =>
+          executeRead(
+            target,
+            {
+              page,
+              personality,
+              rng,
+              speed,
+              // Read shares the session's tracked cursor position so an eye
+              // scan starts from where the last click left off, and the next
+              // click starts from where the scan ended.
+              getMousePosition: () => lastMousePosition,
+              setMousePosition: (point) => {
+                lastMousePosition = point;
+              },
+            },
+            options,
+          ),
+      );
+    },
   };
+}
+
+/**
+ * Human-readable description of a read target for action params. Echoes
+ * selectors and `{ words }` (both inert); abbreviates literal text to its
+ * length so we never expose content even via accidental logging.
+ */
+function describeReadTarget(target: ReadTarget): string {
+  if (typeof target === 'string') return target;
+  if ('words' in target && typeof target.words === 'number') return `${target.words} words`;
+  if ('text' in target && typeof target.text === 'string') {
+    return `text:${target.text.length} chars`;
+  }
+  return target.toString?.() ?? 'locator';
 }

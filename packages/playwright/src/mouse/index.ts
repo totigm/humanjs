@@ -1,6 +1,7 @@
 import { bezierPath, humanizePath, type Personality, type Point, type Rng } from '@humanjs/core';
 import type { Locator, Page } from 'playwright';
 import type { Speed } from '../index';
+import { walkMouseAlongPath } from '../internal/mouse-walk';
 import { computeDwellTime, sleep, speedModeFactor } from '../internal/timing';
 
 /** Runtime dependencies for a humanized mouse action. */
@@ -69,7 +70,8 @@ export async function executeClick(
   });
   const path = humanizePath(rawPath, ctx.rng);
 
-  await walkMouseAlongPath(ctx.page, path, ctx.personality, ctx.rng, ctx.speed);
+  const travelMs = computeTravelTime(path, ctx.personality, ctx.speed, ctx.rng);
+  await walkMouseAlongPath(ctx.page, path, travelMs);
 
   // Hover dwell — a real user briefly settles on the target before clicking.
   const preClickMs = computeDwellTime(
@@ -121,32 +123,6 @@ function pickClickPoint(box: BoundingBox, rng: Rng): Point {
   const x = clamp(cx + rng.nextGaussian(0, box.width / 8), box.x, box.x + box.width);
   const y = clamp(cy + rng.nextGaussian(0, box.height / 8), box.y, box.y + box.height);
   return { x, y };
-}
-
-/**
- * Walks the mouse along the path with timing scaled by personality + speed.
- * Sleeps between moves so the path is visible to observers (and to whatever
- * timing-based detector is watching).
- */
-async function walkMouseAlongPath(
-  page: Page,
-  path: readonly Point[],
-  personality: Personality,
-  rng: Rng,
-  speed: Speed,
-): Promise<void> {
-  if (path.length === 0) return;
-  const totalTimeMs = computeTravelTime(path, personality, speed, rng);
-  const stepDelayMs = path.length > 1 ? totalTimeMs / (path.length - 1) : 0;
-
-  for (let i = 0; i < path.length; i++) {
-    const point = path[i];
-    if (!point) continue;
-    await page.mouse.move(point.x, point.y);
-    if (i < path.length - 1 && stepDelayMs > 0) {
-      await sleep(stepDelayMs);
-    }
-  }
 }
 
 /**

@@ -13,7 +13,7 @@
  *   PERSONALITY=distracted  pnpm demo:type
  */
 
-import { createHuman } from '@humanjs/playwright';
+import { createHuman, installMouseHelper } from '@humanjs/playwright';
 import { chromium } from 'playwright';
 import { parsePersonality } from './lib';
 
@@ -164,6 +164,10 @@ async function main() {
     const page = await context.newPage();
 
     await page.setContent(DEMO_HTML);
+    // Inject the HumanJS cursor overlay so synthetic mouse motion is visible
+    // in headed Chrome — `page.mouse.move()` doesn't render a system pointer.
+    // Installed AFTER setContent because setContent replaces the document.
+    await installMouseHelper(page);
     await page.evaluate((name) => {
       const el = document.getElementById('personality');
       if (el) el.textContent = name;
