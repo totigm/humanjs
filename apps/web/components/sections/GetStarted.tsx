@@ -1,7 +1,14 @@
 import { ArrowRight } from 'lucide-react';
 import { CodeBlock, InstallCommand } from '../code';
 import { GithubMark } from '../icons';
-import { Button, Container, ScrollReveal, Section } from '../primitives';
+import {
+  Button,
+  Container,
+  ScrollReveal,
+  Section,
+  SectionEyebrow,
+  SectionHeadline,
+} from '../primitives';
 
 const exampleCode = `import { chromium } from 'playwright';
 import { createHuman } from '@humanjs/playwright';
@@ -25,16 +32,11 @@ export function GetStarted() {
       <Container width="lg">
         <ScrollReveal>
           <div className="mb-12 max-w-3xl md:mb-16">
-            <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.3em] text-muted">
-              Get started
-            </p>
-            <h2
-              className="text-balance text-4xl font-medium leading-[1.05] tracking-[-0.02em] md:text-6xl"
-              data-ghost-cursor="true"
-            >
+            <SectionEyebrow>Get started</SectionEyebrow>
+            <SectionHeadline data-ghost-cursor="true">
               One install.{' '}
               <span className="font-display italic text-accent">One line of code different.</span>
-            </h2>
+            </SectionHeadline>
             <p className="mt-6 max-w-xl text-balance text-base text-muted-strong md:text-lg">
               HumanJS wraps Playwright. Same selectors, same locator API. The only thing that
               changes is what happens between two points.

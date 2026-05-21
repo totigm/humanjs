@@ -1,6 +1,6 @@
 import { CodeBlock } from '../code';
 import { ComparisonDemo } from '../motion';
-import { Container, ScrollReveal, Section } from '../primitives';
+import { Container, ScrollReveal, Section, SectionEyebrow, SectionHeadline } from '../primitives';
 
 const playwrightCode = `// Playwright — straight to the click
 await page.click('button[type=submit]');
@@ -26,16 +26,11 @@ export function Comparison() {
       <Container width="lg">
         <ScrollReveal>
           <div className="mb-14 max-w-3xl md:mb-20">
-            <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.3em] text-muted">
-              Side by side
-            </p>
-            <h2
-              className="text-balance text-4xl font-medium leading-[1.05] tracking-[-0.02em] md:text-6xl"
-              data-ghost-cursor="true"
-            >
+            <SectionEyebrow>Side by side</SectionEyebrow>
+            <SectionHeadline data-ghost-cursor="true">
               The click stays the same.{' '}
               <span className="font-display italic text-accent">Everything around it changes.</span>
-            </h2>
+            </SectionHeadline>
             <p className="mt-6 max-w-xl text-balance text-base text-muted-strong md:text-lg">
               Same selector. Same Playwright underneath. The library only edits how it gets to the
               button — and how it leaves.

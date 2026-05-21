@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import { Bot, ClapperboardIcon, FlaskConical } from 'lucide-react';
 import { cn } from '../../lib/cn';
-import { Container, ScrollReveal, Section } from '../primitives';
+import { Container, ScrollReveal, Section, SectionEyebrow, SectionHeadline } from '../primitives';
 
 interface AudienceCardData {
   icon: LucideIcon;
@@ -40,16 +40,11 @@ export function Audience() {
       <Container width="lg">
         <ScrollReveal>
           <div className="mb-12 max-w-3xl md:mb-16">
-            <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.3em] text-muted">
-              Three audiences
-            </p>
-            <h2
-              className="text-balance text-4xl font-medium leading-[1.05] tracking-[-0.02em] md:text-6xl"
-              data-ghost-cursor="true"
-            >
+            <SectionEyebrow>Three audiences</SectionEyebrow>
+            <SectionHeadline data-ghost-cursor="true">
               Built for the people who can't{' '}
               <span className="font-display italic text-accent">afford to be obvious.</span>
-            </h2>
+            </SectionHeadline>
           </div>
         </ScrollReveal>
 

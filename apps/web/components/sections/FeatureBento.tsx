@@ -2,7 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 import { Activity, GitBranch, KeyboardIcon, Sparkles, TimerReset, Zap } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { BezierDecoration } from '../motion';
-import { Container, ScrollReveal, Section } from '../primitives';
+import { Container, ScrollReveal, Section, SectionEyebrow, SectionHeadline } from '../primitives';
 
 interface FeatureCell {
   icon: LucideIcon;
@@ -60,15 +60,10 @@ export function FeatureBento() {
       <Container width="lg">
         <ScrollReveal>
           <div className="mb-12 max-w-3xl md:mb-16">
-            <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.3em] text-muted">
-              Under the hood
-            </p>
-            <h2
-              className="text-balance text-4xl font-medium leading-[1.05] tracking-[-0.02em] md:text-6xl"
-              data-ghost-cursor="true"
-            >
+            <SectionEyebrow>Under the hood</SectionEyebrow>
+            <SectionHeadline data-ghost-cursor="true">
               Realism, <span className="font-display italic text-accent">all the way down.</span>
-            </h2>
+            </SectionHeadline>
           </div>
         </ScrollReveal>
 

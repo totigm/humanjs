@@ -6,7 +6,13 @@ import { RotateCcw } from 'lucide-react';
 import { type KeyboardEvent, useRef, useState } from 'react';
 import { EASE_EXPO } from '../../../lib/motion';
 import { PersonalityCursor } from '../../motion/PersonalityCursor';
-import { Container, ScrollReveal, Section } from '../../primitives';
+import {
+  Container,
+  ScrollReveal,
+  Section,
+  SectionEyebrow,
+  SectionHeadline,
+} from '../../primitives';
 import { ConfigSnippet } from './ConfigSnippet';
 import { PersonalityTab } from './PersonalityTab';
 import { PresetStats } from './PresetStats';
@@ -68,13 +74,11 @@ export function PersonalityLab() {
       <Container width="lg">
         <ScrollReveal>
           <div className="mb-12 max-w-3xl md:mb-16">
-            <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.3em] text-muted">
-              The lab
-            </p>
-            <h2 className="text-balance text-4xl font-medium leading-[1.05] tracking-[-0.02em] md:text-6xl">
+            <SectionEyebrow>The lab</SectionEyebrow>
+            <SectionHeadline>
               Four shapes of human.{' '}
               <span className="font-display italic text-accent">Mess with them.</span>
-            </h2>
+            </SectionHeadline>
             <p className="mt-6 max-w-xl text-balance text-base text-muted-strong md:text-lg">
               Personalities are pure data. Pick one, drag the sliders, watch the cursor change live.
               Then ship that config as a preset of your own.

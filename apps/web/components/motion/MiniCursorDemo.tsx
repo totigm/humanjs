@@ -5,6 +5,7 @@ import { motion, useInView, useReducedMotion } from 'framer-motion';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { IN_VIEW_MARGIN } from '../../lib/motion';
 import { makeHumanizedPath, pointAt, toSvgPathD } from '../../lib/path';
+import { DemoStatusBar } from './DemoStatusBar';
 import { HumanCursorIcon } from './HumanCursorIcon';
 
 const WIDTH = 360;
@@ -139,15 +140,7 @@ export function MiniCursorDemo({ className }: MiniCursorDemoProps) {
   return (
     <div ref={containerRef} className={className}>
       <div className="relative overflow-hidden rounded-card-lg border border-hairline bg-surface/70 backdrop-blur-sm">
-        <div className="flex items-center justify-between border-b border-hairline px-4 py-2.5">
-          <div className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
-              human.click()
-            </span>
-          </div>
-          <span className="font-mono text-[10px] text-muted/60">{cycle.target.id}</span>
-        </div>
+        <DemoStatusBar label="human.click()" sublabel={cycle.target.id} />
 
         <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="block h-auto w-full" aria-hidden>
           <defs>

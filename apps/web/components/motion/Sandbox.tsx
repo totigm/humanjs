@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { cn } from '../../lib/cn';
 import { makeHumanizedPath, pointAt, toSvgPathD } from '../../lib/path';
+import { DemoStatusBar } from './DemoStatusBar';
 import { HUMAN_CURSOR_PATH, HumanCursorIcon } from './HumanCursorIcon';
 
 const VIEW_W = 720;
@@ -205,17 +206,14 @@ export function Sandbox({ personality = 'careful', className }: SandboxProps) {
         className,
       )}
     >
-      <div className="flex items-center justify-between border-b border-hairline px-4 py-2.5">
-        <div className="flex items-center gap-2">
-          <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
-            playground
-          </span>
-        </div>
-        <span className="font-mono text-[10px] text-muted/70">
-          personality: <span className="text-accent">{personality}</span>
-        </span>
-      </div>
+      <DemoStatusBar
+        label="playground"
+        sublabel={
+          <>
+            personality: <span className="text-accent">{personality}</span>
+          </>
+        }
+      />
 
       {/*
         The interactive role lives on this wrapper div, not the svg, because

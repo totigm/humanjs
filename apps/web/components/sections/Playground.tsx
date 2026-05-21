@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { useState } from 'react';
 import { cn } from '../../lib/cn';
 import { Sandbox } from '../motion/Sandbox';
-import { Container, ScrollReveal, Section } from '../primitives';
+import { Container, ScrollReveal, Section, SectionEyebrow, SectionHeadline } from '../primitives';
 
 const personalities: { key: PresetName; label: string; hint: string }[] = [
   { key: 'careful', label: 'careful', hint: 'curved, slow' },
@@ -22,16 +22,11 @@ export function Playground() {
       <Container width="lg">
         <ScrollReveal>
           <div className="mb-10 max-w-3xl md:mb-12">
-            <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.3em] text-muted">
-              Try it
-            </p>
-            <h2
-              className="text-balance text-4xl font-medium leading-[1.05] tracking-[-0.02em] md:text-6xl"
-              data-ghost-cursor="true"
-            >
+            <SectionEyebrow>Try it</SectionEyebrow>
+            <SectionHeadline data-ghost-cursor="true">
               Stop reading.{' '}
               <span className="font-display italic text-accent">Move it yourself.</span>
-            </h2>
+            </SectionHeadline>
             <p className="mt-6 max-w-xl text-balance text-base text-muted-strong md:text-lg">
               Click anywhere in the box. The cursor draws a real Bezier path to the point you picked
               — exactly the same code that drives{' '}

@@ -6,6 +6,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { cn } from '../../lib/cn';
 import { IN_VIEW_MARGIN } from '../../lib/motion';
 import { makeHumanizedPath, pointAt, toSvgPathD } from '../../lib/path';
+import { DemoStatusBar } from './DemoStatusBar';
 import { HumanCursorIcon } from './HumanCursorIcon';
 
 const CONTAINER_W = 320;
@@ -220,15 +221,12 @@ function BrowserMock({
         accentRing,
       )}
     >
-      <div className="flex items-center justify-between border-b border-hairline px-4 py-2.5">
-        <div className="flex items-center gap-2">
-          <span className={cn('h-1.5 w-1.5 rounded-full', accentDot)} />
-          <span className={cn('font-mono text-[11px] uppercase tracking-[0.18em]', accentText)}>
-            {label}
-          </span>
-        </div>
-        <span className="font-mono text-[10px] text-muted/70">{sublabel}</span>
-      </div>
+      <DemoStatusBar
+        label={label}
+        sublabel={sublabel}
+        dotClassName={accentDot}
+        labelClassName={accentText}
+      />
 
       <div
         className="relative mx-auto"

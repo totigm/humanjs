@@ -1,5 +1,5 @@
 import { Minus, Plus } from 'lucide-react';
-import { Container, ScrollReveal, Section } from '../primitives';
+import { Container, ScrollReveal, Section, SectionEyebrow } from '../primitives';
 
 const inScope = [
   'Bezier mouse paths with overshoot & micro-jitter',
@@ -33,9 +33,9 @@ export function HonestLimits() {
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-16">
           <div className="lg:col-span-5">
             <ScrollReveal>
-              <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.3em] text-muted">
+              <SectionEyebrow>
                 <span className="text-accent">·</span> Designed scope
-              </p>
+              </SectionEyebrow>
             </ScrollReveal>
 
             <ScrollReveal delay={0.06}>
