@@ -33,3 +33,5 @@ export type {
 export { resolvePersonality } from './resolve';
 export type { Rng } from './rng';
 export { createRng } from './rng';
+export type { Keystroke, PlanTypingOptions } from './typing';
+export { planTypeKeystrokes } from './typing';

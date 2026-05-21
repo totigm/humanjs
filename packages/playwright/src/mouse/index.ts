@@ -1,6 +1,7 @@
 import { bezierPath, humanizePath, type Personality, type Point, type Rng } from '@humanjs/core';
 import type { Locator, Page } from 'playwright';
 import type { Speed } from '../index';
+import { computeDwellTime, sleep, speedModeFactor } from '../internal/timing';
 
 /** Runtime dependencies for a humanized mouse action. */
 export interface MouseContext {
@@ -176,47 +177,10 @@ function computeTravelTime(
   return Math.max(0, total);
 }
 
-/**
- * Dwell time in ms for a single pause.
- *
- *   base = meanMs
- *   jitter = base * jitterFraction * rand[-1, 1]
- *   total = (base + jitter) * Personality.speed * speedModeFactor
- *
- * Returns 0 for zero/negative inputs so callers can skip the sleep entirely.
- */
-function computeDwellTime(
-  meanMs: number,
-  jitter: number,
-  personality: Personality,
-  speed: Speed,
-  rng: Rng,
-): number {
-  if (meanMs <= 0) return 0;
-  const jitterMag = meanMs * jitter;
-  const offset = rng.nextFloat(-jitterMag, jitterMag);
-  return Math.max(0, (meanMs + offset) * personality.speed * speedModeFactor(speed));
-}
-
-function speedModeFactor(speed: Speed): number {
-  switch (speed) {
-    case 'fast':
-      return 0.5;
-    case 'instant':
-      return 0;
-    default:
-      return 1;
-  }
-}
-
 function describeTarget(target: Locator | string): string {
   return typeof target === 'string' ? target : (target.toString?.() ?? 'locator');
 }
 
 function clamp(value: number, min: number, max: number): number {
   return value < min ? min : value > max ? max : value;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
