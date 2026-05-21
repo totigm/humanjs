@@ -52,6 +52,18 @@ describe('built-in presets', () => {
         expect(preset.reading.wpm).toBeLessThan(500);
       });
 
+      it('types at a plausible human WPM', () => {
+        // Effective per-character delay = baseDelayMs × speed.
+        // Convert to WPM via the canonical 5-chars-per-word convention.
+        const msPerChar = preset.typing.baseDelayMs * preset.speed;
+        const wpm = 60_000 / (msPerChar * 5);
+        // World-record typing tops out around 216 wpm. We clamp comfortably
+        // below the record so even our "fast" personality stays clearly human.
+        // Floor allows for distracted/half-attentive typing.
+        expect(wpm).toBeGreaterThan(20);
+        expect(wpm).toBeLessThan(200);
+      });
+
       it('uses positive timing values', () => {
         expect(preset.mouse.travelTimeMs).toBeGreaterThan(0);
         expect(preset.typing.baseDelayMs).toBeGreaterThan(0);
