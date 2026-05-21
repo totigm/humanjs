@@ -8,6 +8,7 @@
     "click": "tsx click-demo.ts",
     "compare": "tsx compare-demo.ts",
     "read": "tsx read-demo.ts",
+    "scroll": "tsx scroll-demo.ts",
     "type": "tsx type-demo.ts"
   },
   "dependencies": {

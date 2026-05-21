@@ -106,6 +106,46 @@ Useful for test assertions or surfacing reading metadata in a UI.
 
 **Privacy**: the read text is never echoed to plugin params. `read` actions surface only `{ target, kind }` plus inert length metadata — the content itself stays out of telemetry by design, same posture as `human.type()`.
 
+### Scrolling
+
+```ts
+await human.scroll();           // ~one viewport down, humanized
+```
+
+`human.scroll()` dispatches multiple wheel events with a bell-curve velocity profile (slow start, fast middle, slow end), optional mid-scroll micro-pauses, and — for the `distracted` personality — occasional overshoot + correction.
+
+**Target options:**
+
+```ts
+await human.scroll();                       // 'natural' — ~one viewport
+await human.scroll('top');                  // to the top
+await human.scroll('end');                  // to the bottom
+await human.scroll({ by: 800 });            // relative pixel delta (negative = up)
+await human.scroll({ to: 1500 });           // absolute window.scrollY
+await human.scroll('#pricing');             // by selector — scroll until in view
+await human.scroll(locator);                // by Locator
+```
+
+**Element-target alignment** matches native `scrollIntoView`:
+
+```ts
+await human.scroll('#hero', { block: 'center' });   // 'start' | 'center' | 'end'
+```
+
+**Force overshoot** even when the personality wouldn't choose one — useful for demos and screen recordings where the humanization signal needs to read clearly:
+
+```ts
+await human.scroll('#footer', { overshoot: true });
+```
+
+**Returns** a `ScrollResult`:
+
+```ts
+const { fromY, toY, distance, durationMs } = await human.scroll('end');
+```
+
+In `speed: 'instant'`, the page jumps directly via `window.scrollTo` — no wheel events — but the action still fires for observability.
+
 See [humanjs.dev](https://humanjs.dev) for the full feature set and personality reference.
 
 ## License
