@@ -97,22 +97,14 @@ const DEMO_HTML = /* html */ `
         font-size: 13px;
         color: #888;
       }
-      #cursor {
-        position: fixed;
-        width: 14px;
-        height: 14px;
-        background: #ff4d4f;
-        border-radius: 50%;
-        pointer-events: none;
-        transform: translate(-50%, -50%);
-        z-index: 9999;
-        box-shadow: 0 0 12px rgba(255, 77, 79, 0.6);
-      }
+      /* No inline cursor div — installMouseHelper provides the HumanJS-styled
+         cursor with a soft amber halo. The .trail dots below visualize path
+         history (the helper itself doesn't render a trail). */
       .trail {
         position: fixed;
         width: 5px;
         height: 5px;
-        background: rgba(255, 77, 79, 0.55);
+        background: rgba(245, 165, 92, 0.55);
         border-radius: 50%;
         pointer-events: none;
         transform: translate(-50%, -50%);
@@ -127,7 +119,7 @@ const DEMO_HTML = /* html */ `
   <body>
     <div class="header">
       <h1>HumanJS click demo</h1>
-      <p>Watch the red cursor — Bezier path, bell-curve velocity, sub-pixel jitter.</p>
+      <p>Bezier path, bell-curve velocity, sub-pixel jitter — every move is humanized.</p>
     </div>
 
     <button class="target" id="btn-1">1. Top left</button>
@@ -138,13 +130,10 @@ const DEMO_HTML = /* html */ `
 
     <div id="status">Waiting for clicks…</div>
 
-    <div id="cursor"></div>
-
     <script>
-      const cursor = document.getElementById('cursor');
+      // installMouseHelper renders the cursor itself; the demo only adds
+      // path-history dots so the curve is visible after the cursor moves on.
       document.addEventListener('mousemove', (e) => {
-        cursor.style.left = e.clientX + 'px';
-        cursor.style.top = e.clientY + 'px';
         const trail = document.createElement('div');
         trail.className = 'trail';
         trail.style.left = e.clientX + 'px';
