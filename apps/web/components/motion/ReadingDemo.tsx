@@ -7,10 +7,11 @@ import {
   resolvePersonality,
 } from '@humanjs/core';
 import { motion, useInView, useReducedMotion } from 'framer-motion';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../../lib/cn';
 import { IN_VIEW_MARGIN } from '../../lib/motion';
 import { DemoStatusBar } from './DemoStatusBar';
+import { HumanCursorIcon } from './HumanCursorIcon';
 
 /**
  * Phrase the demo "reads." Brand-direct passage that ties the three pillars
@@ -40,19 +41,22 @@ interface ReadingDemoProps {
 }
 
 /**
- * Landing-page reading demo. Drives the same `computeReadingDwellMs` from
- * `@humanjs/core` the library uses, then distributes the total dwell across
- * the passage's words proportional to character length — longer words get
- * more "focus time." Each word lights up amber as the reader's attention
- * moves through.
+ * Landing-page reading demo. Drives `@humanjs/core`'s `computeReadingDwellMs`
+ * to time word-by-word focus the same way the library paces a real
+ * `human.read()` dwell against a Page.
  *
- * Word-by-word focus is the landing-page substitute for the v1.1 in-library
- * `withMotion` cursor scan, which moves a real cursor through the bounding
- * box. The visual story is the same: "a real person paces through the text."
+ * Story: word X lights up amber → the cursor glides to sit just under word
+ * X → word X+1 takes over → cursor catches up. The amber word surfaces the
+ * *pace*; the trailing cursor surfaces the *motion* — the third pillar
+ * made visible alongside the cursor itself.
  */
 export function ReadingDemo({ personality, className }: ReadingDemoProps) {
   const shouldReduceMotion = useReducedMotion();
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const passageRef = useRef<HTMLParagraphElement | null>(null);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+  /** One span ref per word — populated by the inline callback ref in render. */
+  const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const inView = useInView(containerRef, { margin: IN_VIEW_MARGIN });
 
   const profile = useMemo(() => resolvePersonality(personality), [personality]);
@@ -120,6 +124,54 @@ export function ReadingDemo({ personality, className }: ReadingDemoProps) {
     };
   }, [inView, shouldReduceMotion, words.length, perWordMs]);
 
+  /**
+   * Cursor target — `<p>`-relative pixel coords for where the HumanJS
+   * cursor's tip should sit. Anchored just below the active word so the
+   * cursor "underlines" each word as the reader's attention moves through.
+   */
+  const [cursorTarget, setCursorTarget] = useState<{ x: number; y: number } | null>(null);
+
+  /**
+   * Recompute the cursor target from the currently active word. Hoisted so
+   * a ResizeObserver can call it on layout shifts without re-creating the
+   * observer when activeIndex changes.
+   */
+  const updateCursorTarget = useCallback(() => {
+    if (activeIndex < 0) return;
+    const wordEl = wordRefs.current[activeIndex];
+    const overlayEl = overlayRef.current;
+    if (!wordEl || !overlayEl) return;
+    const wordRect = wordEl.getBoundingClientRect();
+    const overlayRect = overlayEl.getBoundingClientRect();
+    if (wordRect.width === 0 || wordRect.height === 0) return;
+    // Cursor's tip is at the SVG's (0,0). We want the tip just below the
+    // word's baseline, slightly left of center so the body of the cursor
+    // hangs naturally to the right.
+    setCursorTarget({
+      x: wordRect.left - overlayRect.left + wordRect.width / 2 - 4,
+      y: wordRect.bottom - overlayRect.top + 2,
+    });
+  }, [activeIndex]);
+
+  // useLayoutEffect so the cursor target updates synchronously after layout
+  // — avoids a one-frame lag between "word turns amber" and "cursor moves."
+  useLayoutEffect(() => {
+    updateCursorTarget();
+  }, [updateCursorTarget]);
+
+  // Re-measure on container resize and after fonts load. The display font
+  // shifts line breaks once it settles, which moves every word's rect.
+  useEffect(() => {
+    const overlayEl = overlayRef.current;
+    if (!overlayEl || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(updateCursorTarget);
+    ro.observe(overlayEl);
+    if (document.fonts?.ready) {
+      document.fonts.ready.then(updateCursorTarget).catch(() => {});
+    }
+    return () => ro.disconnect();
+  }, [updateCursorTarget]);
+
   // Progress fraction for the bottom progress bar (sums per-word delays).
   const elapsedMs =
     activeIndex >= 0 ? perWordMs.slice(0, activeIndex + 1).reduce((sum, ms) => sum + ms, 0) : 0;
@@ -140,21 +192,31 @@ export function ReadingDemo({ personality, className }: ReadingDemoProps) {
       />
 
       <div className="px-6 py-10 md:px-10 md:py-14" aria-hidden>
-        <p className="text-balance font-display text-2xl leading-relaxed md:text-3xl">
-          {words.map((word, i) => (
-            <span
-              // biome-ignore lint/suspicious/noArrayIndexKey: stable index in a fixed-length passage
-              key={`${word}-${i}`}
-              className={cn(
-                'transition-colors duration-150',
-                i === activeIndex ? 'text-accent' : 'text-muted-strong',
-              )}
-            >
-              {word}
-              {i < words.length - 1 ? ' ' : ''}
-            </span>
-          ))}
-        </p>
+        <div ref={overlayRef} className="relative">
+          <p
+            ref={passageRef}
+            className="text-balance font-display text-2xl leading-relaxed md:text-3xl"
+          >
+            {words.map((word, i) => (
+              <span
+                ref={(el) => {
+                  wordRefs.current[i] = el;
+                }}
+                // biome-ignore lint/suspicious/noArrayIndexKey: stable index in a fixed-length passage
+                key={`${word}-${i}`}
+                className={cn(
+                  'transition-colors duration-150',
+                  i === activeIndex ? 'text-accent' : 'text-muted-strong',
+                )}
+              >
+                {word}
+                {i < words.length - 1 ? ' ' : ''}
+              </span>
+            ))}
+          </p>
+
+          {!shouldReduceMotion && cursorTarget && <FollowingCursor target={cursorTarget} />}
+        </div>
 
         <div className="mt-8 h-px overflow-hidden rounded-full bg-hairline">
           <motion.div
@@ -191,5 +253,32 @@ function Stat({ label, value }: { label: string; value: string }) {
       <span>{label}</span>
       <span className="font-mono text-base tabular-nums text-foreground md:text-lg">{value}</span>
     </span>
+  );
+}
+
+/**
+ * HumanJS cursor that smoothly tracks the currently-active word. Spring
+ * physics give it the hand-like settle of a real cursor catching up — fast
+ * enough to feel attentive, soft enough to feel human, not robotic.
+ */
+function FollowingCursor({ target }: { target: { x: number; y: number } }) {
+  return (
+    <motion.div
+      className="pointer-events-none absolute left-0 top-0"
+      initial={{ x: target.x, y: target.y, opacity: 0 }}
+      animate={{ x: target.x, y: target.y, opacity: 1 }}
+      transition={{
+        x: { type: 'spring', stiffness: 240, damping: 26, mass: 0.55 },
+        y: { type: 'spring', stiffness: 240, damping: 26, mass: 0.55 },
+        opacity: { duration: 0.4 },
+      }}
+    >
+      <svg width="24" height="26" viewBox="0 0 24 26" style={{ overflow: 'visible' }} aria-hidden>
+        {/* Faint halo so the cursor reads against any background tone. */}
+        <circle cx="0" cy="0" r="12" fill="#f5a55c" opacity="0.16" />
+        <circle cx="0" cy="0" r="5" fill="#f5a55c" opacity="0.3" />
+        <HumanCursorIcon size={22} />
+      </svg>
+    </motion.div>
   );
 }
