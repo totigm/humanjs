@@ -21,17 +21,17 @@ describe('planScroll', () => {
 
   it('sums to the requested distance for downward scrolls', () => {
     const plan = planScroll(0, 1000, NO_NOISE, createRng('d1'));
-    const totalDelta = plan.reduce((sum, s) => sum + s.deltaY, 0);
+    const totalDelta = plan.reduce((sum, s) => sum + s.delta, 0);
     expect(totalDelta).toBeCloseTo(1000, 6);
   });
 
   it('sums to the requested distance for upward scrolls', () => {
     const plan = planScroll(1000, 0, NO_NOISE, createRng('u1'));
-    const totalDelta = plan.reduce((sum, s) => sum + s.deltaY, 0);
+    const totalDelta = plan.reduce((sum, s) => sum + s.delta, 0);
     expect(totalDelta).toBeCloseTo(-1000, 6);
     // Every non-pause segment should move up (negative).
     for (const s of plan) {
-      if (s.deltaY !== 0) expect(s.deltaY).toBeLessThan(0);
+      if (s.delta !== 0) expect(s.delta).toBeLessThan(0);
     }
   });
 
@@ -60,23 +60,23 @@ describe('planScroll', () => {
 
   it('inserts mid-scroll pauses when pauseProbability > 0', () => {
     // `distracted` has pauseProbability 0.3 — over a long enough scroll we
-    // should land at least one pause segment (deltaY === 0).
+    // should land at least one pause segment (delta === 0).
     const plan = planScroll(0, 4000, distracted.scroll, createRng('pause-seed'));
-    const pauseCount = plan.filter((s) => s.deltaY === 0).length;
+    const pauseCount = plan.filter((s) => s.delta === 0).length;
     expect(pauseCount).toBeGreaterThan(0);
   });
 
   it('omits pauses entirely when withPauses is false', () => {
     const plan = planScroll(0, 4000, distracted.scroll, createRng('np'), { withPauses: false });
     // No-overshoot path (no realize-pause), no mid-scroll pauses → no zero segments.
-    expect(plan.every((s) => s.deltaY !== 0 || s === plan[plan.length - 1])).toBe(true);
+    expect(plan.every((s) => s.delta !== 0 || s === plan[plan.length - 1])).toBe(true);
   });
 
   it('produces a bell-curve velocity profile (mid segment delta > end segment delta)', () => {
     // With pauses/overshoot off, deltas should follow a half-sine: small at
     // the edges, biggest in the middle.
     const plan = planScroll(0, 2000, NO_NOISE, createRng('bell'));
-    const moves = plan.filter((s) => s.deltaY !== 0);
+    const moves = plan.filter((s) => s.delta !== 0);
     expect(moves.length).toBeGreaterThan(4);
     const first = moves[0];
     const mid = moves[Math.floor(moves.length / 2)];
@@ -85,8 +85,8 @@ describe('planScroll', () => {
     expect(mid).toBeDefined();
     expect(last).toBeDefined();
     if (first && mid && last) {
-      expect(Math.abs(mid.deltaY)).toBeGreaterThan(Math.abs(first.deltaY));
-      expect(Math.abs(mid.deltaY)).toBeGreaterThan(Math.abs(last.deltaY));
+      expect(Math.abs(mid.delta)).toBeGreaterThan(Math.abs(first.delta));
+      expect(Math.abs(mid.delta)).toBeGreaterThan(Math.abs(last.delta));
     }
   });
 
@@ -104,7 +104,7 @@ describe('planScroll', () => {
     let y = 0;
     let peakY = 0;
     for (const s of plan) {
-      y += s.deltaY;
+      y += s.delta;
       if (y > peakY) peakY = y;
     }
     expect(peakY).toBeGreaterThan(1000); // overshot
@@ -120,7 +120,7 @@ describe('planScroll', () => {
     let y = 0;
     let peakY = 0;
     for (const s of plan) {
-      y += s.deltaY;
+      y += s.delta;
       if (y > peakY) peakY = y;
     }
     expect(peakY).toBeLessThanOrEqual(1000 + 1); // float epsilon

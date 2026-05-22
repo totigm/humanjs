@@ -4,11 +4,14 @@ import type { Rng } from '../rng';
 /** One step in a humanized scroll plan. */
 export interface ScrollSegment {
   /**
-   * Vertical pixel delta for this segment (positive = scroll down, negative
-   * = scroll up). A segment with `deltaY === 0` is a pure pause — the
-   * adapter still waits `delayBeforeMs`, but no wheel event fires.
+   * Signed pixel delta along the scroll axis (positive = forward / down /
+   * right, negative = backward / up / left). The planner is axis-agnostic —
+   * the executor decides whether to apply this to Y or X.
+   *
+   * A segment with `delta === 0` is a pure pause: the adapter still waits
+   * `delayBeforeMs`, but no wheel event fires.
    */
-  readonly deltaY: number;
+  readonly delta: number;
   /** Pause in ms before dispatching this segment. */
   readonly delayBeforeMs: number;
 }
@@ -57,7 +60,7 @@ export interface PlanScrollOptions {
  *      back to `toY`. Real eyes / scroll wheels do this when target is
  *      below the fold and you misjudge distance.
  *
- * The sum of segment `deltaY`s always equals `toY - fromY` (within
+ * The sum of segment `delta`s always equals `toY - fromY` (within
  * floating-point rounding).
  */
 export function planScroll(
@@ -108,7 +111,7 @@ export function planScroll(
     // whole overshoot just looks like the scroll stalled.
     const realizeMs = jitter(profile.pauseMs * 2.5, profile.pauseMsJitter, rng);
     segments.push({
-      deltaY: 0,
+      delta: 0,
       delayBeforeMs: realizeMs * personalitySpeed * speedFactor,
     });
     appendBellPhase(
@@ -128,9 +131,9 @@ export function planScroll(
 
 /**
  * Appends bell-curve-velocity segments from `startY` to `endY`. Each
- * segment's `deltaY` is proportional to its position on a half-sine curve
+ * segment's `delta` is proportional to its position on a half-sine curve
  * so motion accelerates from `startY`, peaks at the midpoint, and decays
- * into `endY`. The sum of appended `deltaY`s equals `endY - startY` exactly.
+ * into `endY`. The sum of appended `delta`s equals `endY - startY` exactly.
  */
 function appendBellPhase(
   out: ScrollSegment[],
@@ -165,7 +168,7 @@ function appendBellPhase(
     const delta = (w / totalWeight) * absDistance * direction;
     const baseDelay = jitter(profile.segmentDelayMs, profile.segmentDelayJitter, rng);
     out.push({
-      deltaY: delta,
+      delta,
       delayBeforeMs: baseDelay * personalitySpeed * speedFactor,
     });
     // Maybe insert a pause AFTER this segment (not at the very end).
@@ -177,7 +180,7 @@ function appendBellPhase(
     ) {
       const pauseMs = jitter(profile.pauseMs, profile.pauseMsJitter, rng);
       out.push({
-        deltaY: 0,
+        delta: 0,
         delayBeforeMs: pauseMs * personalitySpeed * speedFactor,
       });
     }
