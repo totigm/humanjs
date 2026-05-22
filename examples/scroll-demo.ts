@@ -15,7 +15,7 @@
 
 import { createHuman, installMouseHelper } from '@humanjs/playwright';
 import { chromium } from 'playwright';
-import { parsePersonality } from './lib';
+import { parsePersonality, sleep } from './lib';
 
 const SECTIONS = [
   { id: 'hero', title: 'Hero', accent: '#f5a55c' },
@@ -134,6 +134,9 @@ async function main() {
     const context = await browser.newContext({ viewport: { width: 1100, height: 820 } });
     const page = await context.newPage();
     await page.setContent(DEMO_HTML);
+    // Inject the HumanJS cursor overlay so synthetic mouse motion is visible
+    // in headed Chrome — `page.mouse.move()` doesn't render a system pointer.
+    // Installed AFTER setContent because setContent replaces the document.
     await installMouseHelper(page);
 
     console.log(`Personality: ${personality}\n`);
@@ -153,7 +156,7 @@ async function main() {
       ],
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    await sleep(600);
 
     // 1. Horizontal scroll to the center of the 200vw-wide body. After
     // this lands, sections (which are also 200vw wide with content
@@ -162,24 +165,24 @@ async function main() {
       Math.floor((document.documentElement.scrollWidth - window.innerWidth) / 2),
     );
     await human.scroll({ to: halfwayX }, { axis: 'x' });
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    await sleep(800);
 
     // 2. Natural one-viewport scroll — what a real reader does first.
     await human.scroll();
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    await sleep(800);
 
     // 3. Jump to a specific section by selector.
     await human.scroll('#pricing', { overshoot: true });
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    await sleep(800);
 
     // 4. Scroll to bottom — long-distance scroll exercises the bell-curve
     // velocity profile and mid-scroll pauses.
     await human.scroll('end');
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    await sleep(800);
 
     // 5. Back to the top.
     await human.scroll('top');
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    await sleep(800);
 
     // 6. Forced overshoot — for personalities that wouldn't normally do
     // one, opt in via the options object to see the correction behavior.
@@ -187,7 +190,7 @@ async function main() {
 
     console.log('\nDone. Browser will stay open for 5 seconds.');
     console.log('Tip: re-run with PERSONALITY=distracted to see lots of overshoot.');
-    await new Promise((resolve) => setTimeout(resolve, 5000));
+    await sleep(5000);
   } finally {
     await browser.close();
   }
