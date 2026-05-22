@@ -129,8 +129,20 @@ await human.scroll(locator);                // by Locator
 **Element-target alignment** matches native `scrollIntoView`:
 
 ```ts
-await human.scroll('#hero', { block: 'center' });   // 'start' | 'center' | 'end'
+await human.scroll('#hero', { block: 'center' });   // 'start' | 'center' | 'end' | 'nearest'
 ```
+
+`'nearest'` is a useful default for "make sure this element is visible without moving more than necessary" — it stays put if the element is already fully in view, otherwise scrolls to the closest edge.
+
+**Scroll inside a scrollable container**, not the page:
+
+```ts
+await human.scroll('end', { within: '#messages' });               // chat thread to latest
+await human.scroll('#newest-item', { within: '.feed', block: 'end' });
+await human.scroll({ by: -200 }, { within: modalBody });          // scroll up inside a modal
+```
+
+Every target shape (`'natural'`, `'top'`, `'end'`, selectors, `{ by }`, `{ to }`) applies relative to the container. In humanized mode the cursor parks over the container's center first so the wheel events route there; in `'instant'` mode the container's `scrollTop` is set directly.
 
 **Force overshoot** even when the personality wouldn't choose one — useful for demos and screen recordings where the humanization signal needs to read clearly:
 
