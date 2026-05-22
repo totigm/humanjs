@@ -35,6 +35,12 @@ const DEMO_HTML = /* html */ `
     <style>
       :root { color-scheme: dark; }
       * { box-sizing: border-box; }
+      html, body {
+        /* Wider than the viewport so we can test horizontal *window*
+           scroll directly — no container in the path. */
+        width: 200vw;
+        min-width: 200vw;
+      }
       body {
         margin: 0;
         background: #0a0a0a;
@@ -112,6 +118,7 @@ const DEMO_HTML = /* html */ `
         <div class="pill">#${s.id}</div>
       </section>`,
     ).join('')}
+
   </body>
 </html>
 `;
@@ -148,24 +155,33 @@ async function main() {
 
     await new Promise((resolve) => setTimeout(resolve, 600));
 
-    // 1. Natural one-viewport scroll — what a real reader does first.
+    // 1. Horizontal scroll to the center of the 200vw-wide body. After
+    // this lands, sections (which are also 200vw wide with content
+    // centered horizontally) sit cleanly centered in the viewport.
+    const halfwayX = await page.evaluate(() =>
+      Math.floor((document.documentElement.scrollWidth - window.innerWidth) / 2),
+    );
+    await human.scroll({ to: halfwayX }, { axis: 'x' });
+    await new Promise((resolve) => setTimeout(resolve, 800));
+
+    // 2. Natural one-viewport scroll — what a real reader does first.
     await human.scroll();
     await new Promise((resolve) => setTimeout(resolve, 800));
 
-    // 2. Jump to a specific section by selector.
-    await human.scroll('#pricing');
+    // 3. Jump to a specific section by selector.
+    await human.scroll('#pricing', { overshoot: true });
     await new Promise((resolve) => setTimeout(resolve, 800));
 
-    // 3. Scroll to bottom — long-distance scroll exercises the bell-curve
+    // 4. Scroll to bottom — long-distance scroll exercises the bell-curve
     // velocity profile and mid-scroll pauses.
     await human.scroll('end');
     await new Promise((resolve) => setTimeout(resolve, 800));
 
-    // 4. Back to the top.
+    // 5. Back to the top.
     await human.scroll('top');
     await new Promise((resolve) => setTimeout(resolve, 800));
 
-    // 5. Forced overshoot — for personalities that wouldn't normally do
+    // 6. Forced overshoot — for personalities that wouldn't normally do
     // one, opt in via the options object to see the correction behavior.
     await human.scroll('#testimonials', { overshoot: true });
 
