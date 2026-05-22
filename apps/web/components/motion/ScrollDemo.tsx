@@ -194,8 +194,8 @@ export function ScrollDemo({ personality, className }: ScrollDemoProps) {
       }
       const target = section.offsetTop;
       const rng = createRng(`scroll-showcase-${personality}-${loopId}-s${index}`);
-      const fromY = scroller.scrollTop;
-      const plan = planScroll(fromY, target, profile.scroll, rng, {
+      const from = scroller.scrollTop;
+      const plan = planScroll(from, target, profile.scroll, rng, {
         personalitySpeed: profile.speed,
         speedFactor: 1,
       });
@@ -203,7 +203,7 @@ export function ScrollDemo({ personality, className }: ScrollDemoProps) {
       // the overall scroll direction (the correction phase). Ordinary
       // mid-scroll micro-pauses are `delta === 0` and don't trip this,
       // unlike a "any zero-delta segment" heuristic which over-counts.
-      const direction = target >= fromY ? 1 : -1;
+      const direction = target >= from ? 1 : -1;
       const hasOvershoot = plan.some((s) => s.delta * direction < 0);
       if (hasOvershoot) overshoots++;
       setActiveSection(index);
