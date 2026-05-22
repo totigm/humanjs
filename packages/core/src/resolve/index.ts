@@ -3,6 +3,7 @@ import type {
   MouseProfile,
   Personality,
   ReadingProfile,
+  ScrollProfile,
   TypingProfile,
 } from '../personality';
 import { careful, distracted, fast, precise } from '../presets';
@@ -28,6 +29,7 @@ export interface PersonalityExtension {
   readonly mouse?: Partial<MouseProfile>;
   readonly typing?: Partial<TypingProfile>;
   readonly reading?: Partial<ReadingProfile>;
+  readonly scroll?: Partial<ScrollProfile>;
   readonly dwell?: Partial<DwellProfile>;
 }
 
@@ -58,6 +60,7 @@ export function resolvePersonality(config: PersonalityConfig): Personality {
       mouse: { ...base.mouse, ...config.mouse },
       typing: { ...base.typing, ...config.typing },
       reading: { ...base.reading, ...config.reading },
+      scroll: { ...base.scroll, ...config.scroll },
       dwell: { ...base.dwell, ...config.dwell },
     };
   }

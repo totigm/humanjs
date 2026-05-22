@@ -26,6 +26,16 @@ export const distracted: Personality = {
     wpm: 180,
     jitter: 0.4,
   },
+  scroll: {
+    segmentsPerKpx: 55,
+    segmentDelayMs: 18,
+    segmentDelayJitter: 0.5,
+    pauseProbability: 0.18,
+    pauseMs: 280,
+    pauseMsJitter: 0.5,
+    overshootProbability: 0.25,
+    overshootRatio: 0.25,
+  },
   dwell: {
     preClickMs: 200,
     preClickJitter: 0.5,

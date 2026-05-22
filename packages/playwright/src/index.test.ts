@@ -12,6 +12,79 @@ interface MockLocator {
   boundingBox?: ReturnType<typeof vi.fn>;
 }
 
+/**
+ * Page mock for scroll tests. Returns geometry (`{ current, viewport, total }`)
+ * from a geometry-read evaluate, captures `window.scrollTo` positions in
+ * `scrollToCalls`, and records `page.mouse.wheel` deltas separately by
+ * axis (`wheelDeltas` for Y, `wheelDeltasX` for X) so horizontal-scroll
+ * tests can assert on the right axis.
+ *
+ * Note: the evaluate-call discrimination relies on internal arg shapes
+ * from the executor (`'pos' in arg` → scrollTo; otherwise → geometry).
+ * If you rename `pos` in `executeScroll`, update this mock too — the
+ * tests would otherwise silently stop tracking the calls they claim to.
+ */
+function makeScrollMockPage(
+  options: {
+    scrollY?: number;
+    viewport?: number;
+    docHeight?: number;
+    elementY?: number;
+    elementHeight?: number;
+    elementBox?: { x: number; y: number; width: number; height: number } | null;
+  } = {},
+): {
+  page: Page;
+  locator: MockLocator;
+  wheelDeltas: number[];
+  wheelDeltasX: number[];
+  scrollToCalls: number[];
+} {
+  const scrollY = options.scrollY ?? 0;
+  const viewport = options.viewport ?? 800;
+  const docHeight = options.docHeight ?? 5000;
+  const defaultElementBox = {
+    x: 0,
+    y: options.elementY ?? 1500,
+    width: 200,
+    height: options.elementHeight ?? 100,
+  };
+  const locator: MockLocator = {
+    focus: vi.fn().mockResolvedValue(undefined),
+    pressSequentially: vi.fn().mockResolvedValue(undefined),
+    boundingBox: vi
+      .fn()
+      .mockResolvedValue(options.elementBox === undefined ? defaultElementBox : options.elementBox),
+  };
+  const wheelDeltas: number[] = [];
+  const wheelDeltasX: number[] = [];
+  const scrollToCalls: number[] = [];
+  const page = {
+    goto: vi.fn().mockResolvedValue(null),
+    locator: vi.fn().mockReturnValue(locator as unknown as Locator),
+    keyboard: { press: vi.fn().mockResolvedValue(undefined) },
+    evaluate: vi.fn().mockImplementation((_fn: unknown, arg?: unknown) => {
+      // Arg form → window.scrollTo(...) in the executor's instant path.
+      // The executor passes `{ axis, pos }` so it can pick the right axis;
+      // we only care about `pos` for the assertion.
+      if (arg && typeof arg === 'object' && 'pos' in arg) {
+        scrollToCalls.push((arg as { pos: number }).pos);
+        return Promise.resolve(undefined);
+      }
+      // Single-arg form → page geometry read (axis as a string).
+      return Promise.resolve({ current: scrollY, viewport, total: docHeight });
+    }),
+    mouse: {
+      wheel: vi.fn().mockImplementation((dx: number, dy: number) => {
+        wheelDeltas.push(dy);
+        wheelDeltasX.push(dx);
+        return Promise.resolve();
+      }),
+    },
+  } as unknown as Page;
+  return { page, locator, wheelDeltas, wheelDeltasX, scrollToCalls };
+}
+
 interface MockPage {
   page: Page;
   locator: MockLocator;
@@ -715,6 +788,445 @@ describe('createHuman', () => {
       // No selector, no Locator → no box → motion is silently a no-op.
       await human.read({ text: 'a b c d' }, { withMotion: true, wpmMultiplier: 1000 });
       expect(mouseMoves).toEqual([]);
+    });
+  });
+
+  describe('scroll', () => {
+    it("defaults to 'natural' = one full viewport down when called with no args", async () => {
+      const { page, wheelDeltas } = makeScrollMockPage({
+        scrollY: 0,
+        viewport: 800,
+        docHeight: 5000,
+      });
+      const human = await createHuman(page, { speed: 'instant' });
+      const result = await human.scroll();
+      // Instant mode short-circuits — no wheel events.
+      expect(wheelDeltas).toEqual([]);
+      // Target = scrollY + viewport = 0 + 800.
+      expect(result.to).toBe(800);
+      expect(result.from).toBe(0);
+      expect(result.distance).toBe(800);
+    });
+
+    it("'top' scrolls to Y = 0", async () => {
+      const { page, scrollToCalls } = makeScrollMockPage({ scrollY: 2000 });
+      const human = await createHuman(page, { speed: 'instant' });
+      const result = await human.scroll('top');
+      expect(result.to).toBe(0);
+      expect(scrollToCalls).toEqual([0]);
+    });
+
+    it("'end' scrolls to (docHeight - viewport), clamped non-negative", async () => {
+      const { page, scrollToCalls } = makeScrollMockPage({
+        scrollY: 0,
+        viewport: 800,
+        docHeight: 5000,
+      });
+      const human = await createHuman(page, { speed: 'instant' });
+      const result = await human.scroll('end');
+      // Aim: 5000; clamped to docHeight - viewport = 4200.
+      expect(result.to).toBe(4200);
+      expect(scrollToCalls).toEqual([4200]);
+    });
+
+    it('{ by: N } scrolls by a relative pixel delta', async () => {
+      const { page, scrollToCalls } = makeScrollMockPage({ scrollY: 200 });
+      const human = await createHuman(page, { speed: 'instant' });
+      const result = await human.scroll({ by: 500 });
+      expect(result.to).toBe(700);
+      expect(scrollToCalls).toEqual([700]);
+    });
+
+    it('{ to: N } scrolls to an absolute Y', async () => {
+      const { page, scrollToCalls } = makeScrollMockPage({ scrollY: 200 });
+      const human = await createHuman(page, { speed: 'instant' });
+      const result = await human.scroll({ to: 1200 });
+      expect(result.to).toBe(1200);
+      expect(scrollToCalls).toEqual([1200]);
+    });
+
+    it('resolves a string selector via locator.boundingBox', async () => {
+      const { page, locator } = makeScrollMockPage({
+        scrollY: 100,
+        elementY: 600, // viewport-relative top of element
+      });
+      const human = await createHuman(page, { speed: 'instant' });
+      const result = await human.scroll('#footer');
+      expect(page.locator).toHaveBeenCalledWith('#footer');
+      expect(locator.boundingBox).toHaveBeenCalled();
+      // Absolute Y = scrollY + rect.y = 100 + 600 = 700, block: 'start' default.
+      expect(result.to).toBe(700);
+    });
+
+    it('accepts a Locator directly without going through page.locator', async () => {
+      const { page, locator } = makeScrollMockPage({ scrollY: 0, elementY: 1000 });
+      const human = await createHuman(page, { speed: 'instant' });
+      await human.scroll(locator as unknown as Locator);
+      expect(page.locator).not.toHaveBeenCalled();
+      expect(locator.boundingBox).toHaveBeenCalled();
+    });
+
+    it('returns to === from when distance is zero (no wheel, no scrollTo)', async () => {
+      const { page, wheelDeltas, scrollToCalls } = makeScrollMockPage({
+        scrollY: 0,
+        viewport: 800,
+        docHeight: 800, // page fits in viewport
+      });
+      const human = await createHuman(page, { speed: 'human' });
+      const result = await human.scroll('top');
+      expect(result.distance).toBe(0);
+      expect(result.durationMs).toBe(0);
+      expect(wheelDeltas).toEqual([]);
+      expect(scrollToCalls).toEqual([]);
+    });
+
+    it('dispatches multiple wheel events in human speed', async () => {
+      const { page, wheelDeltas } = makeScrollMockPage({
+        scrollY: 0,
+        viewport: 800,
+        docHeight: 5000,
+      });
+      const human = await createHuman(page, { speed: 'human', seed: 'wheel-1' });
+      await human.scroll({ by: 1500 });
+      // Multi-segment plan → many wheel calls (at least a few).
+      expect(wheelDeltas.length).toBeGreaterThan(5);
+      // Sum of deltas approximates the requested distance.
+      const total = wheelDeltas.reduce((s, d) => s + d, 0);
+      expect(total).toBeCloseTo(1500, 0);
+    });
+
+    it("emits a 'scroll' action with target description for plugins", async () => {
+      const beforeAction = vi.fn();
+      const afterAction = vi.fn();
+      const { page } = makeScrollMockPage({ scrollY: 0 });
+      const human = await createHuman(page, {
+        speed: 'instant',
+        plugins: [{ name: 'p', beforeAction, afterAction }],
+      });
+      await human.scroll({ to: 500 });
+      expect(beforeAction).toHaveBeenCalledWith({
+        type: 'scroll',
+        params: { target: 'to:500' },
+      });
+      const result = afterAction.mock.calls[0]?.[1];
+      expect(result.type).toBe('scroll');
+      expect(typeof result.durationMs).toBe('number');
+      expect(result.durationMs).toBeGreaterThanOrEqual(0);
+    });
+
+    it('clamps to-element targets to the document bounds', async () => {
+      // Element is far below the bottom; the scroll should stop at the max
+      // scrollable Y (docHeight - viewport), not run off the end.
+      const { page } = makeScrollMockPage({
+        scrollY: 0,
+        viewport: 800,
+        docHeight: 3000,
+        elementY: 10_000, // way past document end
+      });
+      const human = await createHuman(page, { speed: 'instant' });
+      const result = await human.scroll('#unreachable');
+      expect(result.to).toBe(2200); // 3000 - 800
+    });
+
+    it('stays put when the element resolves to null (gone from DOM)', async () => {
+      const { page } = makeScrollMockPage({ scrollY: 400, elementBox: null });
+      const human = await createHuman(page, { speed: 'instant' });
+      const result = await human.scroll('#gone');
+      expect(result.to).toBe(400);
+      expect(result.distance).toBe(0);
+    });
+
+    it("block: 'nearest' stays put when the element is already fully visible", async () => {
+      // Element occupies viewport rows 100..300, viewport is 0..800 → fully in view.
+      const { page } = makeScrollMockPage({
+        scrollY: 500,
+        viewport: 800,
+        elementBox: { x: 0, y: 100, width: 200, height: 200 },
+      });
+      const human = await createHuman(page, { speed: 'instant' });
+      const result = await human.scroll('#visible', { block: 'nearest' });
+      expect(result.to).toBe(500);
+      expect(result.distance).toBe(0);
+    });
+
+    it("block: 'nearest' scrolls down just enough when element is below the viewport", async () => {
+      // Element top is at viewport-relative y = 900 (200px below viewport bottom 800).
+      // Nearest brings its bottom edge (1100 → absolute 1500 + 0 from = 1500) to viewport-bottom.
+      const { page } = makeScrollMockPage({
+        scrollY: 0,
+        viewport: 800,
+        elementBox: { x: 0, y: 900, width: 200, height: 200 },
+      });
+      const human = await createHuman(page, { speed: 'instant' });
+      const result = await human.scroll('#below', { block: 'nearest' });
+      // absoluteBottom - viewport = (0 + 900 + 200) - 800 = 300
+      expect(result.to).toBe(300);
+    });
+
+    it("block: 'nearest' scrolls up just enough when element is above the viewport", async () => {
+      // Element top is at viewport-relative y = -300 (300px above viewport top).
+      // Nearest brings its top edge to viewport-top.
+      const { page } = makeScrollMockPage({
+        scrollY: 1000,
+        viewport: 800,
+        elementBox: { x: 0, y: -300, width: 200, height: 200 },
+      });
+      const human = await createHuman(page, { speed: 'instant' });
+      const result = await human.scroll('#above', { block: 'nearest' });
+      // absoluteTop = scrollY + rect.y = 1000 + -300 = 700
+      expect(result.to).toBe(700);
+    });
+
+    describe("axis: 'x' (horizontal)", () => {
+      it("'natural' scrolls one viewport-width right", async () => {
+        const { page, scrollToCalls } = makeScrollMockPage({
+          scrollY: 0,
+          viewport: 1200,
+          docHeight: 5000, // doubles as scrollWidth in the mock
+        });
+        const human = await createHuman(page, { speed: 'instant' });
+        const result = await human.scroll('natural', { axis: 'x' });
+        expect(result.from).toBe(0);
+        expect(result.to).toBe(1200);
+        expect(scrollToCalls).toEqual([1200]);
+      });
+
+      it("'end' scrolls to (scrollWidth - viewport)", async () => {
+        const { page, scrollToCalls } = makeScrollMockPage({
+          scrollY: 0,
+          viewport: 1200,
+          docHeight: 5000,
+        });
+        const human = await createHuman(page, { speed: 'instant' });
+        const result = await human.scroll('end', { axis: 'x' });
+        expect(result.to).toBe(3800); // 5000 - 1200
+        expect(scrollToCalls).toEqual([3800]);
+      });
+
+      it('{ by: N } scrolls by a relative pixel delta on the X axis', async () => {
+        const { page, scrollToCalls } = makeScrollMockPage({ scrollY: 500 });
+        const human = await createHuman(page, { speed: 'instant' });
+        const result = await human.scroll({ by: 400 }, { axis: 'x' });
+        expect(result.to).toBe(900);
+        expect(scrollToCalls).toEqual([900]);
+      });
+
+      it('{ to: N } sets the absolute scrollX position', async () => {
+        const { page, scrollToCalls } = makeScrollMockPage({ scrollY: 0 });
+        const human = await createHuman(page, { speed: 'instant' });
+        const result = await human.scroll({ to: 1500 }, { axis: 'x' });
+        expect(result.to).toBe(1500);
+        expect(scrollToCalls).toEqual([1500]);
+      });
+
+      it('dispatches wheel events on the X axis (not Y) in humanized mode', async () => {
+        const { page, wheelDeltas, wheelDeltasX } = makeScrollMockPage({
+          scrollY: 0,
+          viewport: 1200,
+          docHeight: 5000,
+        });
+        const human = await createHuman(page, { speed: 'human', seed: 'x-wheel' });
+        await human.scroll({ by: 1000 }, { axis: 'x' });
+        // Every Y delta is zero — motion is purely horizontal.
+        expect(wheelDeltas.every((d) => d === 0)).toBe(true);
+        // X deltas sum approximately to the requested distance.
+        const totalX = wheelDeltasX.reduce((s, d) => s + d, 0);
+        expect(totalX).toBeCloseTo(1000, 0);
+        expect(wheelDeltasX.length).toBeGreaterThan(5);
+      });
+
+      it('resolves an element target via rect.x (not rect.y) on the X axis', async () => {
+        const { page } = makeScrollMockPage({
+          scrollY: 100,
+          viewport: 1200,
+          // Element rect: x=900 viewport-relative, width=200, height=100
+          elementBox: { x: 900, y: 0, width: 200, height: 100 },
+        });
+        const human = await createHuman(page, { speed: 'instant' });
+        const result = await human.scroll('#card', { axis: 'x', block: 'start' });
+        // absoluteX = scrollX + rect.x = 100 + 900 = 1000
+        expect(result.to).toBe(1000);
+      });
+    });
+
+    describe('within (scrollable container)', () => {
+      /**
+       * Container mock for `within`-scroll tests. Routes container.evaluate
+       * by inspecting the second arg's shape:
+       *   - `{ axis, pos }`   → `el.scrollTo(...)` in instant mode
+       *   - `{ axis, delta }` → `el.scrollLeft += delta` / `scrollTop += delta`
+       *                          per humanized segment
+       *   - axis-only string  → geometry read
+       *
+       * Tightly coupled to the executor's internal arg field names (`pos`,
+       * `delta`). Rename either side without updating both and tests pass
+       * silently while no calls are recorded.
+       */
+      function makeWithinMockPage(
+        options: {
+          scrollTop?: number;
+          clientHeight?: number;
+          scrollHeight?: number;
+          containerRect?: { left: number; top: number; width: number; height: number };
+        } = {},
+      ): {
+        page: Page;
+        container: MockLocator;
+        containerScrollToCalls: number[];
+        containerScrollByCalls: number[];
+        wheelDeltas: number[];
+        mouseMoves: Array<{ x: number; y: number }>;
+      } {
+        const scrollTop = options.scrollTop ?? 0;
+        const clientHeight = options.clientHeight ?? 400;
+        const scrollHeight = options.scrollHeight ?? 2000;
+        const rect = options.containerRect ?? { left: 100, top: 100, width: 600, height: 400 };
+        const containerScrollToCalls: number[] = [];
+        const containerScrollByCalls: number[] = [];
+        const wheelDeltas: number[] = [];
+        const mouseMoves: Array<{ x: number; y: number }> = [];
+
+        const container: MockLocator = {
+          focus: vi.fn().mockResolvedValue(undefined),
+          pressSequentially: vi.fn().mockResolvedValue(undefined),
+          evaluate: vi.fn().mockImplementation((_fn: unknown, arg?: unknown) => {
+            // Arg form distinguishes the three container.evaluate paths:
+            //  - `{ axis, pos }`  → container.scrollTo (instant mode)
+            //  - `{ axis, delta }` → container.scrollBy (humanized walk)
+            //  - axis-only string  → container geometry read
+            if (arg && typeof arg === 'object' && 'pos' in arg) {
+              containerScrollToCalls.push((arg as { pos: number }).pos);
+              return Promise.resolve(undefined);
+            }
+            if (arg && typeof arg === 'object' && 'delta' in arg) {
+              containerScrollByCalls.push((arg as { delta: number }).delta);
+              return Promise.resolve(undefined);
+            }
+            return Promise.resolve({
+              current: scrollTop,
+              viewport: clientHeight,
+              total: scrollHeight,
+              hover: { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 },
+            });
+          }),
+        };
+        const page = {
+          goto: vi.fn().mockResolvedValue(null),
+          locator: vi.fn().mockReturnValue(container as unknown as Locator),
+          keyboard: { press: vi.fn().mockResolvedValue(undefined) },
+          mouse: {
+            move: vi.fn().mockImplementation((x: number, y: number) => {
+              mouseMoves.push({ x, y });
+              return Promise.resolve();
+            }),
+            wheel: vi.fn().mockImplementation((_dx: number, dy: number) => {
+              wheelDeltas.push(dy);
+              return Promise.resolve();
+            }),
+          },
+        } as unknown as Page;
+        return {
+          page,
+          container,
+          containerScrollToCalls,
+          containerScrollByCalls,
+          wheelDeltas,
+          mouseMoves,
+        };
+      }
+
+      it("'natural' scrolls one container clientHeight down", async () => {
+        const { page, container } = makeWithinMockPage({
+          scrollTop: 0,
+          clientHeight: 400,
+          scrollHeight: 2000,
+        });
+        const human = await createHuman(page, { speed: 'instant' });
+        const result = await human.scroll('natural', { within: '#messages' });
+        expect(page.locator).toHaveBeenCalledWith('#messages');
+        expect(container.evaluate).toHaveBeenCalled();
+        // One container-viewport down.
+        expect(result.to).toBe(400);
+        expect(result.from).toBe(0);
+      });
+
+      it("'end' scrolls to (scrollHeight - clientHeight) of the container", async () => {
+        const { page, containerScrollToCalls } = makeWithinMockPage({
+          scrollTop: 0,
+          clientHeight: 400,
+          scrollHeight: 2000,
+        });
+        const human = await createHuman(page, { speed: 'instant' });
+        const result = await human.scroll('end', { within: '.thread' });
+        expect(result.to).toBe(1600); // 2000 - 400
+        expect(containerScrollToCalls).toEqual([1600]);
+      });
+
+      it("'top' scrolls the container to scrollTop = 0", async () => {
+        const { page, containerScrollToCalls } = makeWithinMockPage({ scrollTop: 800 });
+        const human = await createHuman(page, { speed: 'instant' });
+        const result = await human.scroll('top', { within: '#log' });
+        expect(result.to).toBe(0);
+        expect(containerScrollToCalls).toEqual([0]);
+      });
+
+      it('{ by: N } scrolls the container relative to its scrollTop', async () => {
+        const { page, containerScrollToCalls } = makeWithinMockPage({ scrollTop: 200 });
+        const human = await createHuman(page, { speed: 'instant' });
+        const result = await human.scroll({ by: 300 }, { within: '#log' });
+        expect(result.to).toBe(500);
+        expect(containerScrollToCalls).toEqual([500]);
+      });
+
+      it('{ to: N } sets the container scrollTop directly', async () => {
+        const { page, containerScrollToCalls } = makeWithinMockPage({ scrollTop: 200 });
+        const human = await createHuman(page, { speed: 'instant' });
+        const result = await human.scroll({ to: 700 }, { within: '#log' });
+        expect(result.to).toBe(700);
+        expect(containerScrollToCalls).toEqual([700]);
+      });
+
+      it('routes instant-mode scrolls through container.evaluate, not page.evaluate', async () => {
+        const { page, containerScrollToCalls } = makeWithinMockPage({ scrollTop: 0 });
+        const human = await createHuman(page, { speed: 'instant' });
+        await human.scroll({ to: 500 }, { within: '#log' });
+        expect(containerScrollToCalls).toEqual([500]);
+        // The window evaluate should not have been touched for this scroll.
+        expect((page as unknown as { evaluate?: unknown }).evaluate).toBeUndefined();
+      });
+
+      it('parks the cursor over the container center and applies scrollBy per segment', async () => {
+        const { page, mouseMoves, containerScrollByCalls } = makeWithinMockPage({
+          scrollTop: 0,
+          clientHeight: 400,
+          scrollHeight: 2000,
+          containerRect: { left: 100, top: 100, width: 600, height: 400 },
+        });
+        const human = await createHuman(page, { speed: 'human', seed: 'within-1' });
+        await human.scroll({ by: 300 }, { within: '#log' });
+        // First mouse move is the cursor parking at the container center.
+        expect(mouseMoves[0]).toEqual({ x: 400, y: 300 });
+        // Each non-pause segment dispatches a container.scrollBy. The sum
+        // approximates the requested distance (excludes any pause segments).
+        expect(containerScrollByCalls.length).toBeGreaterThan(0);
+        const totalDelta = containerScrollByCalls.reduce((s, d) => s + d, 0);
+        expect(totalDelta).toBeCloseTo(300, 0);
+      });
+
+      it('horizontal scroll inside a container uses scrollBy on the X axis', async () => {
+        const { page, containerScrollByCalls } = makeWithinMockPage({
+          scrollTop: 0,
+          clientHeight: 400,
+          scrollHeight: 2000,
+        });
+        const human = await createHuman(page, { speed: 'human', seed: 'within-x' });
+        await human.scroll({ by: 600 }, { within: '#carousel', axis: 'x' });
+        // scrollBy was invoked on the X axis — total deltas approximate
+        // the requested horizontal distance.
+        const totalDelta = containerScrollByCalls.reduce((s, d) => s + d, 0);
+        expect(containerScrollByCalls.length).toBeGreaterThan(0);
+        expect(totalDelta).toBeCloseTo(600, 0);
+      });
     });
   });
 

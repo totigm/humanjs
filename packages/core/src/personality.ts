@@ -21,6 +21,7 @@ export interface Personality {
   readonly mouse: MouseProfile;
   readonly typing: TypingProfile;
   readonly reading: ReadingProfile;
+  readonly scroll: ScrollProfile;
   readonly dwell: DwellProfile;
 }
 
@@ -74,6 +75,37 @@ export interface ReadingProfile {
    * variation.
    */
   readonly jitter: number;
+}
+
+/** Parameters that shape scroll behavior. */
+export interface ScrollProfile {
+  /**
+   * Wheel-event density: how many segments per 1000 px of scroll distance.
+   * More = smoother visible motion at higher CDP overhead. Real-world
+   * trackpad / wheel rolls land somewhere around 20–40 events per 1000 px.
+   */
+  readonly segmentsPerKpx: number;
+  /** Mean delay in ms between successive wheel events. */
+  readonly segmentDelayMs: number;
+  /**
+   * Random variation as a fraction of `segmentDelayMs`. `0.3` means each
+   * inter-segment delay is `segmentDelayMs × [0.7, 1.3]`. Range: `[0, 1]`.
+   */
+  readonly segmentDelayJitter: number;
+  /** Probability of inserting a mid-scroll micro-pause (0..1). */
+  readonly pauseProbability: number;
+  /** Mean duration of a mid-scroll pause in ms. */
+  readonly pauseMs: number;
+  /** Jitter on `pauseMs`. Range: `[0, 1]`. */
+  readonly pauseMsJitter: number;
+  /** Probability of overshooting the target and correcting (0..1). */
+  readonly overshootProbability: number;
+  /**
+   * Magnitude of overshoot as a fraction of the total scroll distance.
+   * `0.1` means a 1000 px scroll would overshoot by ~100 px before
+   * correcting back. Range: `[0, 0.5]` is sensible; clamped internally.
+   */
+  readonly overshootRatio: number;
 }
 
 /** Parameters that shape micro-pauses around actions. */

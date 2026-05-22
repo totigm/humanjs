@@ -42,6 +42,7 @@
     "demo:click": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples click",
     "demo:compare": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples compare",
     "demo:read": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples read",
+    "demo:scroll": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples scroll",
     "demo:type": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples type"
   },
   "commitlint": {

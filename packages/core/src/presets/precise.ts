@@ -26,6 +26,16 @@ export const precise: Personality = {
     wpm: 250,
     jitter: 0.08,
   },
+  scroll: {
+    segmentsPerKpx: 50,
+    segmentDelayMs: 11,
+    segmentDelayJitter: 0.1,
+    pauseProbability: 0.025,
+    pauseMs: 130,
+    pauseMsJitter: 0.1,
+    overshootProbability: 0,
+    overshootRatio: 0,
+  },
   dwell: {
     preClickMs: 80,
     preClickJitter: 0.1,
