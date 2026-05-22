@@ -56,7 +56,18 @@ describe('resolvePersonality', () => {
       });
       expect(result.typing).toEqual(careful.typing);
       expect(result.reading).toEqual(careful.reading);
+      expect(result.scroll).toEqual(careful.scroll);
       expect(result.dwell).toEqual(careful.dwell);
+    });
+
+    it('merges a partial scroll override without losing the rest', () => {
+      const result = resolvePersonality({
+        extends: 'careful',
+        scroll: { overshootProbability: 0.5 },
+      });
+      expect(result.scroll.overshootProbability).toBe(0.5);
+      expect(result.scroll.segmentsPerKpx).toBe(careful.scroll.segmentsPerKpx);
+      expect(result.scroll.pauseMs).toBe(careful.scroll.pauseMs);
     });
 
     it('merges multiple facets simultaneously', () => {
@@ -65,10 +76,12 @@ describe('resolvePersonality', () => {
         mouse: { curvature: 0.9 },
         typing: { typoProbability: 0.5 },
         reading: { wpm: 100 },
+        scroll: { overshootProbability: 0.5 },
       });
       expect(result.mouse.curvature).toBe(0.9);
       expect(result.typing.typoProbability).toBe(0.5);
       expect(result.reading.wpm).toBe(100);
+      expect(result.scroll.overshootProbability).toBe(0.5);
       expect(result.dwell).toEqual(precise.dwell);
     });
 

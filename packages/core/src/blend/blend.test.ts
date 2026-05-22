@@ -10,6 +10,7 @@ describe('blend', () => {
       expect(result.mouse.curvature).toBe(careful.mouse.curvature);
       expect(result.typing.baseDelayMs).toBe(careful.typing.baseDelayMs);
       expect(result.reading.wpm).toBe(careful.reading.wpm);
+      expect(result.scroll.segmentsPerKpx).toBe(careful.scroll.segmentsPerKpx);
       expect(result.dwell.preClickMs).toBe(careful.dwell.preClickMs);
     });
 
@@ -19,6 +20,7 @@ describe('blend', () => {
       expect(result.mouse.curvature).toBe(distracted.mouse.curvature);
       expect(result.typing.baseDelayMs).toBe(distracted.typing.baseDelayMs);
       expect(result.reading.wpm).toBe(distracted.reading.wpm);
+      expect(result.scroll.segmentsPerKpx).toBe(distracted.scroll.segmentsPerKpx);
       expect(result.dwell.preClickMs).toBe(distracted.dwell.preClickMs);
     });
 
@@ -63,6 +65,10 @@ describe('blend', () => {
         expected(careful.typing.thinkPauseMeanMs, distracted.typing.thinkPauseMeanMs),
         10,
       );
+      expect(result.scroll.pauseMs).toBeCloseTo(
+        expected(careful.scroll.pauseMs, distracted.scroll.pauseMs),
+        10,
+      );
     });
 
     it('keeps probabilities in [0, 1] when both inputs are', () => {
@@ -73,6 +79,8 @@ describe('blend', () => {
         result.typing.typoProbability,
         result.typing.typoCorrectionProbability,
         result.typing.thinkPauseProbability,
+        result.scroll.pauseProbability,
+        result.scroll.overshootProbability,
       ];
       for (const p of probabilities) {
         expect(p).toBeGreaterThanOrEqual(0);
