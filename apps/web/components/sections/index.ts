@@ -9,5 +9,6 @@ export { Nav } from './Nav';
 export { PersonalityLab } from './PersonalityLab';
 export { Playground } from './Playground';
 export { ReadingShowcase } from './ReadingShowcase';
+export { ScrollShowcase } from './ScrollShowcase';
 export { TrustStrip } from './TrustStrip';
 export { TypingShowcase } from './TypingShowcase';
