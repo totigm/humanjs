@@ -144,6 +144,17 @@ await human.scroll({ by: -200 }, { within: modalBody });          // scroll up i
 
 Every target shape (`'natural'`, `'top'`, `'end'`, selectors, `{ by }`, `{ to }`) applies relative to the container. In humanized mode the cursor parks over the container's center first so the wheel events route there; in `'instant'` mode the container's `scrollTop` is set directly.
 
+**Horizontal scroll** via `axis: 'x'` — same target shapes apply to the X axis:
+
+```ts
+await human.scroll('end', { axis: 'x' });                         // to the right edge
+await human.scroll({ by: 400 }, { axis: 'x' });                   // 400px right
+await human.scroll('#card-5', { axis: 'x', block: 'center' });    // carousel to a card
+await human.scroll('end', { within: '#kanban', axis: 'x' });      // kanban board to the right end
+```
+
+Defaults to `'y'`. Combine with `within` for horizontal scrolling inside a container (carousels, kanban boards, sideways galleries).
+
 **Force overshoot** even when the personality wouldn't choose one — useful for demos and screen recordings where the humanization signal needs to read clearly:
 
 ```ts

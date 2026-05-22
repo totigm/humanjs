@@ -62,19 +62,31 @@ export interface ScrollOptions {
    *
    * In humanized speed modes, the cursor moves over the container's
    * center first so the dispatched wheel events target it. In `'instant'`
-   * mode, the container's `scrollTop` is set directly with no wheel events.
+   * mode, the container's scroll position is set directly with no wheel
+   * events.
    *
    * Common use: chat threads, modal bodies, infinite-scroll feeds, any
    * `<div style="overflow-y: auto">` that owns its own scrollbar.
    */
   readonly within?: string | Locator;
+  /**
+   * Which axis to scroll along. Defaults to `'y'` (vertical).
+   *
+   * Set `'x'` for horizontal scrolling — carousels, kanban boards,
+   * sideways galleries. Every target shape still works: `'natural'`
+   * scrolls one viewport-width right, `'top'` jumps to scrollLeft 0,
+   * `'end'` to (scrollWidth - clientWidth), `{ by }` / `{ to }` apply to
+   * the X-axis, and element targets scroll until the element is visible
+   * horizontally.
+   */
+  readonly axis?: 'x' | 'y';
 }
 
 /** Outcome of a scroll, returned to the caller for observability. */
 export interface ScrollResult {
-  /** Starting scroll position (`window.scrollY` or `container.scrollTop`). */
+  /** Starting scroll position along the chosen axis. */
   readonly fromY: number;
-  /** Final scroll position the scroll aimed for. */
+  /** Final scroll position the scroll aimed for, along the chosen axis. */
   readonly toY: number;
   /** Signed pixel distance (`toY - fromY`). */
   readonly distance: number;
@@ -107,20 +119,23 @@ interface ScrollGeometry {
 }
 
 /**
- * Executes a humanized vertical scroll on either the page or a scrollable
- * container.
+ * Executes a humanized scroll on either the page or a scrollable container,
+ * along the chosen axis.
  *
  * Flow:
  *  1. Resolve the scroll axis: page (default) or a container if `within` is set.
- *  2. Read current position + viewport + total geometry for that axis.
+ *  2. Read current position + viewport + total geometry for that axis +
+ *     direction (X or Y).
  *  3. Resolve target → final position on that axis.
  *  4. Plan segments via `planScroll`.
  *  5. For containers in humanized mode, park the cursor over the container
- *     so wheel events target it. Then walk segments via `page.mouse.wheel`.
+ *     so wheel events target it. Then walk segments via `page.mouse.wheel`,
+ *     mapping each segment's `delta` onto the chosen axis.
  *
  * In `speed: 'instant'`, all humanization is bypassed:
- *  - Page scrolls call `window.scrollTo(0, y)`.
- *  - Container scrolls evaluate `el.scrollTo(0, y)` on the element.
+ *  - Page scrolls call `window.scrollTo(...)` with the new position on the
+ *    chosen axis and the existing position on the other.
+ *  - Container scrolls evaluate `el.scrollTo(...)` with the same shape.
  */
 export async function executeScroll(
   target: ScrollTarget | undefined,
@@ -129,16 +144,19 @@ export async function executeScroll(
 ): Promise<ScrollResult> {
   const { page, personality, rng, speed } = ctx;
   const speedFactor = speedModeFactor(speed);
+  const axis: 'x' | 'y' = options.axis ?? 'y';
 
   const container = resolveWithin(options.within, ctx);
-  const geom = container ? await readContainerGeometry(container) : await readWindowGeometry(page);
+  const geom = container
+    ? await readContainerGeometry(container, axis)
+    : await readWindowGeometry(page, axis);
   if (!geom) {
     // Container not found / not scrollable — nothing to do.
     return { fromY: 0, toY: 0, distance: 0, durationMs: 0 };
   }
 
   const fromY = geom.current;
-  const toY = await resolveTarget(target, ctx, geom, container, options.block);
+  const toY = await resolveTarget(target, ctx, geom, container, axis, options.block);
   const clampedTo = clamp(toY, 0, Math.max(0, geom.total - geom.viewport));
   const distance = clampedTo - fromY;
 
@@ -148,9 +166,22 @@ export async function executeScroll(
 
   if (speed === 'instant') {
     if (container) {
-      await container.evaluate((el, y) => el.scrollTo(0, y as number), clampedTo);
+      await container.evaluate(
+        (el, args) => {
+          const a = args as { axis: 'x' | 'y'; pos: number };
+          if (a.axis === 'x') el.scrollTo(a.pos, el.scrollTop);
+          else el.scrollTo(el.scrollLeft, a.pos);
+        },
+        { axis, pos: clampedTo },
+      );
     } else {
-      await page.evaluate((y) => window.scrollTo(0, y), clampedTo);
+      await page.evaluate(
+        (args) => {
+          if (args.axis === 'x') window.scrollTo(args.pos, window.scrollY);
+          else window.scrollTo(window.scrollX, args.pos);
+        },
+        { axis, pos: clampedTo },
+      );
     }
     return { fromY, toY: clampedTo, distance, durationMs: 0 };
   }
@@ -169,7 +200,7 @@ export async function executeScroll(
   }
 
   const startedAt = Date.now();
-  await walkSegments(page, segments);
+  await walkSegments(page, segments, axis);
   const durationMs = Date.now() - startedAt;
 
   return { fromY, toY: clampedTo, distance, durationMs };
@@ -181,47 +212,61 @@ function resolveWithin(within: ScrollOptions['within'], ctx: ScrollContext): Loc
   return typeof within === 'string' ? ctx.page.locator(within) : within;
 }
 
-/** Reads `window.scrollY` / `innerHeight` / `documentElement.scrollHeight`. */
-async function readWindowGeometry(page: Page): Promise<ScrollGeometry> {
-  const g = await page.evaluate(() => ({
-    current: window.scrollY,
-    viewport: window.innerHeight,
-    total: Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight ?? 0),
-  }));
+/** Reads the page's current scroll geometry for the chosen axis. */
+async function readWindowGeometry(page: Page, axis: 'x' | 'y'): Promise<ScrollGeometry> {
+  const g = await page.evaluate((a: 'x' | 'y') => {
+    if (a === 'x') {
+      return {
+        current: window.scrollX,
+        viewport: window.innerWidth,
+        total: Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0),
+      };
+    }
+    return {
+      current: window.scrollY,
+      viewport: window.innerHeight,
+      total: Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight ?? 0),
+    };
+  }, axis);
   return { current: g.current, viewport: g.viewport, total: g.total };
 }
 
 /**
- * Reads container `scrollTop` / `clientHeight` / `scrollHeight` plus the
- * center of its viewport-relative bounding box (for cursor parking).
- * Returns `null` if the element resolves to nothing.
+ * Reads container scroll geometry for the chosen axis plus the center of
+ * its viewport-relative bounding box (for cursor parking). Returns `null`
+ * if the element resolves to nothing.
  */
-async function readContainerGeometry(container: Locator): Promise<ScrollGeometry | null> {
+async function readContainerGeometry(
+  container: Locator,
+  axis: 'x' | 'y',
+): Promise<ScrollGeometry | null> {
   return container
-    .evaluate((el) => {
+    .evaluate((el, a: 'x' | 'y') => {
       const rect = el.getBoundingClientRect();
+      const isX = a === 'x';
       return {
-        current: el.scrollTop,
-        viewport: el.clientHeight,
-        total: el.scrollHeight,
+        current: isX ? el.scrollLeft : el.scrollTop,
+        viewport: isX ? el.clientWidth : el.clientHeight,
+        total: isX ? el.scrollWidth : el.scrollHeight,
         hover: {
           x: rect.left + rect.width / 2,
           y: rect.top + rect.height / 2,
         },
       } as const;
-    })
+    }, axis)
     .catch(() => null);
 }
 
 /**
  * Resolves a `ScrollTarget` to an absolute scroll position on the active
- * axis (either `window.scrollY` or the container's `scrollTop`).
+ * axis (window scroll or container scroll, vertical or horizontal).
  */
 async function resolveTarget(
   target: ScrollTarget | undefined,
   ctx: ScrollContext,
   geom: ScrollGeometry,
   container: Locator | null,
+  axis: 'x' | 'y',
   block: 'start' | 'center' | 'end' | 'nearest' = 'start',
 ): Promise<number> {
   if (target === undefined || target === 'natural') return geom.current + geom.viewport;
@@ -240,76 +285,81 @@ async function resolveTarget(
   if (!elementLocator) return geom.current + geom.viewport;
 
   return container
-    ? resolveElementWithinContainer(elementLocator, container, geom, block)
-    : resolveElementInWindow(elementLocator, geom, block);
+    ? resolveElementWithinContainer(elementLocator, container, geom, axis, block)
+    : resolveElementInWindow(elementLocator, geom, axis, block);
 }
 
 /**
- * Computes the scrollY needed to align a window-level element per `block`.
- * `rect.y` is viewport-relative; absolute Y is `scrollY + rect.y`.
+ * Computes the scroll position needed to align a window-level element per
+ * `block` along the chosen axis. `rect.x` / `rect.y` are viewport-relative;
+ * absolute position is `geom.current + rect.{axis}`.
  */
 async function resolveElementInWindow(
   elementLocator: Locator,
   geom: ScrollGeometry,
+  axis: 'x' | 'y',
   block: 'start' | 'center' | 'end' | 'nearest',
 ): Promise<number> {
   const rect = await elementLocator.boundingBox().catch(() => null);
   if (!rect) return geom.current;
-  const absoluteTop = geom.current + rect.y;
-  const absoluteBottom = absoluteTop + rect.height;
-  if (block === 'start') return absoluteTop;
-  if (block === 'end') return absoluteBottom - geom.viewport;
+  const relStart = axis === 'x' ? rect.x : rect.y;
+  const length = axis === 'x' ? rect.width : rect.height;
+  const absoluteStart = geom.current + relStart;
+  const absoluteEnd = absoluteStart + length;
+  if (block === 'start') return absoluteStart;
+  if (block === 'end') return absoluteEnd - geom.viewport;
   if (block === 'nearest') {
-    if (rect.y >= 0 && rect.y + rect.height <= geom.viewport) return geom.current;
-    if (rect.y < 0) return absoluteTop;
-    return absoluteBottom - geom.viewport;
+    if (relStart >= 0 && relStart + length <= geom.viewport) return geom.current;
+    if (relStart < 0) return absoluteStart;
+    return absoluteEnd - geom.viewport;
   }
-  return absoluteTop - (geom.viewport - rect.height) / 2;
+  return absoluteStart - (geom.viewport - length) / 2;
 }
 
 /**
- * Computes the container's `scrollTop` needed to align an element per `block`.
- * Element offset from the container's content origin =
- *   `(element.rect.y - container.rect.y) + container.scrollTop`
+ * Computes the container's `scrollTop` / `scrollLeft` needed to align an
+ * element per `block` along the chosen axis. Element offset from the
+ * container's content origin =
+ *   `(element.rect.{axis} - container.rect.{axis}) + container.scroll{axis}`
  * regardless of whether the container is the element's positioning ancestor.
  */
 async function resolveElementWithinContainer(
   elementLocator: Locator,
   container: Locator,
   geom: ScrollGeometry,
+  axis: 'x' | 'y',
   block: 'start' | 'center' | 'end' | 'nearest',
 ): Promise<number> {
   const rects = await container
     .evaluate(
-      (containerEl, sel) => {
-        const elementEl = sel ? document.querySelector(sel) : null;
+      (containerEl, args: { sel: string | null; axis: 'x' | 'y' }) => {
+        const elementEl = args.sel ? document.querySelector(args.sel) : null;
         // The element may not be a child of the container — handle that too.
         const targetEl = elementEl ?? (containerEl.querySelector(':scope > *') as Element | null);
         if (!targetEl) return null;
         const cRect = containerEl.getBoundingClientRect();
         const eRect = targetEl.getBoundingClientRect();
-        return {
-          elementY: eRect.top - cRect.top,
-          elementHeight: eRect.height,
-        };
+        return args.axis === 'x'
+          ? { relStart: eRect.left - cRect.left, length: eRect.width }
+          : { relStart: eRect.top - cRect.top, length: eRect.height };
       },
-      await locatorSelector(elementLocator),
+      { sel: await locatorSelector(elementLocator), axis },
     )
     .catch(() => null);
   if (!rects) return geom.current;
-  // Offset from container's content origin = (visual delta) + container.scrollTop.
-  const offsetTop = rects.elementY + geom.current;
-  const offsetBottom = offsetTop + rects.elementHeight;
-  if (block === 'start') return offsetTop;
-  if (block === 'end') return offsetBottom - geom.viewport;
+  // Offset from container's content origin = (visual delta) + scroll position.
+  const offsetStart = rects.relStart + geom.current;
+  const offsetEnd = offsetStart + rects.length;
+  if (block === 'start') return offsetStart;
+  if (block === 'end') return offsetEnd - geom.viewport;
   if (block === 'nearest') {
-    if (rects.elementY >= 0 && rects.elementY + rects.elementHeight <= geom.viewport) {
+    if (rects.relStart >= 0 && rects.relStart + rects.length <= geom.viewport) {
       return geom.current;
     }
-    if (rects.elementY < 0) return offsetTop;
-    return offsetBottom - geom.viewport;
+    if (rects.relStart < 0) return offsetStart;
+    return offsetEnd - geom.viewport;
   }
-  return offsetTop - (geom.viewport - rects.elementHeight) / 2;
+  return offsetStart - (geom.viewport - rects.length) / 2;
 }
 
 /**
@@ -329,11 +379,18 @@ async function locatorSelector(locator: Locator): Promise<string | null> {
   return eq > 0 && /^[a-z]+$/.test(raw.slice(0, eq)) ? raw.slice(eq + 1) : raw;
 }
 
-/** Walks the planned segments, dispatching wheel events with pacing. */
-async function walkSegments(page: Page, segments: readonly ScrollSegment[]): Promise<void> {
+/** Walks the planned segments, dispatching wheel events on the chosen axis. */
+async function walkSegments(
+  page: Page,
+  segments: readonly ScrollSegment[],
+  axis: 'x' | 'y',
+): Promise<void> {
   for (const segment of segments) {
     if (segment.delayBeforeMs > 0) await sleep(segment.delayBeforeMs);
-    if (segment.deltaY !== 0) await page.mouse.wheel(0, segment.deltaY);
+    if (segment.delta !== 0) {
+      if (axis === 'x') await page.mouse.wheel(segment.delta, 0);
+      else await page.mouse.wheel(0, segment.delta);
+    }
   }
 }
 

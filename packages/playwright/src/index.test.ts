@@ -30,6 +30,7 @@ function makeScrollMockPage(
   page: Page;
   locator: MockLocator;
   wheelDeltas: number[];
+  wheelDeltasX: number[];
   scrollToCalls: number[];
 } {
   const scrollY = options.scrollY ?? 0;
@@ -49,28 +50,32 @@ function makeScrollMockPage(
       .mockResolvedValue(options.elementBox === undefined ? defaultElementBox : options.elementBox),
   };
   const wheelDeltas: number[] = [];
+  const wheelDeltasX: number[] = [];
   const scrollToCalls: number[] = [];
   const page = {
     goto: vi.fn().mockResolvedValue(null),
     locator: vi.fn().mockReturnValue(locator as unknown as Locator),
     keyboard: { press: vi.fn().mockResolvedValue(undefined) },
     evaluate: vi.fn().mockImplementation((_fn: unknown, arg?: unknown) => {
-      // Arg form → window.scrollTo(0, y) in the executor's instant path.
-      if (typeof arg === 'number') {
-        scrollToCalls.push(arg);
+      // Arg form → window.scrollTo(...) in the executor's instant path.
+      // The executor passes `{ axis, pos }` so it can pick the right axis;
+      // we only care about `pos` for the assertion.
+      if (arg && typeof arg === 'object' && 'pos' in arg) {
+        scrollToCalls.push((arg as { pos: number }).pos);
         return Promise.resolve(undefined);
       }
-      // No-arg form → page geometry read (matches readWindowGeometry's shape).
+      // Single-arg form → page geometry read (axis as a string).
       return Promise.resolve({ current: scrollY, viewport, total: docHeight });
     }),
     mouse: {
-      wheel: vi.fn().mockImplementation((_dx: number, dy: number) => {
+      wheel: vi.fn().mockImplementation((dx: number, dy: number) => {
         wheelDeltas.push(dy);
+        wheelDeltasX.push(dx);
         return Promise.resolve();
       }),
     },
   } as unknown as Page;
-  return { page, locator, wheelDeltas, scrollToCalls };
+  return { page, locator, wheelDeltas, wheelDeltasX, scrollToCalls };
 }
 
 interface MockPage {
@@ -965,6 +970,78 @@ describe('createHuman', () => {
       expect(result.toY).toBe(700);
     });
 
+    describe("axis: 'x' (horizontal)", () => {
+      it("'natural' scrolls one viewport-width right", async () => {
+        const { page, scrollToCalls } = makeScrollMockPage({
+          scrollY: 0,
+          viewport: 1200,
+          docHeight: 5000, // doubles as scrollWidth in the mock
+        });
+        const human = await createHuman(page, { speed: 'instant' });
+        const result = await human.scroll('natural', { axis: 'x' });
+        expect(result.fromY).toBe(0);
+        expect(result.toY).toBe(1200);
+        expect(scrollToCalls).toEqual([1200]);
+      });
+
+      it("'end' scrolls to (scrollWidth - viewport)", async () => {
+        const { page, scrollToCalls } = makeScrollMockPage({
+          scrollY: 0,
+          viewport: 1200,
+          docHeight: 5000,
+        });
+        const human = await createHuman(page, { speed: 'instant' });
+        const result = await human.scroll('end', { axis: 'x' });
+        expect(result.toY).toBe(3800); // 5000 - 1200
+        expect(scrollToCalls).toEqual([3800]);
+      });
+
+      it('{ by: N } scrolls by a relative pixel delta on the X axis', async () => {
+        const { page, scrollToCalls } = makeScrollMockPage({ scrollY: 500 });
+        const human = await createHuman(page, { speed: 'instant' });
+        const result = await human.scroll({ by: 400 }, { axis: 'x' });
+        expect(result.toY).toBe(900);
+        expect(scrollToCalls).toEqual([900]);
+      });
+
+      it('{ to: N } sets the absolute scrollX position', async () => {
+        const { page, scrollToCalls } = makeScrollMockPage({ scrollY: 0 });
+        const human = await createHuman(page, { speed: 'instant' });
+        const result = await human.scroll({ to: 1500 }, { axis: 'x' });
+        expect(result.toY).toBe(1500);
+        expect(scrollToCalls).toEqual([1500]);
+      });
+
+      it('dispatches wheel events on the X axis (not Y) in humanized mode', async () => {
+        const { page, wheelDeltas, wheelDeltasX } = makeScrollMockPage({
+          scrollY: 0,
+          viewport: 1200,
+          docHeight: 5000,
+        });
+        const human = await createHuman(page, { speed: 'human', seed: 'x-wheel' });
+        await human.scroll({ by: 1000 }, { axis: 'x' });
+        // Every Y delta is zero — motion is purely horizontal.
+        expect(wheelDeltas.every((d) => d === 0)).toBe(true);
+        // X deltas sum approximately to the requested distance.
+        const totalX = wheelDeltasX.reduce((s, d) => s + d, 0);
+        expect(totalX).toBeCloseTo(1000, 0);
+        expect(wheelDeltasX.length).toBeGreaterThan(5);
+      });
+
+      it('resolves an element target via rect.x (not rect.y) on the X axis', async () => {
+        const { page } = makeScrollMockPage({
+          scrollY: 100,
+          viewport: 1200,
+          // Element rect: x=900 viewport-relative, width=200, height=100
+          elementBox: { x: 900, y: 0, width: 200, height: 100 },
+        });
+        const human = await createHuman(page, { speed: 'instant' });
+        const result = await human.scroll('#card', { axis: 'x', block: 'start' });
+        // absoluteX = scrollX + rect.x = 100 + 900 = 1000
+        expect(result.toY).toBe(1000);
+      });
+    });
+
     describe('within (scrollable container)', () => {
       function makeWithinMockPage(
         options: {
@@ -992,12 +1069,14 @@ describe('createHuman', () => {
           focus: vi.fn().mockResolvedValue(undefined),
           pressSequentially: vi.fn().mockResolvedValue(undefined),
           evaluate: vi.fn().mockImplementation((_fn: unknown, arg?: unknown) => {
-            // Arg form → container.scrollTo(0, y) in the executor's instant path.
-            if (typeof arg === 'number') {
-              containerScrollToCalls.push(arg);
+            // Arg form → container.scrollTo(...) in the executor's instant
+            // path. The executor passes `{ axis, pos }`; we only care
+            // about `pos` for the assertion.
+            if (arg && typeof arg === 'object' && 'pos' in arg) {
+              containerScrollToCalls.push((arg as { pos: number }).pos);
               return Promise.resolve(undefined);
             }
-            // No-arg form → container geometry read.
+            // Single-arg form → container geometry read (axis as a string).
             return Promise.resolve({
               current: scrollTop,
               viewport: clientHeight,
