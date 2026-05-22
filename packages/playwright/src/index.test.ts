@@ -13,9 +13,16 @@ interface MockLocator {
 }
 
 /**
- * Page mock for scroll tests. Returns geometry (scrollY/viewport/docHeight)
- * from a no-arg evaluate, and routes the arg-form `scrollTo` evaluate into
- * `scrollToCalls`. Records every `page.mouse.wheel` delta for assertion.
+ * Page mock for scroll tests. Returns geometry (`{ current, viewport, total }`)
+ * from a geometry-read evaluate, captures `window.scrollTo` positions in
+ * `scrollToCalls`, and records `page.mouse.wheel` deltas separately by
+ * axis (`wheelDeltas` for Y, `wheelDeltasX` for X) so horizontal-scroll
+ * tests can assert on the right axis.
+ *
+ * Note: the evaluate-call discrimination relies on internal arg shapes
+ * from the executor (`'pos' in arg` → scrollTo; otherwise → geometry).
+ * If you rename `pos` in `executeScroll`, update this mock too — the
+ * tests would otherwise silently stop tracking the calls they claim to.
  */
 function makeScrollMockPage(
   options: {
@@ -1043,6 +1050,18 @@ describe('createHuman', () => {
     });
 
     describe('within (scrollable container)', () => {
+      /**
+       * Container mock for `within`-scroll tests. Routes container.evaluate
+       * by inspecting the second arg's shape:
+       *   - `{ axis, pos }`   → `el.scrollTo(...)` in instant mode
+       *   - `{ axis, delta }` → `el.scrollLeft += delta` / `scrollTop += delta`
+       *                          per humanized segment
+       *   - axis-only string  → geometry read
+       *
+       * Tightly coupled to the executor's internal arg field names (`pos`,
+       * `delta`). Rename either side without updating both and tests pass
+       * silently while no calls are recorded.
+       */
       function makeWithinMockPage(
         options: {
           scrollTop?: number;

@@ -42,9 +42,13 @@ export interface PlanScrollOptions {
 }
 
 /**
- * Plans a humanized vertical scroll from `fromY` to `toY` as a sequence of
- * wheel-event-shaped segments. Pure function, deterministic given the same
- * RNG state and inputs.
+ * Plans a humanized scroll from `from` to `to` along a single axis as a
+ * sequence of wheel-event-shaped segments. The axis is implicit — the
+ * planner just produces signed pixel deltas between two scroll positions;
+ * the caller decides whether to apply them to `scrollY` / `scrollTop`
+ * (vertical) or `scrollX` / `scrollLeft` (horizontal).
+ *
+ * Pure function, deterministic given the same RNG state and inputs.
  *
  * Motion model:
  *   1. Segment count scales with distance via `profile.segmentsPerKpx`.
@@ -55,17 +59,17 @@ export interface PlanScrollOptions {
  *      between segments (skip the first and last so we never pause *at* the
  *      ends, which would look wrong).
  *   4. Optional overshoot: with `profile.overshootProbability` (or forced by
- *      `options.forceOvershoot`), plan continues past `toY` by
+ *      `options.forceOvershoot`), plan continues past `to` by
  *      `distance × profile.overshootRatio`, dwells briefly, then reverses
- *      back to `toY`. Real eyes / scroll wheels do this when target is
+ *      back to `to`. Real eyes / scroll wheels do this when target is
  *      below the fold and you misjudge distance.
  *
- * The sum of segment `delta`s always equals `toY - fromY` (within
+ * The sum of segment `delta`s always equals `to - from` (within
  * floating-point rounding).
  */
 export function planScroll(
-  fromY: number,
-  toY: number,
+  from: number,
+  to: number,
   profile: ScrollProfile,
   rng: Rng,
   options: PlanScrollOptions = {},
@@ -74,7 +78,7 @@ export function planScroll(
   const speedFactor = options.speedFactor ?? 1;
   const withPauses = options.withPauses ?? true;
 
-  const distance = toY - fromY;
+  const distance = to - from;
   if (distance === 0) return [];
 
   const direction = distance >= 0 ? 1 : -1;
@@ -92,10 +96,10 @@ export function planScroll(
   const segments: ScrollSegment[] = [];
 
   // Phase 1: from → (target + overshoot * direction)
-  const phase1End = toY + overshoot * direction;
+  const phase1End = to + overshoot * direction;
   appendBellPhase(
     segments,
-    fromY,
+    from,
     phase1End,
     profile,
     rng,
@@ -117,7 +121,7 @@ export function planScroll(
     appendBellPhase(
       segments,
       phase1End,
-      toY,
+      to,
       profile,
       rng,
       personalitySpeed,
@@ -130,22 +134,23 @@ export function planScroll(
 }
 
 /**
- * Appends bell-curve-velocity segments from `startY` to `endY`. Each
- * segment's `delta` is proportional to its position on a half-sine curve
- * so motion accelerates from `startY`, peaks at the midpoint, and decays
- * into `endY`. The sum of appended `delta`s equals `endY - startY` exactly.
+ * Appends bell-curve-velocity segments from `start` to `end` along the
+ * chosen axis. Each segment's `delta` is proportional to its position on
+ * a half-sine curve so motion accelerates from `start`, peaks at the
+ * midpoint, and decays into `end`. The sum of appended `delta`s equals
+ * `end - start` exactly.
  */
 function appendBellPhase(
   out: ScrollSegment[],
-  startY: number,
-  endY: number,
+  start: number,
+  end: number,
   profile: ScrollProfile,
   rng: Rng,
   personalitySpeed: number,
   speedFactor: number,
   withPauses: boolean,
 ): void {
-  const distance = endY - startY;
+  const distance = end - start;
   if (distance === 0) return;
 
   const absDistance = Math.abs(distance);

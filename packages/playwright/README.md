@@ -121,7 +121,7 @@ await human.scroll();                       // 'natural' — ~one viewport
 await human.scroll('top');                  // to the top
 await human.scroll('end');                  // to the bottom
 await human.scroll({ by: 800 });            // relative pixel delta (negative = up)
-await human.scroll({ to: 1500 });           // absolute window.scrollY
+await human.scroll({ to: 1500 });           // absolute scroll position on the chosen axis
 await human.scroll('#pricing');             // by selector — scroll until in view
 await human.scroll(locator);                // by Locator
 ```
@@ -150,10 +150,9 @@ Every target shape (`'natural'`, `'top'`, `'end'`, selectors, `{ by }`, `{ to }`
 await human.scroll('end', { axis: 'x' });                         // to the right edge
 await human.scroll({ by: 400 }, { axis: 'x' });                   // 400px right
 await human.scroll('#card-5', { axis: 'x', block: 'center' });    // carousel to a card
-await human.scroll('end', { within: '#kanban', axis: 'x' });      // kanban board to the right end
 ```
 
-Defaults to `'y'`. Combine with `within` for horizontal scrolling inside a container (carousels, kanban boards, sideways galleries).
+Defaults to `'y'`. Page-level horizontal scroll is verified end-to-end. **Container-horizontal scroll** (`axis: 'x'` combined with `within: ...`) is supported by the API and passes unit tests, but hasn't been verified in a real browser against every CSS layout — file an issue if your carousel / kanban board doesn't behave.
 
 **Force overshoot** even when the personality wouldn't choose one — useful for demos and screen recordings where the humanization signal needs to read clearly:
 
