@@ -175,6 +175,7 @@ Don't ship core packages without these:
 - Imports: use the short form for relative paths — `from './module'`, not `from './module/index.js'` or `from './module.js'`. Our `moduleResolution: "Bundler"` resolves both directory and file forms without explicit extensions, and tsup bundles everything for publishing so the source style doesn't affect output.
 - Conventional commits: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`.
 - One logical change per commit. No squash-bombs.
+- Demos using template-literal embedded HTML/CSS (e.g. `examples/*-demo.ts`) **must not use backticks inside their content**, even in code-reference comments. Backticks close the outer template literal — `esbuild` rejects this at runtime and `biome` lint doesn't catch it.
 
 ## Things to refuse — repeat for emphasis
 
