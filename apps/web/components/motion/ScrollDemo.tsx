@@ -136,8 +136,8 @@ export function ScrollDemo({ personality, className }: ScrollDemoProps) {
         const prevTime = cumTimes[cumTimes.length - 1] ?? 0;
         const prevPos = cumPositions[cumPositions.length - 1] ?? scroller.scrollTop;
         cumTimes.push(prevTime + seg.delayBeforeMs);
-        cumPositions.push(prevPos + seg.deltaY);
-        if (seg.deltaY !== 0) segCount++;
+        cumPositions.push(prevPos + seg.delta);
+        if (seg.delta !== 0) segCount++;
         else pauseCount++;
       }
       segments += segCount;
@@ -201,10 +201,10 @@ export function ScrollDemo({ personality, className }: ScrollDemoProps) {
       });
       // Overshoot signature: a plan contains segments moving opposite to
       // the overall scroll direction (the correction phase). Ordinary
-      // mid-scroll micro-pauses are `deltaY === 0` and don't trip this,
+      // mid-scroll micro-pauses are `delta === 0` and don't trip this,
       // unlike a "any zero-delta segment" heuristic which over-counts.
       const direction = target >= fromY ? 1 : -1;
-      const hasOvershoot = plan.some((s) => s.deltaY * direction < 0);
+      const hasOvershoot = plan.some((s) => s.delta * direction < 0);
       if (hasOvershoot) overshoots++;
       setActiveSection(index);
       walk(plan, onDone);
