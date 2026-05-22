@@ -46,15 +46,17 @@ export interface ScrollOptions {
    */
   readonly withPauses?: boolean;
   /**
-   * For element targets only: where to align the element vertically when
-   * the scroll ends. Mirrors `scrollIntoView({ block })`. Defaults to
-   * `'start'`.
+   * For element targets only: where to align the element along the chosen
+   * axis when the scroll ends. Mirrors `scrollIntoView({ block })`.
+   * Defaults to `'start'`.
    *
-   * - `'start'`: element top aligns with viewport top
+   * - `'start'`: element's leading edge aligns with the viewport's leading
+   *    edge (top for `axis: 'y'`, left for `axis: 'x'`)
    * - `'center'`: element centers in the viewport
-   * - `'end'`: element bottom aligns with viewport bottom
-   * - `'nearest'`: do the minimum scroll — stay put if element is already
-   *    fully visible, otherwise scroll to the closest edge
+   * - `'end'`: element's trailing edge aligns with the viewport's trailing
+   *    edge (bottom for `'y'`, right for `'x'`)
+   * - `'nearest'`: do the minimum scroll — stay put if the element is
+   *    already fully visible, otherwise scroll to the closest edge
    */
   readonly block?: 'start' | 'center' | 'end' | 'nearest';
   /**
