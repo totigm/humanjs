@@ -193,14 +193,17 @@ export async function executeScroll(
     speedFactor,
   });
 
-  // For container scrolls, park the cursor over the container so wheel
-  // events route to it instead of the page.
+  // For container scrolls, park the cursor over the container so the
+  // visible cursor (when `installMouseHelper` is in use) reads as "human
+  // hand on the wheel." Actual scrolling for containers goes through
+  // `element.scrollBy` to avoid Playwright's flaky horizontal wheel
+  // routing into nested overflow-x elements.
   if (container && geom.hover) {
     await page.mouse.move(geom.hover.x, geom.hover.y);
   }
 
   const startedAt = Date.now();
-  await walkSegments(page, segments, axis);
+  await walkSegments(page, segments, axis, container);
   const durationMs = Date.now() - startedAt;
 
   return { fromY, toY: clampedTo, distance, durationMs };
@@ -379,17 +382,45 @@ async function locatorSelector(locator: Locator): Promise<string | null> {
   return eq > 0 && /^[a-z]+$/.test(raw.slice(0, eq)) ? raw.slice(eq + 1) : raw;
 }
 
-/** Walks the planned segments, dispatching wheel events on the chosen axis. */
+/**
+ * Walks the planned segments. For window scrolls, dispatches wheel events
+ * on the chosen axis — real wheel events trigger every page-level wheel
+ * handler, which is part of HumanJS's "dispatch what a human dispatches"
+ * promise.
+ *
+ * For container scrolls, applies the delta directly via `element.scrollBy`.
+ * Playwright's `page.mouse.wheel` doesn't reliably route horizontal deltas
+ * to nested `overflow-x: auto` containers (the event hits the element under
+ * the cursor but may scroll a parent or no element instead). `scrollBy` is
+ * deterministic — it always scrolls the target — and the brand promise
+ * stays intact because the planner still owns the bell-curve cadence,
+ * mid-scroll pauses, and overshoot.
+ */
 async function walkSegments(
   page: Page,
   segments: readonly ScrollSegment[],
   axis: 'x' | 'y',
+  container: Locator | null,
 ): Promise<void> {
   for (const segment of segments) {
     if (segment.delayBeforeMs > 0) await sleep(segment.delayBeforeMs);
-    if (segment.delta !== 0) {
-      if (axis === 'x') await page.mouse.wheel(segment.delta, 0);
-      else await page.mouse.wheel(0, segment.delta);
+    if (segment.delta === 0) continue;
+    if (container) {
+      await container.evaluate(
+        (el, args) => {
+          const a = args as { axis: 'x' | 'y'; delta: number };
+          // Direct property assignment is more reliable than `scrollBy()`
+          // — some flex/grid layouts have edge cases where scrollBy
+          // becomes a no-op despite the element being scrollable.
+          if (a.axis === 'x') el.scrollLeft += a.delta;
+          else el.scrollTop += a.delta;
+        },
+        { axis, delta: segment.delta },
+      );
+    } else if (axis === 'x') {
+      await page.mouse.wheel(segment.delta, 0);
+    } else {
+      await page.mouse.wheel(0, segment.delta);
     }
   }
 }

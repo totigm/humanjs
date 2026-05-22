@@ -1054,6 +1054,7 @@ describe('createHuman', () => {
         page: Page;
         container: MockLocator;
         containerScrollToCalls: number[];
+        containerScrollByCalls: number[];
         wheelDeltas: number[];
         mouseMoves: Array<{ x: number; y: number }>;
       } {
@@ -1062,6 +1063,7 @@ describe('createHuman', () => {
         const scrollHeight = options.scrollHeight ?? 2000;
         const rect = options.containerRect ?? { left: 100, top: 100, width: 600, height: 400 };
         const containerScrollToCalls: number[] = [];
+        const containerScrollByCalls: number[] = [];
         const wheelDeltas: number[] = [];
         const mouseMoves: Array<{ x: number; y: number }> = [];
 
@@ -1069,14 +1071,18 @@ describe('createHuman', () => {
           focus: vi.fn().mockResolvedValue(undefined),
           pressSequentially: vi.fn().mockResolvedValue(undefined),
           evaluate: vi.fn().mockImplementation((_fn: unknown, arg?: unknown) => {
-            // Arg form → container.scrollTo(...) in the executor's instant
-            // path. The executor passes `{ axis, pos }`; we only care
-            // about `pos` for the assertion.
+            // Arg form distinguishes the three container.evaluate paths:
+            //  - `{ axis, pos }`  → container.scrollTo (instant mode)
+            //  - `{ axis, delta }` → container.scrollBy (humanized walk)
+            //  - axis-only string  → container geometry read
             if (arg && typeof arg === 'object' && 'pos' in arg) {
               containerScrollToCalls.push((arg as { pos: number }).pos);
               return Promise.resolve(undefined);
             }
-            // Single-arg form → container geometry read (axis as a string).
+            if (arg && typeof arg === 'object' && 'delta' in arg) {
+              containerScrollByCalls.push((arg as { delta: number }).delta);
+              return Promise.resolve(undefined);
+            }
             return Promise.resolve({
               current: scrollTop,
               viewport: clientHeight,
@@ -1100,7 +1106,14 @@ describe('createHuman', () => {
             }),
           },
         } as unknown as Page;
-        return { page, container, containerScrollToCalls, wheelDeltas, mouseMoves };
+        return {
+          page,
+          container,
+          containerScrollToCalls,
+          containerScrollByCalls,
+          wheelDeltas,
+          mouseMoves,
+        };
       }
 
       it("'natural' scrolls one container clientHeight down", async () => {
@@ -1163,8 +1176,8 @@ describe('createHuman', () => {
         expect((page as unknown as { evaluate?: unknown }).evaluate).toBeUndefined();
       });
 
-      it('parks the cursor over the container center before dispatching wheel events', async () => {
-        const { page, mouseMoves, wheelDeltas } = makeWithinMockPage({
+      it('parks the cursor over the container center and applies scrollBy per segment', async () => {
+        const { page, mouseMoves, containerScrollByCalls } = makeWithinMockPage({
           scrollTop: 0,
           clientHeight: 400,
           scrollHeight: 2000,
@@ -1174,7 +1187,26 @@ describe('createHuman', () => {
         await human.scroll({ by: 300 }, { within: '#log' });
         // First mouse move is the cursor parking at the container center.
         expect(mouseMoves[0]).toEqual({ x: 400, y: 300 });
-        expect(wheelDeltas.length).toBeGreaterThan(0);
+        // Each non-pause segment dispatches a container.scrollBy. The sum
+        // approximates the requested distance (excludes any pause segments).
+        expect(containerScrollByCalls.length).toBeGreaterThan(0);
+        const totalDelta = containerScrollByCalls.reduce((s, d) => s + d, 0);
+        expect(totalDelta).toBeCloseTo(300, 0);
+      });
+
+      it('horizontal scroll inside a container uses scrollBy on the X axis', async () => {
+        const { page, containerScrollByCalls } = makeWithinMockPage({
+          scrollTop: 0,
+          clientHeight: 400,
+          scrollHeight: 2000,
+        });
+        const human = await createHuman(page, { speed: 'human', seed: 'within-x' });
+        await human.scroll({ by: 600 }, { within: '#carousel', axis: 'x' });
+        // scrollBy was invoked on the X axis — total deltas approximate
+        // the requested horizontal distance.
+        const totalDelta = containerScrollByCalls.reduce((s, d) => s + d, 0);
+        expect(containerScrollByCalls.length).toBeGreaterThan(0);
+        expect(totalDelta).toBeCloseTo(600, 0);
       });
     });
   });
