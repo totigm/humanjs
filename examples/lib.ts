@@ -34,3 +34,12 @@ export function parsePersonality(
   }
   return value as PresetName;
 }
+
+/**
+ * Awaitable sleep — used by every demo to space out actions so the headed
+ * browser has a beat between scripted steps. Kept here rather than inline so
+ * each demo's main flow reads as a sequence of intent, not setTimeout noise.
+ */
+export function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}

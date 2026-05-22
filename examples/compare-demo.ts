@@ -24,7 +24,7 @@ import {
   resolvePersonality,
 } from '@humanjs/playwright';
 import { chromium } from 'playwright';
-import { parsePersonality } from './lib';
+import { parsePersonality, sleep } from './lib';
 
 const WINDOW_WIDTH = 1100;
 const WINDOW_HEIGHT = 750;
@@ -408,7 +408,7 @@ async function main() {
     // Installed AFTER setContent because setContent replaces the document.
     await installMouseHelper(page);
 
-    await new Promise((resolve) => setTimeout(resolve, 1200));
+    await sleep(1200);
 
     await page.evaluate(
       ({ left, right }) => {
@@ -429,7 +429,7 @@ async function main() {
     const maxDuration = Math.max(totalDurationA, totalDurationB);
     console.log(`Estimated runtime: ${Math.round(maxDuration / 1000)}s\n`);
 
-    await new Promise((resolve) => setTimeout(resolve, maxDuration + 5000));
+    await sleep(maxDuration + 5000);
   } finally {
     await browser.close();
   }

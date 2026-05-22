@@ -14,7 +14,7 @@
 
 import { createHuman, installMouseHelper } from '@humanjs/playwright';
 import { chromium } from 'playwright';
-import { parsePersonality } from './lib';
+import { parsePersonality, sleep } from './lib';
 
 const DEMO_HTML = /* html */ `
 <!doctype html>
@@ -195,7 +195,7 @@ async function main() {
 
     const human = await createHuman(page, {
       personality,
-      seed: 'demo-1',
+      seed: 'click-demo-1',
       initialMousePosition: cursorStart,
       plugins: [
         {
@@ -208,7 +208,7 @@ async function main() {
       ],
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 400));
+    await sleep(400);
 
     console.log(`Personality: ${personality}`);
     console.log(`Clicking ${TARGET_SEQUENCE.length} targets in sequence…\n`);
@@ -218,12 +218,12 @@ async function main() {
       // Cadence floor so the "clicked" visual stays perceptible across all
       // personalities — postActionMs adds on top for the slower ones. Matches
       // the same floor used by compare-demo.ts.
-      await new Promise((resolve) => setTimeout(resolve, 250));
+      await sleep(250);
     }
 
     console.log('\nDone. Browser will stay open for 5 seconds.');
     console.log('Tip: re-run with PERSONALITY=careful (or fast / precise) to compare.');
-    await new Promise((resolve) => setTimeout(resolve, 5000));
+    await sleep(5000);
   } finally {
     await browser.close();
   }
