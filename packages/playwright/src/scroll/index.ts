@@ -12,14 +12,17 @@ export interface ScrollContext {
 }
 
 /**
- * What / where to scroll:
- *  - `'natural'`: scroll one viewport-worth in the current direction (default).
- *  - `'end'`: scroll to the very bottom.
- *  - `'top'`: scroll to the very top.
+ * What / where to scroll. The chosen axis (`'y'` by default, `'x'` via
+ * `options.axis`) decides whether targets resolve along the vertical or
+ * horizontal axis.
+ *
+ *  - `'natural'`: scroll one viewport along the chosen axis (default).
+ *  - `'end'`: scroll to the far edge (bottom for `'y'`, right for `'x'`).
+ *  - `'top'`: scroll to the origin (top for `'y'`, left for `'x'`).
  *  - `string`: a Playwright-compatible selector — scroll until in view.
  *  - `Locator`: same, but you already have a Locator handle.
- *  - `{ by: number }`: scroll by a relative pixel delta (negative = up).
- *  - `{ to: number }`: scroll to an absolute Y position.
+ *  - `{ by: number }`: relative pixel delta (negative = up / left).
+ *  - `{ to: number }`: absolute scroll position on the chosen axis.
  */
 export type ScrollTarget =
   | 'natural'
@@ -60,10 +63,15 @@ export interface ScrollOptions {
    * semantic (`'natural'`, `'top'`, `'end'`, `{ by }`, `{ to }`, element
    * targets, `block` alignment) applies relative to the container.
    *
-   * In humanized speed modes, the cursor moves over the container's
-   * center first so the dispatched wheel events target it. In `'instant'`
-   * mode, the container's scroll position is set directly with no wheel
-   * events.
+   * In humanized speed modes, the cursor parks over the container's
+   * center so the visible cursor reads as "human hand on the wheel"
+   * (when paired with `installMouseHelper`), and each planned segment
+   * advances the container's `scrollLeft` / `scrollTop` directly. Direct
+   * property assignment is more reliable than dispatching wheel events
+   * into nested overflow containers — Playwright's synthetic wheel
+   * events don't always route past the cursor element. In `'instant'`
+   * mode, the container's scroll position is set with a single
+   * `scrollTo` call.
    *
    * Common use: chat threads, modal bodies, infinite-scroll feeds, any
    * `<div style="overflow-y: auto">` that owns its own scrollbar.
@@ -84,11 +92,11 @@ export interface ScrollOptions {
 
 /** Outcome of a scroll, returned to the caller for observability. */
 export interface ScrollResult {
-  /** Starting scroll position along the chosen axis. */
-  readonly fromY: number;
+  /** Starting scroll position along the chosen axis (scrollY or scrollX). */
+  readonly from: number;
   /** Final scroll position the scroll aimed for, along the chosen axis. */
-  readonly toY: number;
-  /** Signed pixel distance (`toY - fromY`). */
+  readonly to: number;
+  /** Signed pixel distance (`to - from`). */
   readonly distance: number;
   /** Total elapsed dwell + motion time in ms. Zero in `speed: 'instant'`. */
   readonly durationMs: number;
@@ -112,8 +120,9 @@ interface ScrollGeometry {
   readonly total: number;
   /**
    * For container scrolls: viewport-relative center coordinates the cursor
-   * should hover over so wheel events target the container. Undefined for
-   * window scrolls (mouse position doesn't affect window scroll routing).
+   * should park at so an `installMouseHelper` overlay reads as "human hand
+   * on the wheel" during the scroll. Undefined for window scrolls (no
+   * cursor parking — the page scrolls without a per-target hover).
    */
   readonly hover?: { x: number; y: number };
 }
@@ -123,14 +132,16 @@ interface ScrollGeometry {
  * along the chosen axis.
  *
  * Flow:
- *  1. Resolve the scroll axis: page (default) or a container if `within` is set.
- *  2. Read current position + viewport + total geometry for that axis +
- *     direction (X or Y).
+ *  1. Resolve the scope: page (default) or a container if `within` is set.
+ *  2. Read current position + viewport + total geometry for the chosen axis.
  *  3. Resolve target → final position on that axis.
  *  4. Plan segments via `planScroll`.
- *  5. For containers in humanized mode, park the cursor over the container
- *     so wheel events target it. Then walk segments via `page.mouse.wheel`,
- *     mapping each segment's `delta` onto the chosen axis.
+ *  5. Walk the segments — for page scrolls, dispatch `page.mouse.wheel`
+ *     events on the chosen axis. For containers, advance the element's
+ *     `scrollLeft` / `scrollTop` directly (wheel events don't always
+ *     route into nested overflow containers). Containers also park the
+ *     cursor at their center so an `installMouseHelper` overlay reads
+ *     as "hand on the wheel."
  *
  * In `speed: 'instant'`, all humanization is bypassed:
  *  - Page scrolls call `window.scrollTo(...)` with the new position on the
@@ -152,16 +163,16 @@ export async function executeScroll(
     : await readWindowGeometry(page, axis);
   if (!geom) {
     // Container not found / not scrollable — nothing to do.
-    return { fromY: 0, toY: 0, distance: 0, durationMs: 0 };
+    return { from: 0, to: 0, distance: 0, durationMs: 0 };
   }
 
-  const fromY = geom.current;
-  const toY = await resolveTarget(target, ctx, geom, container, axis, options.block);
-  const clampedTo = clamp(toY, 0, Math.max(0, geom.total - geom.viewport));
-  const distance = clampedTo - fromY;
+  const from = geom.current;
+  const targetPos = await resolveTarget(target, ctx, geom, container, axis, options.block);
+  const to = clamp(targetPos, 0, Math.max(0, geom.total - geom.viewport));
+  const distance = to - from;
 
   if (distance === 0) {
-    return { fromY, toY: clampedTo, distance: 0, durationMs: 0 };
+    return { from, to, distance: 0, durationMs: 0 };
   }
 
   if (speed === 'instant') {
@@ -172,7 +183,7 @@ export async function executeScroll(
           if (a.axis === 'x') el.scrollTo(a.pos, el.scrollTop);
           else el.scrollTo(el.scrollLeft, a.pos);
         },
-        { axis, pos: clampedTo },
+        { axis, pos: to },
       );
     } else {
       await page.evaluate(
@@ -180,13 +191,13 @@ export async function executeScroll(
           if (args.axis === 'x') window.scrollTo(args.pos, window.scrollY);
           else window.scrollTo(window.scrollX, args.pos);
         },
-        { axis, pos: clampedTo },
+        { axis, pos: to },
       );
     }
-    return { fromY, toY: clampedTo, distance, durationMs: 0 };
+    return { from, to, distance, durationMs: 0 };
   }
 
-  const segments = planScroll(fromY, clampedTo, personality.scroll, rng, {
+  const segments = planScroll(from, to, personality.scroll, rng, {
     forceOvershoot: options.overshoot,
     withPauses: options.withPauses,
     personalitySpeed: personality.speed,
@@ -195,9 +206,10 @@ export async function executeScroll(
 
   // For container scrolls, park the cursor over the container so the
   // visible cursor (when `installMouseHelper` is in use) reads as "human
-  // hand on the wheel." Actual scrolling for containers goes through
-  // `element.scrollBy` to avoid Playwright's flaky horizontal wheel
-  // routing into nested overflow-x elements.
+  // hand on the wheel." Actual scrolling goes through direct
+  // `scrollLeft` / `scrollTop` assignment in `walkSegments` — Playwright's
+  // synthetic wheel events don't reliably route into nested overflow
+  // containers.
   if (container && geom.hover) {
     await page.mouse.move(geom.hover.x, geom.hover.y);
   }
@@ -206,7 +218,7 @@ export async function executeScroll(
   await walkSegments(page, segments, axis, container);
   const durationMs = Date.now() - startedAt;
 
-  return { fromY, toY: clampedTo, distance, durationMs };
+  return { from, to, distance, durationMs };
 }
 
 /** Coerces the `within` option into a Locator (or null when unset). */
@@ -370,6 +382,15 @@ async function resolveElementWithinContainer(
  * `Locator.toString()` returns something like `locator('css=#foo')` — we
  * strip the wrapper to get the inner selector. Falls back to `null` when
  * the format isn't recognized; the caller treats that as "no element."
+ *
+ * Fragile by design: depends on Playwright's internal `toString()` shape,
+ * which isn't a stable public API. Used only when resolving element
+ * targets *inside* a `within` container, since the executor needs to
+ * `querySelector` from the container's perspective rather than the
+ * document's. For chained Locators (e.g. `page.locator('foo').first()`)
+ * the regex grabs the first quoted selector and ignores chained
+ * refinements — good enough for the common case, but worth a richer
+ * approach if Playwright ever changes the shape.
  */
 async function locatorSelector(locator: Locator): Promise<string | null> {
   const s = locator.toString?.();
@@ -383,18 +404,18 @@ async function locatorSelector(locator: Locator): Promise<string | null> {
 }
 
 /**
- * Walks the planned segments. For window scrolls, dispatches wheel events
+ * Walks the planned segments. For page scrolls, dispatches wheel events
  * on the chosen axis — real wheel events trigger every page-level wheel
  * handler, which is part of HumanJS's "dispatch what a human dispatches"
  * promise.
  *
- * For container scrolls, applies the delta directly via `element.scrollBy`.
- * Playwright's `page.mouse.wheel` doesn't reliably route horizontal deltas
- * to nested `overflow-x: auto` containers (the event hits the element under
- * the cursor but may scroll a parent or no element instead). `scrollBy` is
- * deterministic — it always scrolls the target — and the brand promise
- * stays intact because the planner still owns the bell-curve cadence,
- * mid-scroll pauses, and overshoot.
+ * For container scrolls, advances `scrollLeft` / `scrollTop` directly via
+ * `container.evaluate`. Playwright's `page.mouse.wheel` doesn't reliably
+ * route into nested overflow containers (the event hits the element under
+ * the cursor but may scroll a parent or no element instead). Direct
+ * property assignment is deterministic — it always scrolls the target —
+ * and the brand promise stays intact because the planner still owns the
+ * bell-curve cadence, mid-scroll pauses, and overshoot.
  */
 async function walkSegments(
   page: Page,

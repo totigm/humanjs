@@ -796,8 +796,8 @@ describe('createHuman', () => {
       // Instant mode short-circuits — no wheel events.
       expect(wheelDeltas).toEqual([]);
       // Target = scrollY + viewport = 0 + 800.
-      expect(result.toY).toBe(800);
-      expect(result.fromY).toBe(0);
+      expect(result.to).toBe(800);
+      expect(result.from).toBe(0);
       expect(result.distance).toBe(800);
     });
 
@@ -805,7 +805,7 @@ describe('createHuman', () => {
       const { page, scrollToCalls } = makeScrollMockPage({ scrollY: 2000 });
       const human = await createHuman(page, { speed: 'instant' });
       const result = await human.scroll('top');
-      expect(result.toY).toBe(0);
+      expect(result.to).toBe(0);
       expect(scrollToCalls).toEqual([0]);
     });
 
@@ -818,7 +818,7 @@ describe('createHuman', () => {
       const human = await createHuman(page, { speed: 'instant' });
       const result = await human.scroll('end');
       // Aim: 5000; clamped to docHeight - viewport = 4200.
-      expect(result.toY).toBe(4200);
+      expect(result.to).toBe(4200);
       expect(scrollToCalls).toEqual([4200]);
     });
 
@@ -826,7 +826,7 @@ describe('createHuman', () => {
       const { page, scrollToCalls } = makeScrollMockPage({ scrollY: 200 });
       const human = await createHuman(page, { speed: 'instant' });
       const result = await human.scroll({ by: 500 });
-      expect(result.toY).toBe(700);
+      expect(result.to).toBe(700);
       expect(scrollToCalls).toEqual([700]);
     });
 
@@ -834,7 +834,7 @@ describe('createHuman', () => {
       const { page, scrollToCalls } = makeScrollMockPage({ scrollY: 200 });
       const human = await createHuman(page, { speed: 'instant' });
       const result = await human.scroll({ to: 1200 });
-      expect(result.toY).toBe(1200);
+      expect(result.to).toBe(1200);
       expect(scrollToCalls).toEqual([1200]);
     });
 
@@ -848,7 +848,7 @@ describe('createHuman', () => {
       expect(page.locator).toHaveBeenCalledWith('#footer');
       expect(locator.boundingBox).toHaveBeenCalled();
       // Absolute Y = scrollY + rect.y = 100 + 600 = 700, block: 'start' default.
-      expect(result.toY).toBe(700);
+      expect(result.to).toBe(700);
     });
 
     it('accepts a Locator directly without going through page.locator', async () => {
@@ -859,7 +859,7 @@ describe('createHuman', () => {
       expect(locator.boundingBox).toHaveBeenCalled();
     });
 
-    it('returns toY === fromY when distance is zero (no wheel, no scrollTo)', async () => {
+    it('returns to === from when distance is zero (no wheel, no scrollTo)', async () => {
       const { page, wheelDeltas, scrollToCalls } = makeScrollMockPage({
         scrollY: 0,
         viewport: 800,
@@ -918,14 +918,14 @@ describe('createHuman', () => {
       });
       const human = await createHuman(page, { speed: 'instant' });
       const result = await human.scroll('#unreachable');
-      expect(result.toY).toBe(2200); // 3000 - 800
+      expect(result.to).toBe(2200); // 3000 - 800
     });
 
     it('stays put when the element resolves to null (gone from DOM)', async () => {
       const { page } = makeScrollMockPage({ scrollY: 400, elementBox: null });
       const human = await createHuman(page, { speed: 'instant' });
       const result = await human.scroll('#gone');
-      expect(result.toY).toBe(400);
+      expect(result.to).toBe(400);
       expect(result.distance).toBe(0);
     });
 
@@ -938,13 +938,13 @@ describe('createHuman', () => {
       });
       const human = await createHuman(page, { speed: 'instant' });
       const result = await human.scroll('#visible', { block: 'nearest' });
-      expect(result.toY).toBe(500);
+      expect(result.to).toBe(500);
       expect(result.distance).toBe(0);
     });
 
     it("block: 'nearest' scrolls down just enough when element is below the viewport", async () => {
       // Element top is at viewport-relative y = 900 (200px below viewport bottom 800).
-      // Nearest brings its bottom edge (1100 → absolute 1500 + 0 fromY = 1500) to viewport-bottom.
+      // Nearest brings its bottom edge (1100 → absolute 1500 + 0 from = 1500) to viewport-bottom.
       const { page } = makeScrollMockPage({
         scrollY: 0,
         viewport: 800,
@@ -953,7 +953,7 @@ describe('createHuman', () => {
       const human = await createHuman(page, { speed: 'instant' });
       const result = await human.scroll('#below', { block: 'nearest' });
       // absoluteBottom - viewport = (0 + 900 + 200) - 800 = 300
-      expect(result.toY).toBe(300);
+      expect(result.to).toBe(300);
     });
 
     it("block: 'nearest' scrolls up just enough when element is above the viewport", async () => {
@@ -967,7 +967,7 @@ describe('createHuman', () => {
       const human = await createHuman(page, { speed: 'instant' });
       const result = await human.scroll('#above', { block: 'nearest' });
       // absoluteTop = scrollY + rect.y = 1000 + -300 = 700
-      expect(result.toY).toBe(700);
+      expect(result.to).toBe(700);
     });
 
     describe("axis: 'x' (horizontal)", () => {
@@ -979,8 +979,8 @@ describe('createHuman', () => {
         });
         const human = await createHuman(page, { speed: 'instant' });
         const result = await human.scroll('natural', { axis: 'x' });
-        expect(result.fromY).toBe(0);
-        expect(result.toY).toBe(1200);
+        expect(result.from).toBe(0);
+        expect(result.to).toBe(1200);
         expect(scrollToCalls).toEqual([1200]);
       });
 
@@ -992,7 +992,7 @@ describe('createHuman', () => {
         });
         const human = await createHuman(page, { speed: 'instant' });
         const result = await human.scroll('end', { axis: 'x' });
-        expect(result.toY).toBe(3800); // 5000 - 1200
+        expect(result.to).toBe(3800); // 5000 - 1200
         expect(scrollToCalls).toEqual([3800]);
       });
 
@@ -1000,7 +1000,7 @@ describe('createHuman', () => {
         const { page, scrollToCalls } = makeScrollMockPage({ scrollY: 500 });
         const human = await createHuman(page, { speed: 'instant' });
         const result = await human.scroll({ by: 400 }, { axis: 'x' });
-        expect(result.toY).toBe(900);
+        expect(result.to).toBe(900);
         expect(scrollToCalls).toEqual([900]);
       });
 
@@ -1008,7 +1008,7 @@ describe('createHuman', () => {
         const { page, scrollToCalls } = makeScrollMockPage({ scrollY: 0 });
         const human = await createHuman(page, { speed: 'instant' });
         const result = await human.scroll({ to: 1500 }, { axis: 'x' });
-        expect(result.toY).toBe(1500);
+        expect(result.to).toBe(1500);
         expect(scrollToCalls).toEqual([1500]);
       });
 
@@ -1038,7 +1038,7 @@ describe('createHuman', () => {
         const human = await createHuman(page, { speed: 'instant' });
         const result = await human.scroll('#card', { axis: 'x', block: 'start' });
         // absoluteX = scrollX + rect.x = 100 + 900 = 1000
-        expect(result.toY).toBe(1000);
+        expect(result.to).toBe(1000);
       });
     });
 
@@ -1127,8 +1127,8 @@ describe('createHuman', () => {
         expect(page.locator).toHaveBeenCalledWith('#messages');
         expect(container.evaluate).toHaveBeenCalled();
         // One container-viewport down.
-        expect(result.toY).toBe(400);
-        expect(result.fromY).toBe(0);
+        expect(result.to).toBe(400);
+        expect(result.from).toBe(0);
       });
 
       it("'end' scrolls to (scrollHeight - clientHeight) of the container", async () => {
@@ -1139,7 +1139,7 @@ describe('createHuman', () => {
         });
         const human = await createHuman(page, { speed: 'instant' });
         const result = await human.scroll('end', { within: '.thread' });
-        expect(result.toY).toBe(1600); // 2000 - 400
+        expect(result.to).toBe(1600); // 2000 - 400
         expect(containerScrollToCalls).toEqual([1600]);
       });
 
@@ -1147,7 +1147,7 @@ describe('createHuman', () => {
         const { page, containerScrollToCalls } = makeWithinMockPage({ scrollTop: 800 });
         const human = await createHuman(page, { speed: 'instant' });
         const result = await human.scroll('top', { within: '#log' });
-        expect(result.toY).toBe(0);
+        expect(result.to).toBe(0);
         expect(containerScrollToCalls).toEqual([0]);
       });
 
@@ -1155,7 +1155,7 @@ describe('createHuman', () => {
         const { page, containerScrollToCalls } = makeWithinMockPage({ scrollTop: 200 });
         const human = await createHuman(page, { speed: 'instant' });
         const result = await human.scroll({ by: 300 }, { within: '#log' });
-        expect(result.toY).toBe(500);
+        expect(result.to).toBe(500);
         expect(containerScrollToCalls).toEqual([500]);
       });
 
@@ -1163,7 +1163,7 @@ describe('createHuman', () => {
         const { page, containerScrollToCalls } = makeWithinMockPage({ scrollTop: 200 });
         const human = await createHuman(page, { speed: 'instant' });
         const result = await human.scroll({ to: 700 }, { within: '#log' });
-        expect(result.toY).toBe(700);
+        expect(result.to).toBe(700);
         expect(containerScrollToCalls).toEqual([700]);
       });
 

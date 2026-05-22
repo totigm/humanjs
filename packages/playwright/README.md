@@ -112,7 +112,7 @@ Useful for test assertions or surfacing reading metadata in a UI.
 await human.scroll();           // ~one viewport down, humanized
 ```
 
-`human.scroll()` dispatches multiple wheel events with a bell-curve velocity profile (slow start, fast middle, slow end), optional mid-scroll micro-pauses, and — for the `distracted` personality — occasional overshoot + correction.
+`human.scroll()` produces multi-segment scroll motion with a bell-curve velocity profile (slow start, fast middle, slow end), optional mid-scroll micro-pauses, and — for the `distracted` personality — occasional overshoot + correction. Page scrolls dispatch real `wheel` events; container scrolls advance the element's scroll position directly (more reliable inside nested overflow containers).
 
 **Target options:**
 
@@ -142,7 +142,7 @@ await human.scroll('#newest-item', { within: '.feed', block: 'end' });
 await human.scroll({ by: -200 }, { within: modalBody });          // scroll up inside a modal
 ```
 
-Every target shape (`'natural'`, `'top'`, `'end'`, selectors, `{ by }`, `{ to }`) applies relative to the container. In humanized mode the cursor parks over the container's center first so the wheel events route there; in `'instant'` mode the container's `scrollTop` is set directly.
+Every target shape (`'natural'`, `'top'`, `'end'`, selectors, `{ by }`, `{ to }`) applies relative to the container. In humanized mode the cursor parks over the container's center (so an `installMouseHelper` overlay reads as "human hand on the wheel") and each segment advances the container's `scrollLeft` / `scrollTop` directly — more reliable than wheel events inside nested overflow containers. In `'instant'` mode the container's scroll position is set with a single `scrollTo` call.
 
 **Horizontal scroll** via `axis: 'x'` — same target shapes apply to the X axis:
 
@@ -164,7 +164,7 @@ await human.scroll('#footer', { overshoot: true });
 **Returns** a `ScrollResult`:
 
 ```ts
-const { fromY, toY, distance, durationMs } = await human.scroll('end');
+const { from, to, distance, durationMs } = await human.scroll('end');
 ```
 
 In `speed: 'instant'`, the page jumps directly via `window.scrollTo` — no wheel events — but the action still fires for observability.

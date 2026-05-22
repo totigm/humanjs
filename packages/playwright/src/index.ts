@@ -153,27 +153,35 @@ export interface Human {
    */
   read(target: ReadTarget, options?: ReadOptions): Promise<ReadResult>;
   /**
-   * Scroll the page humanly. Multi-segment wheel motion with a bell-curve
-   * velocity profile, optional mid-scroll micro-pauses, and (for the
-   * `distracted` personality) the occasional overshoot + correction.
+   * Scroll the page (or a scrollable container) humanly. Multi-segment
+   * motion with a bell-curve velocity profile, optional mid-scroll
+   * micro-pauses, and (for the `distracted` personality) the occasional
+   * overshoot + correction.
    *
    * **Targets:**
-   *  - `'natural'` (default): scroll ~one viewport down — what a real reader does
-   *  - `'end'` / `'top'`: jump to the document edges, humanized along the way
+   *  - `'natural'` (default): scroll one viewport in the chosen axis
+   *  - `'end'` / `'top'`: jump to the document/container edges, humanized
    *  - `string`: a Playwright-compatible selector — scroll until in view
    *  - `Locator`: same, but with a pre-built handle
-   *  - `{ by: n }`: relative pixel delta (negative = up)
-   *  - `{ to: n }`: absolute `window.scrollY` target
+   *  - `{ by: n }`: relative pixel delta (negative = up / left)
+   *  - `{ to: n }`: absolute scroll position on the chosen axis
    *
-   * Plugins observe `'scroll'` actions with `{ target, fromY, toY, distance }`
-   * — all inert metadata, safe to log.
+   * **Options:** `axis: 'x' | 'y'` (default `'y'`) picks the direction;
+   * `within: selector | Locator` scopes the scroll to a scrollable
+   * container; `block: 'start' | 'center' | 'end' | 'nearest'` aligns
+   * element targets; `overshoot` / `withPauses` toggle individual
+   * humanization signals.
    *
-   * In `speed: 'instant'`, the page is moved with a single `window.scrollTo`
-   * call. No wheel events, no segments — but the action still fires for
-   * observability.
+   * Plugins observe `'scroll'` actions with `{ target }` in
+   * `beforeAction`'s params (a human-readable description of the target).
+   * The full {@link ScrollResult} (`from` / `to` / `distance` /
+   * `durationMs`) is available via `afterAction`'s `result` argument.
    *
-   * Returns a {@link ScrollResult} with the resolved Y coordinates and
-   * elapsed motion time, useful for assertions in tests.
+   * In `speed: 'instant'`, the page (or container) is moved with a single
+   * `scrollTo` call. No wheel events, no segments — but the action still
+   * fires for observability.
+   *
+   * Returns a {@link ScrollResult} for assertions in tests.
    */
   scroll(target?: ScrollTarget, options?: ScrollOptions): Promise<ScrollResult>;
 }
