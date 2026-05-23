@@ -1,6 +1,6 @@
 {
   "name": "@humanjs/core",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Personality system, timing math, types, and plugin contract for HumanJS.",
   "keywords": [
     "humanjs",
