@@ -13,8 +13,7 @@
  *   PERSONALITY=distracted  pnpm demo:type
  */
 
-import { createHuman, installMouseHelper } from '@humanjs/playwright';
-import { chromium } from 'playwright';
+import { chromium, createHuman, installMouseHelper } from '@humanjs/playwright';
 import { parsePersonality, sleep } from './lib';
 
 // Brand-direct phrase that matches the rest of the HumanJS surface area:

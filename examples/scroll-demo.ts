@@ -13,8 +13,7 @@
  *   PERSONALITY=distracted  pnpm demo:scroll
  */
 
-import { createHuman, installMouseHelper } from '@humanjs/playwright';
-import { chromium } from 'playwright';
+import { chromium, createHuman, installMouseHelper } from '@humanjs/playwright';
 import { parsePersonality, sleep } from './lib';
 
 const SECTIONS = [

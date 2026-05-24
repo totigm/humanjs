@@ -16,6 +16,7 @@
 
 import {
   bezierPath,
+  chromium,
   createRng,
   humanizePath,
   installMouseHelper,
@@ -23,7 +24,6 @@ import {
   type Point,
   resolvePersonality,
 } from '@humanjs/playwright';
-import { chromium } from 'playwright';
 import { parsePersonality, sleep } from './lib';
 
 const WINDOW_WIDTH = 1100;
