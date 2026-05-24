@@ -13,6 +13,13 @@ import type { Locator, Page } from 'playwright';
 import { executeType } from './keyboard';
 import { executeClick } from './mouse';
 import { executeRead, type ReadOptions, type ReadResult, type ReadTarget } from './reading';
+import {
+  getCaptureSettingsForQuality,
+  Recording,
+  type RecordingQuality,
+  type TimelineEvent,
+} from './recording';
+import { startCapture } from './recording/capture';
 import { executeScroll, type ScrollOptions, type ScrollResult, type ScrollTarget } from './scroll';
 
 export type {
@@ -59,9 +66,36 @@ export {
   precise,
   resolvePersonality,
 } from '@humanjs/core';
+// Playwright primitives re-exported for one-import convenience. These are
+// the unmodified upstream values/types — `@humanjs/playwright` is a
+// Playwright integration, so users shouldn't have to dual-import for the
+// common case. Add more re-exports here only when a real user need shows
+// up; the goal is "covers 95% of demo/test code," not "mirrors all of
+// playwright."
+export {
+  type Browser,
+  type BrowserContext,
+  type BrowserContextOptions,
+  chromium,
+  type ElementHandle,
+  firefox,
+  type LaunchOptions,
+  type Locator,
+  type Page,
+  webkit,
+} from 'playwright';
 export type { InstallMouseHelperOptions } from './mouse-helper';
 export { installMouseHelper } from './mouse-helper';
 export type { ReadOptions, ReadResult, ReadTarget } from './reading';
+export {
+  type FfmpegPreset,
+  type FfmpegTune,
+  Recording,
+  type RecordingQuality,
+  type Timeline,
+  type TimelineEvent,
+  type ToVideoOptions,
+} from './recording';
 export type { ScrollOptions, ScrollResult, ScrollTarget } from './scroll';
 
 /**
@@ -184,6 +218,56 @@ export interface Human {
    * Returns a {@link ScrollResult} for assertions in tests.
    */
   scroll(target?: ScrollTarget, options?: ScrollOptions): Promise<ScrollResult>;
+  /**
+   * Records `fn`'s actions. Returns a {@link Recording} you can export
+   * to mp4/webm video (`toVideo`), JSON timeline (`toTimeline`), or both.
+   *
+   * By default, frames are captured from the browser via timer-polled
+   * `page.screenshot()` — fully controllable quality, not limited by
+   * Playwright's recordVideo bitrate ceiling. Pass `{ video: false }` to
+   * skip capture entirely (timeline-only mode, zero video overhead).
+   *
+   * Plugins observe `'record'` in `beforeAction` / `afterAction` so
+   * recording shows up alongside the other primitives in observability
+   * pipelines.
+   *
+   * Single-use per session: `Recording.toVideo()` finalizes the captured
+   * frames, so calling `human.record()` twice on the same human throws.
+   *
+   * @example
+   * ```ts
+   * // Default: video + timeline
+   * const rec = await human.record(async () => {
+   *   await human.click('#login');
+   * });
+   * await rec.toVideo('demo.mp4');
+   * await rec.toTimeline('demo.json');
+   *
+   * // Timeline-only, no video overhead
+   * const rec = await human.record({ video: false }, async () => {
+   *   await human.click('#login');
+   * });
+   * await rec.toTimeline('demo.json');
+   * ```
+   */
+  record(fn: () => Promise<void>): Promise<Recording>;
+  record(options: HumanRecordOptions, fn: () => Promise<void>): Promise<Recording>;
+}
+
+/** Options for {@link Human.record}. */
+export interface HumanRecordOptions {
+  /**
+   * Whether to capture frames for video output. Defaults to `true`.
+   * Set to `false` for timeline-only recordings (no capture loop, no
+   * temp files, no encoding overhead — `toTimeline()` still works).
+   */
+  readonly video?: boolean;
+  /**
+   * Capture quality preset. Controls per-frame JPEG quality (or PNG for
+   * lossless) AND the ffmpeg encode settings used by `toVideo()`.
+   * Defaults to `'high'`. Ignored when `video: false`.
+   */
+  readonly quality?: RecordingQuality;
 }
 
 /**
@@ -216,6 +300,18 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
     await plugin.install?.(context);
   }
 
+  // Each session can only produce one Recording — `Recording.toVideo()`
+  // finalizes the captured frames, so a second `record()` would silently
+  // capture a window of a dead session. Reject loudly instead.
+  let hasRecorded = false;
+
+  // Timeline capture is "armed" only while `human.record(cb)` is running:
+  // a non-null `activeRecordingEvents` means performAction should push each
+  // child action into the buffer. The wrapper `record` action itself is
+  // skipped — consumers care about what happened inside, not the wrapper.
+  let activeRecordingEvents: TimelineEvent[] | null = null;
+  let activeRecordingStartMs = 0;
+
   async function performAction<T>(action: HumanAction, actionFn: () => Promise<T>): Promise<T> {
     for (const plugin of plugins) {
       await plugin.beforeAction?.(action);
@@ -223,15 +319,30 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
     const startedAt = Date.now();
     try {
       const value = await actionFn();
-      const result: ActionResult = {
-        type: action.type,
-        durationMs: Date.now() - startedAt,
-      };
+      const durationMs = Date.now() - startedAt;
+      const result: ActionResult = { type: action.type, durationMs };
+      if (activeRecordingEvents !== null && action.type !== 'record') {
+        activeRecordingEvents.push({
+          type: action.type,
+          params: action.params ?? {},
+          tMs: startedAt - activeRecordingStartMs,
+          durationMs,
+        });
+      }
       for (const plugin of plugins) {
         await plugin.afterAction?.(action, result);
       }
       return value;
     } catch (error) {
+      if (activeRecordingEvents !== null && action.type !== 'record') {
+        activeRecordingEvents.push({
+          type: action.type,
+          params: action.params ?? {},
+          tMs: startedAt - activeRecordingStartMs,
+          durationMs: Date.now() - startedAt,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
       for (const plugin of plugins) {
         await plugin.onError?.(action, error);
       }
@@ -317,6 +428,70 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
         },
         () => executeScroll(target, { page, personality, rng, speed }, options),
       );
+    },
+    async record(
+      optionsOrFn: HumanRecordOptions | (() => Promise<void>),
+      maybeFn?: () => Promise<void>,
+    ): Promise<Recording> {
+      const [recordOptions, fn] =
+        typeof optionsOrFn === 'function'
+          ? [{}, optionsOrFn]
+          : [optionsOrFn, maybeFn as () => Promise<void>];
+
+      if (hasRecorded) {
+        throw new Error(
+          'human.record() can only be called once per session. Create a ' +
+            'new browser context (and a new human session) to record a ' +
+            'separate clip.',
+        );
+      }
+      hasRecorded = true;
+
+      const captureEnabled = recordOptions.video !== false;
+      const captureQuality = recordOptions.quality ?? 'high';
+
+      // Start frame capture before any action runs so the first action's
+      // motion is in the recording.
+      let captureSession: Awaited<ReturnType<typeof startCapture>> | null = null;
+      if (captureEnabled) {
+        const { format, quality, fps } = getCaptureSettingsForQuality(captureQuality);
+        captureSession = await startCapture(page, { format, quality, fps });
+      }
+
+      // Arm the timeline buffer. `performAction` pushes a TimelineEvent for
+      // every child action while this is non-null; the wrapper `record` action
+      // is filtered out there.
+      const events: TimelineEvent[] = [];
+      const windowStartMs = Date.now();
+      activeRecordingEvents = events;
+      activeRecordingStartMs = windowStartMs;
+      let windowEndMs = windowStartMs;
+
+      try {
+        await performAction({ type: 'record', params: {} }, async () => {
+          try {
+            await fn();
+          } finally {
+            windowEndMs = Date.now();
+          }
+        });
+      } catch (error) {
+        // If the callback threw, abort the capture so the temp dir doesn't
+        // linger. Then re-throw.
+        if (captureSession) await captureSession.abort();
+        throw error;
+      } finally {
+        activeRecordingEvents = null;
+      }
+
+      const captureResult = captureSession ? await captureSession.stop() : null;
+
+      return new Recording(captureResult, windowStartMs, windowEndMs, {
+        personality: personality.name,
+        seed: options.seed === undefined ? null : String(options.seed),
+        speed,
+        events,
+      });
     },
   };
 }
