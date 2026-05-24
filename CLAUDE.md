@@ -82,9 +82,11 @@ await human.drag(from, to);
 await human.rightClick(selector);
 
 const rec = await human.record(async () => { /* actions */ });
-rec.toVideo('out.mp4');
-rec.toPlaywright('test.spec.ts');
-rec.toTimeline('session.json');
+await rec.toVideo('out.mp4');                // shipped
+await rec.toTimeline('session.json');         // shipped
+// await rec.toPlaywright('test.spec.ts');    // v0.2 — Playwright code export
+
+await sleep(800);                             // shared helper, re-exported from @humanjs/core
 ```
 
 Selector strategy: prefer accessible names + roles. Default to `getByRole`, `getByLabel`, `getByText` before falling back to CSS / XPath. This is also a humanization signal — real users navigate by what they see.
