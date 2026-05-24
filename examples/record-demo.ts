@@ -95,6 +95,32 @@ const DEMO_HTML = /* html */ `
         line-height: 1.6;
         margin: 0;
       }
+      .features {
+        width: min(720px, 100%);
+        display: grid;
+        gap: 16px;
+      }
+      .features .feature {
+        padding: 22px 26px;
+        background: #0c0b0a;
+        border: 1px solid #1c1c1c;
+        border-radius: 12px;
+        color: #b8b3a9;
+        font-size: 15px;
+        line-height: 1.55;
+      }
+      .features .feature b {
+        display: block;
+        color: #f5a55c;
+        font-family: ui-monospace, SF Mono, monospace;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.22em;
+        margin-bottom: 6px;
+      }
+      .spacer {
+        height: 280px;
+      }
     </style>
   </head>
   <body>
@@ -112,6 +138,16 @@ const DEMO_HTML = /* html */ `
       <div class="label">type</div>
       <input id="email" placeholder="email" autocomplete="off" spellcheck="false" />
     </div>
+
+    <!-- Filler so the next block sits below the fold. Without it the demo
+         has nothing to scroll over and the scroll step is invisible. -->
+    <div class="features">
+      <div class="feature"><b>cursor</b>Bezier paths with sub-pixel jitter and a bell-curve velocity profile — no straight-line teleports.</div>
+      <div class="feature"><b>keyboard</b>Per-key timing pulled from real touch-typist data, plus optional typos and backspace recovery.</div>
+      <div class="feature"><b>scroll</b>Multi-segment wheel motion with mid-scroll pauses and the occasional overshoot.</div>
+      <div class="feature"><b>reading</b>Dwell time scaled by word count and content type — code, prose, scan.</div>
+    </div>
+    <div class="spacer" aria-hidden="true"></div>
 
     <div class="block" id="passage-block">
       <div class="label">read</div>
@@ -166,7 +202,10 @@ async function main() {
       await human.scroll('#passage-block');
       await sleep(400);
 
-      await human.read('.passage');
+      // `withMotion: true` traces a humanized cursor scan through the text
+      // while the dwell elapses — the reading pillar made visible. Off by
+      // default; opt in when you want the humanization signal in a video.
+      await human.read('.passage', { withMotion: true });
       await sleep(400);
     },
   );
