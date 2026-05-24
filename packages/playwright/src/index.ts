@@ -65,6 +65,7 @@ export {
   planTypeKeystrokes,
   precise,
   resolvePersonality,
+  sleep,
 } from '@humanjs/core';
 // Playwright primitives re-exported for one-import convenience. These are
 // the unmodified upstream values/types — `@humanjs/playwright` is a

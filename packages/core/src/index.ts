@@ -43,5 +43,6 @@ export type { Rng } from './rng';
 export { createRng } from './rng';
 export type { PlanScrollOptions, ScrollSegment } from './scroll';
 export { planScroll } from './scroll';
+export { sleep } from './sleep';
 export type { Keystroke, PlanTypingOptions } from './typing';
 export { planTypeKeystrokes } from './typing';
