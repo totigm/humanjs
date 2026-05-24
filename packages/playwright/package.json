@@ -55,7 +55,8 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
-    "@humanjs/core": "workspace:*"
+    "@humanjs/core": "workspace:*",
+    "ffmpeg-static": "^5.2.0"
   },
   "peerDependencies": {
     "playwright": ">=1.40.0"
