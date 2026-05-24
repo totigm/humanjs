@@ -6,29 +6,48 @@ function makeMockPage(): {
   page: Page;
   addInitScript: ReturnType<typeof vi.fn>;
   evaluate: ReturnType<typeof vi.fn>;
+  on: ReturnType<typeof vi.fn>;
 } {
   const addInitScript = vi.fn().mockResolvedValue(undefined);
   const evaluate = vi.fn().mockResolvedValue(undefined);
-  return { page: { addInitScript, evaluate } as unknown as Page, addInitScript, evaluate };
+  // page.on('domcontentloaded', ...) is required so installMouseHelper can
+  // re-inject after page.setContent() (which fires DOMContentLoaded but
+  // doesn't run addInitScript). Mock just captures registrations.
+  const on = vi.fn();
+  return {
+    page: { addInitScript, evaluate, on } as unknown as Page,
+    addInitScript,
+    evaluate,
+    on,
+  };
 }
 
 function makeMockContext(pageCount = 0): {
   context: BrowserContext;
   addInitScript: ReturnType<typeof vi.fn>;
   pageEvaluates: ReturnType<typeof vi.fn>[];
+  contextOn: ReturnType<typeof vi.fn>;
 } {
   const addInitScript = vi.fn().mockResolvedValue(undefined);
   const pageEvaluates = Array.from({ length: pageCount }, () =>
     vi.fn().mockResolvedValue(undefined),
   );
-  const pagesArray = pageEvaluates.map((evaluate) => ({ evaluate }) as unknown as Page);
+  const pagesArray = pageEvaluates.map(
+    (evaluate) => ({ evaluate, on: vi.fn() }) as unknown as Page,
+  );
+  const contextOn = vi.fn();
   return {
     context: {
       addInitScript,
       pages: () => pagesArray,
+      on: contextOn,
+      // Presence of `newPage` triggers the context-branch in installMouseHelper
+      // via `'newPage' in target`.
+      newPage: vi.fn(),
     } as unknown as BrowserContext,
     addInitScript,
     pageEvaluates,
+    contextOn,
   };
 }
 

@@ -62,16 +62,35 @@ export async function installMouseHelper(
     path: CURSOR_PATH,
   };
 
-  // Register for every future navigation. Survives goto, reload, and frame
-  // attachment without needing to re-install.
+  // Register for every future navigation. Fires on goto, reload, frame
+  // attachment — but, critically, NOT on `page.setContent()` (Playwright
+  // doesn't treat setContent as a navigation, so its new document never
+  // sees the init script). The `domcontentloaded` listener below catches
+  // that case.
   await target.addInitScript(installScript, config);
 
-  // ALSO inject into any pages that already exist. Without this, a page that
-  // has already loaded (via goto or setContent) won't get the overlay until
-  // the next navigation — and `page.setContent()` in particular replaces the
-  // document, wiping anything the initial init-script run appended. Pages
-  // opened later still get the overlay via the registered init script.
+  // Per-page re-injection on every DOMContentLoaded. `setContent` fires
+  // this event but doesn't trigger addInitScript; this is the bridge.
+  // The DOM-element guard inside `installScript` makes duplicate installs
+  // into a no-op, so it's safe to run on top of addInitScript.
+  const attachPageHooks = (page: Page): void => {
+    page.on('domcontentloaded', () => {
+      page.evaluate(installScript, config).catch(() => undefined);
+    });
+  };
+
+  // Existing pages + future ones (when the target is a context).
   const pages: Page[] = 'pages' in target ? target.pages() : [target];
+  for (const page of pages) attachPageHooks(page);
+  if ('on' in target && 'newPage' in target) {
+    // BrowserContext branch — pages opened after `installMouseHelper`
+    // returns still get the same lifecycle hooks.
+    target.on('page', attachPageHooks);
+  }
+
+  // Initial injection for already-loaded pages: if the page is already on a
+  // document (via goto/setContent before we attached), the DOMContentLoaded
+  // event already fired and our listener won't see it. Evaluate once now.
   await Promise.all(
     pages.map((page) => page.evaluate(installScript, config).catch(() => undefined)),
   );
@@ -92,10 +111,12 @@ interface HelperConfig {
  * page's globals at runtime, not the Node-side types.
  */
 function installScript(config: HelperConfig) {
-  const guardKey = '__humanjsMouseHelperInstalled';
-  const w = window as Window & { [guardKey]?: boolean };
-  if (w[guardKey]) return;
-  w[guardKey] = true;
+  // Guard on the *document*'s cursor element, not the window. `page.setContent()`
+  // replaces the document (and our cursor element inside it) but keeps the
+  // same `window`, so a window-level flag would falsely report "already
+  // installed" while the cursor is actually gone. Querying the DOM is the
+  // reliable check.
+  if (document.querySelector('[data-humanjs-cursor]')) return;
 
   const attach = () => {
     const cursor = document.createElement('div');
