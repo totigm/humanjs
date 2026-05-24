@@ -16,6 +16,9 @@ coverage
 playwright-report
 test-results
 
+# Demo recording output
+recordings
+
 # Environment
 .env
 .env.local

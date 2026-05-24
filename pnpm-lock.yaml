@@ -102,6 +102,9 @@ importers:
       '@humanjs/playwright':
         specifier: workspace:*
         version: link:../packages/playwright
+      '@humanjs/recorder':
+        specifier: workspace:*
+        version: link:../packages/recorder
       playwright:
         specifier: ^1.60.0
         version: 1.60.0
