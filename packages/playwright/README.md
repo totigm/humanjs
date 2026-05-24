@@ -171,6 +171,71 @@ In `speed: 'instant'`, the page jumps directly via `window.scrollTo` — no whee
 
 See [humanjs.dev](https://humanjs.dev) for the full feature set and personality reference.
 
+### Recording
+
+```ts
+import { chromium, createHuman, installMouseHelper } from '@humanjs/playwright';
+
+const browser = await chromium.launch({ headless: false });
+const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
+const page = await context.newPage();
+
+// Visible cursor overlay so the recorded video shows mouse motion.
+await installMouseHelper(context);
+
+const human = await createHuman(page);
+
+const rec = await human.record(async () => {
+  await human.click('#login');
+  await human.type('#email', 'demo@humanjs.dev');
+});
+
+await rec.toVideo('demo.mp4');
+await rec.toTimeline('demo.json');
+await browser.close();
+```
+
+`human.record(cb)` polls `page.screenshot()` at the target FPS, writes each frame to a temp directory, then assembles them via ffmpeg when you call `toVideo(path)`. The output format is inferred from the extension — `.mp4` (H.264 / yuv420p) or `.webm` (VP9).
+
+The same `Recording` exposes a **structured action timeline** of everything that happened during the callback:
+
+```ts
+await rec.toTimeline('session.json');   // → JSON on disk
+const timeline = rec.timeline;          // → in-memory object
+```
+
+The shape (`Timeline` with `personality`, `seed`, `speed`, `durationMs`, and an `events` array of `{ type, params, tMs, durationMs }`) is intended for observability pipelines, replay infrastructure, analytics, and debugger UIs. `toTimeline()` doesn't touch the browser context — call it before or after `toVideo()`, multiple times, in any order.
+
+**Quality presets** trade off file size, encoding time, and visual fidelity. Defaults to `'high'`:
+
+```ts
+await rec.toVideo('demo.mp4', { quality: 'high' });
+// 'fast'     — JPEG q=85, CRF 23, preset fast            (iteration)
+// 'standard' — JPEG q=90, CRF 20, preset fast            (balanced)
+// 'high'     — JPEG q=95, CRF 18, preset slow, animation (DEFAULT)
+// 'lossless' — PNG capture, CRF 12, preset veryslow      (archival)
+```
+
+Individual ffmpeg knobs (`crf`, `preset`, `tune`) can override the preset for fine-grained control.
+
+**Timeline-only mode** — skip the capture overhead entirely when you only need the action timeline:
+
+```ts
+const rec = await human.record({ video: false }, async () => {
+  await human.click('#login');
+});
+await rec.toTimeline('session.json');   // works
+// rec.toVideo('demo.mp4')               // throws with a clear message
+```
+
+**Lifecycle notes**:
+
+- Each session can produce **one** recording. `human.record()` throws if called twice on the same session — open a new context (and a new human) to record a separate clip.
+- `Recording.toVideo()` is single-use because it cleans up the captured frames after assembly.
+- For a one-call API that owns the entire lifecycle (launch → record → close), use [`@humanjs/recorder`](../recorder)'s `record(options, fn)` instead.
+
+Every recording is a regular plugin action — `beforeAction` and `afterAction` observe `{ type: 'record' }` exactly like `'click'` or `'scroll'`.
+
 ## License
 
 MIT
