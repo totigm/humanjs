@@ -202,10 +202,10 @@ async function main() {
       await human.scroll('#passage-block');
       await sleep(400);
 
-      // `withMotion: true` traces a humanized cursor scan through the text
-      // while the dwell elapses — the reading pillar made visible. Off by
-      // default; opt in when you want the humanization signal in a video.
-      await human.read('.passage', { withMotion: true });
+      // human.read() traces a humanized cursor scan through the target by
+      // default. Pass `{ withMotion: false }` to skip the motion if you
+      // only care about the dwell timing (e.g. AI agent temporal realism).
+      await human.read('.passage');
       await sleep(400);
     },
   );
