@@ -1,0 +1,70 @@
+{
+  "name": "@humanjs/recorder",
+  "version": "0.1.0",
+  "description": "One-call session recording for HumanJS — turn a humanized Playwright session into an mp4.",
+  "keywords": [
+    "humanjs",
+    "playwright",
+    "recorder",
+    "video",
+    "mp4",
+    "humanize",
+    "browser-automation"
+  ],
+  "author": "Gonzalo Muñoz <toti@eventurex.com.ar>",
+  "license": "MIT",
+  "homepage": "https://humanjs.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/totigm/humanjs.git",
+    "directory": "packages/recorder"
+  },
+  "bugs": "https://github.com/totigm/humanjs/issues",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "@humanjs/playwright": "workspace:*"
+  },
+  "peerDependencies": {
+    "playwright": ">=1.40.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.60.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
