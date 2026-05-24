@@ -217,6 +217,21 @@ describe('createHuman', () => {
     });
   });
 
+  describe('sleep', () => {
+    it('pauses for approximately the requested duration', async () => {
+      const page = makeMockPage();
+      const human = await createHuman(page);
+      const startedAt = Date.now();
+      await human.sleep(60);
+      const elapsed = Date.now() - startedAt;
+      // Wide tolerance — setTimeout can fire a few ms early on macOS and is
+      // subject to event-loop scheduling jitter. We're verifying the method
+      // exists and pauses, not measuring timer precision.
+      expect(elapsed).toBeGreaterThanOrEqual(50);
+      expect(elapsed).toBeLessThan(500);
+    });
+  });
+
   describe('plugin lifecycle', () => {
     it('calls install once with personality and rng in context', async () => {
       const install = vi.fn();

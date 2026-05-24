@@ -8,6 +8,7 @@ import {
   type PluginContext,
   type Point,
   resolvePersonality,
+  sleep,
 } from '@humanjs/core';
 import type { Locator, Page } from 'playwright';
 import { executeType } from './keyboard';
@@ -220,6 +221,16 @@ export interface Human {
    */
   scroll(target?: ScrollTarget, options?: ScrollOptions): Promise<ScrollResult>;
   /**
+   * Pause for `ms` milliseconds. Equivalent to importing `sleep` from
+   * `@humanjs/playwright` and calling it — exposed on the Human instance
+   * so users who already have `human` in scope don't need an extra import.
+   *
+   * Not a humanized action: this is a raw `setTimeout` wait, not scaled
+   * by personality or speed mode, and no plugin events fire. Use it for
+   * generic pacing between humanized actions.
+   */
+  sleep(ms: number): Promise<void>;
+  /**
    * Records `fn`'s actions. Returns a {@link Recording} you can export
    * to mp4/webm video (`toVideo`), JSON timeline (`toTimeline`), or both.
    *
@@ -430,6 +441,7 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
         () => executeScroll(target, { page, personality, rng, speed }, options),
       );
     },
+    sleep,
     async record(
       optionsOrFn: HumanRecordOptions | (() => Promise<void>),
       maybeFn?: () => Promise<void>,
