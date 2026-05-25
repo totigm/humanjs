@@ -75,15 +75,16 @@ await human.read('ul.changelog', { kind: 'scan' });    // explicit skim
 
 Explicit `kind` always wins over auto-detection.
 
-**Visible eye-scan motion** during the dwell:
+**Eye-scan cursor motion** runs during the dwell by default:
 
 ```ts
-await human.read('article', { withMotion: true });
+await human.read('article');                       // motion: on
+await human.read('article', { withMotion: false }); // motion: off
 ```
 
-The cursor walks a humanized L→R sweep through every line of rendered text and emits a small return-saccade between lines — same `mousemove` events a real reader would dispatch (so reading-time tooltip / hover handlers fire). Off by default.
+The cursor walks a humanized L→R sweep through every line of rendered text and emits a small return-saccade between lines — same `mousemove` events a real reader would dispatch (so reading-time tooltip / hover handlers fire). Pass `{ withMotion: false }` when you only care about the temporal pattern (typical AI-agent use case).
 
-For demos and screen recordings, pair `withMotion` with `installMouseHelper(page)` to render a visible cursor that follows the synthetic motion:
+For demos and screen recordings, pair it with `installMouseHelper(page)` to render a visible cursor that follows the synthetic motion:
 
 ```ts
 import { createHuman, installMouseHelper } from '@humanjs/playwright';
@@ -93,7 +94,7 @@ await page.goto('https://example.com/article');
 await installMouseHelper(page);
 
 const human = await createHuman(page, { personality: 'careful' });
-await human.read('article', { withMotion: true });
+await human.read('article');
 ```
 
 **Returns** a `ReadResult`:
@@ -170,6 +171,91 @@ const { from, to, distance, durationMs } = await human.scroll('end');
 In `speed: 'instant'`, the page jumps directly via `window.scrollTo` — no wheel events — but the action still fires for observability.
 
 See [humanjs.dev](https://humanjs.dev) for the full feature set and personality reference.
+
+### Recording
+
+```ts
+import { chromium, createHuman, installMouseHelper } from '@humanjs/playwright';
+
+const browser = await chromium.launch({ headless: false });
+const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
+const page = await context.newPage();
+
+// Visible cursor overlay so the recorded video shows mouse motion.
+await installMouseHelper(context);
+
+const human = await createHuman(page);
+
+const rec = await human.record(async () => {
+  await human.click('#login');
+  await human.type('#email', 'demo@humanjs.dev');
+});
+
+await rec.toVideo('demo.mp4');
+await rec.toTimeline('demo.json');
+await browser.close();
+```
+
+`human.record(cb)` polls `page.screenshot()` at the target FPS, writes each frame to a temp directory, then assembles them via ffmpeg when you call an exporter:
+
+- `rec.toVideo(path)` — `.mp4` (H.264 / yuv420p) or `.webm` (VP9)
+- `rec.toGif(path, { fps?, width? })` — palette-optimized animated GIF (`palettegen` + `paletteuse`, Bayer dither). Defaults to 15 fps, source viewport size.
+
+Both exporters are **repeatable and interleavable** — they read the captured frames, they don't consume them. Want an mp4 for the landing page *and* a GIF for the README from the same recording? Just call both:
+
+```ts
+const rec = await human.record(fn);
+await rec.toVideo('demo.mp4');
+await rec.toGif('demo.gif', { width: 720 });
+// No explicit cleanup needed for one-shot scripts — see below.
+```
+
+Captured frames live in a temp directory under `os.tmpdir()`. Cleanup happens automatically at process exit (a single `process.on('exit')` handler sweeps any un-disposed frame dirs), so casual scripts don't have to think about it. For long-running services, batch jobs, or anywhere you want predictable disk usage, release them proactively:
+
+```ts
+await rec.dispose();                  // explicit, idempotent
+// or with TS ≥ 5.2 / Node ≥ 20.4:
+await using rec = await human.record(fn);   // auto-disposes at scope exit
+```
+
+The same `Recording` exposes a **structured action timeline** of everything that happened during the callback:
+
+```ts
+await rec.toTimeline('session.json');   // → JSON on disk
+const timeline = rec.timeline;          // → in-memory object
+```
+
+The shape (`Timeline` with `personality`, `seed`, `speed`, `durationMs`, and an `events` array of `{ type, params, tMs, durationMs }`) is intended for observability pipelines, replay infrastructure, analytics, and debugger UIs. `toTimeline()` doesn't touch the browser context — call it before or after `toVideo()`, multiple times, in any order.
+
+**Quality presets** trade off file size, encoding time, and visual fidelity. Defaults to `'high'`:
+
+```ts
+await rec.toVideo('demo.mp4', { quality: 'high' });
+// 'fast'     — JPEG q=85, CRF 23, preset fast            (iteration)
+// 'standard' — JPEG q=90, CRF 20, preset fast            (balanced)
+// 'high'     — JPEG q=95, CRF 18, preset slow, animation (DEFAULT)
+// 'lossless' — PNG capture, CRF 12, preset veryslow      (archival)
+```
+
+Individual ffmpeg knobs (`crf`, `preset`, `tune`) can override the preset for fine-grained control.
+
+**Timeline-only mode** — skip the capture overhead entirely when you only need the action timeline:
+
+```ts
+const rec = await human.record({ video: false }, async () => {
+  await human.click('#login');
+});
+await rec.toTimeline('session.json');   // works
+// rec.toVideo('demo.mp4')               // throws with a clear message
+```
+
+**Lifecycle notes**:
+
+- Each session can produce **one** recording. `human.record()` throws if called twice on the same session — open a new context (and a new human) to record a separate clip.
+- `Recording.toVideo()` / `Recording.toGif()` are repeatable and interleavable. Frames live until `rec.dispose()` (or `await using` goes out of scope, or the process exits — a sweep-on-exit handler covers forgotten disposes).
+- For a one-call API that owns the entire lifecycle (launch → record → close), use [`@humanjs/recorder`](../recorder)'s `record(options, fn)` instead.
+
+Every recording is a regular plugin action — `beforeAction` and `afterAction` observe `{ type: 'record' }` exactly like `'click'` or `'scroll'`.
 
 ## License
 

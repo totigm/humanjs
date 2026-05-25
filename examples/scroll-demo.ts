@@ -13,9 +13,8 @@
  *   PERSONALITY=distracted  pnpm demo:scroll
  */
 
-import { createHuman, installMouseHelper } from '@humanjs/playwright';
-import { chromium } from 'playwright';
-import { parsePersonality, sleep } from './lib';
+import { chromium, createHuman, installMouseHelper } from '@humanjs/playwright';
+import { parsePersonality } from './lib';
 
 const SECTIONS = [
   { id: 'hero', title: 'Hero', accent: '#f5a55c' },
@@ -156,7 +155,7 @@ async function main() {
       ],
     });
 
-    await sleep(600);
+    await human.sleep(600);
 
     // 1. Horizontal scroll to the center of the 200vw-wide body. After
     // this lands, sections (which are also 200vw wide with content
@@ -165,24 +164,24 @@ async function main() {
       Math.floor((document.documentElement.scrollWidth - window.innerWidth) / 2),
     );
     await human.scroll({ to: halfwayX }, { axis: 'x' });
-    await sleep(800);
+    await human.sleep(800);
 
     // 2. Natural one-viewport scroll — what a real reader does first.
     await human.scroll();
-    await sleep(800);
+    await human.sleep(800);
 
     // 3. Jump to a specific section by selector.
     await human.scroll('#pricing', { overshoot: true });
-    await sleep(800);
+    await human.sleep(800);
 
     // 4. Scroll to bottom — long-distance scroll exercises the bell-curve
     // velocity profile and mid-scroll pauses.
     await human.scroll('end');
-    await sleep(800);
+    await human.sleep(800);
 
     // 5. Back to the top.
     await human.scroll('top');
-    await sleep(800);
+    await human.sleep(800);
 
     // 6. Forced overshoot — for personalities that wouldn't normally do
     // one, opt in via the options object to see the correction behavior.
@@ -190,7 +189,7 @@ async function main() {
 
     console.log('\nDone. Browser will stay open for 5 seconds.');
     console.log('Tip: re-run with PERSONALITY=distracted to see lots of overshoot.');
-    await sleep(5000);
+    await human.sleep(5000);
   } finally {
     await browser.close();
   }

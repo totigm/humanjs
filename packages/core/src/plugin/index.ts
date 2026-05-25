@@ -68,6 +68,7 @@ export type KnownActionType =
   | 'rightClick'
   | 'scroll'
   | 'shortcut'
+  | 'sleep'
   | 'type';
 
 /**

@@ -22,6 +22,16 @@
         "tsconfig.json"
       ]
     },
+    "test:integration": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "src/**",
+        "test/**",
+        "**/*.integration.test.ts",
+        "vitest.integration.config.ts",
+        "tsconfig.json"
+      ]
+    },
     "typecheck": {
       "dependsOn": ["^build"],
       "inputs": ["src/**", "test/**", "tsconfig.json"]

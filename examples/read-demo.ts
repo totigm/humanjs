@@ -13,9 +13,8 @@
  *   PERSONALITY=distracted  pnpm demo:read
  */
 
-import { createHuman, installMouseHelper } from '@humanjs/playwright';
-import { chromium } from 'playwright';
-import { parsePersonality, sleep } from './lib';
+import { chromium, createHuman, installMouseHelper } from '@humanjs/playwright';
+import { parsePersonality } from './lib';
 
 const PASSAGE =
   "The cursor doesn't have to lie. It can take a real path, type at a real rhythm, and dwell where a person would dwell. That's the whole library.";
@@ -172,32 +171,31 @@ async function main() {
       ],
     });
 
-    await sleep(500);
+    await human.sleep(500);
 
-    // `withMotion: true` walks a humanized cursor scan through each element's
-    // bounding box as the dwell elapses — the third pillar (the pace) made
-    // visible alongside the cursor itself, so the headed browser shows where
-    // attention is and how it moves.
-
-    // Target the content elements directly, not the outer `.block` wrappers
-    // — the wrappers also contain an absolutely-positioned `<span class="label">`
-    // ("prose", "code (auto-detected)", "scan"), and `withMotion`'s
-    // per-line-rect scan would otherwise include those labels too.
+    // `human.read()` walks a humanized cursor scan through each element's
+    // bounding box by default — the third pillar (the pace) made visible
+    // alongside the cursor itself. Pass `{ withMotion: false }` to opt out.
+    //
+    // Targets are the content elements directly, not the outer `.block`
+    // wrappers — the wrappers also contain an absolutely-positioned
+    // `<span class="label">` ("prose", "code (auto-detected)", "scan"),
+    // and the per-line-rect scan would otherwise include those labels too.
 
     // 1. Prose — defaults to kind 'prose'
-    await human.read('.passage', { withMotion: true });
-    await sleep(600);
+    await human.read('.passage');
+    await human.sleep(600);
 
     // 2. Code — auto-detected from <pre> tag, no explicit kind
-    await human.read('.code-snippet', { withMotion: true });
-    await sleep(600);
+    await human.read('.code-snippet');
+    await human.sleep(600);
 
     // 3. Scan — explicit kind to skim a list
-    await human.read('.scan-list', { kind: 'scan', withMotion: true });
+    await human.read('.scan-list', { kind: 'scan' });
 
     console.log('\nDone. Browser will stay open for 5 seconds.');
     console.log('Tip: re-run with PERSONALITY=fast (or precise / distracted) to compare.');
-    await sleep(5000);
+    await human.sleep(5000);
   } finally {
     await browser.close();
   }

@@ -1,14 +1,17 @@
 {
-  "name": "@humanjs/playwright",
-  "version": "0.3.0",
-  "description": "Humanize Playwright sessions for AI agents, QA tests, and demos.",
+  "name": "@humanjs/recorder",
+  "version": "0.0.0",
+  "description": "One-call session recording for HumanJS — capture a humanized Playwright session as mp4, webm, gif, or a structured JSON timeline.",
   "keywords": [
     "humanjs",
     "playwright",
+    "recorder",
+    "video",
+    "mp4",
+    "webm",
+    "gif",
     "humanize",
-    "browser-automation",
-    "qa",
-    "ai-agents"
+    "browser-automation"
   ],
   "author": "Gonzalo Muñoz <toti@eventurex.com.ar>",
   "license": "MIT",
@@ -16,7 +19,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/totigm/humanjs.git",
-    "directory": "packages/playwright"
+    "directory": "packages/recorder"
   },
   "bugs": "https://github.com/totigm/humanjs/issues",
   "type": "module",
@@ -48,7 +51,7 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "test:integration": "vitest run -c vitest.integration.config.ts",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
@@ -56,16 +59,15 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
-    "@humanjs/core": "workspace:*",
-    "ffmpeg-static": "^5.2.0"
+    "@humanjs/playwright": "workspace:*"
   },
   "peerDependencies": {
     "playwright": ">=1.40.0"
   },
-  "publishConfig": {
-    "access": "public"
-  },
   "devDependencies": {
     "playwright": "^1.60.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
