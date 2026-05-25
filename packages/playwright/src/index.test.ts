@@ -89,6 +89,7 @@ interface MockPage {
   page: Page;
   locator: MockLocator;
   pressedKeys: string[];
+  mouseClicks: Array<{ x: number; y: number }>;
 }
 
 /**
@@ -119,8 +120,16 @@ function makeKeyboardMockPage(): MockPage {
   const locator: MockLocator = {
     focus: vi.fn().mockResolvedValue(undefined),
     pressSequentially: vi.fn().mockResolvedValue(undefined),
+    // human.type() now drives an implicit click before typing (so the cursor
+    // moves to the input the way a real user does), which calls
+    // locator.boundingBox() + page.mouse.{move,click}. The fake box is 40×40
+    // at (100, 100) — wide enough that the click-point picker's Gaussian
+    // sampler stays inside its bounds (a tiny box can produce points just
+    // outside the rect, which is fine in production but noisy in tests).
+    boundingBox: vi.fn().mockResolvedValue({ x: 100, y: 100, width: 40, height: 40 }),
   };
   const pressedKeys: string[] = [];
+  const mouseClicks: Array<{ x: number; y: number }> = [];
   const page = {
     goto: vi.fn().mockResolvedValue(null),
     locator: vi.fn().mockReturnValue(locator as unknown as Locator),
@@ -130,8 +139,15 @@ function makeKeyboardMockPage(): MockPage {
         return Promise.resolve();
       }),
     },
+    mouse: {
+      move: vi.fn().mockResolvedValue(undefined),
+      click: vi.fn().mockImplementation((x: number, y: number) => {
+        mouseClicks.push({ x, y });
+        return Promise.resolve();
+      }),
+    },
   } as unknown as Page;
-  return { page, locator, pressedKeys };
+  return { page, locator, pressedKeys, mouseClicks };
 }
 
 /**
@@ -535,21 +551,60 @@ describe('createHuman', () => {
     });
 
     it('handles an empty value as a no-op without focusing', async () => {
-      const { page, locator, pressedKeys } = makeKeyboardMockPage();
+      const { page, locator, pressedKeys, mouseClicks } = makeKeyboardMockPage();
       const human = await createHuman(page);
       await human.type('input', '');
       expect(locator.focus).not.toHaveBeenCalled();
       expect(pressedKeys).toEqual([]);
+      // Empty value also skips the implicit click — no setup needed when
+      // there's nothing to type.
+      expect(mouseClicks).toEqual([]);
+    });
+
+    it('clicks the target before typing in human mode (mouse-led focus, not programmatic)', async () => {
+      // A real user moves their cursor to the input and clicks it; they don't
+      // teleport-focus a field. human.type() drives an implicit click before
+      // delegating to the keyboard executor — same pattern as click's
+      // built-in hover-before-click motion.
+      const { page, mouseClicks } = makeKeyboardMockPage();
+      const human = await createHuman(page);
+      await human.type('input', 'abc');
+      expect(mouseClicks).toHaveLength(1);
+      // Click point is Gaussian-picked near the box center. Asserting the
+      // click landed inside (or very near) the mocked box at (100, 100, 40, 40)
+      // proves the click was driven by the bounding-box read, not by some
+      // other code path that would have used the origin or current mouse pos.
+      const click = mouseClicks[0] ?? { x: 0, y: 0 };
+      expect(click.x).toBeGreaterThan(95);
+      expect(click.x).toBeLessThan(145);
+      expect(click.y).toBeGreaterThan(95);
+      expect(click.y).toBeLessThan(145);
+    });
+
+    it('does NOT emit a separate click timeline event for the implicit click', async () => {
+      // The click is a sub-step of the type action — same schema treatment as
+      // click's hover motion (no 'hover' event). Plugin observers see exactly
+      // one event per human.type() call, regardless of the mouse motion that
+      // happened underneath.
+      const beforeAction = vi.fn();
+      const { page } = makeKeyboardMockPage();
+      const human = await createHuman(page, { plugins: [{ name: 'p', beforeAction }] });
+      await human.type('input', 'abc');
+      const types = beforeAction.mock.calls.map((c) => (c[0] as { type: string }).type);
+      expect(types).toEqual(['type']);
     });
 
     it("uses pressSequentially with delay 0 in 'instant' mode", async () => {
-      const { page, locator, pressedKeys } = makeKeyboardMockPage();
+      const { page, locator, pressedKeys, mouseClicks } = makeKeyboardMockPage();
       const human = await createHuman(page, { speed: 'instant' });
       await human.type('input', 'abc');
       expect(locator.pressSequentially).toHaveBeenCalledWith('abc', { delay: 0 });
       // Per-key press should never be invoked in instant mode.
       expect(pressedKeys).toEqual([]);
       expect(locator.focus).not.toHaveBeenCalled();
+      // Instant mode also skips the implicit click — the whole point of
+      // 'instant' is to bypass humanization for fast CI runs.
+      expect(mouseClicks).toEqual([]);
     });
 
     it("emits a 'type' action with target description and length to plugins", async () => {
