@@ -73,7 +73,7 @@ const human = await createHuman(page, {
 
 await human.goto(url);
 await human.click(selector);              // hover, micro-move, click
-await human.type(selector, value);        // realistic typing rhythm
+await human.type(selector, value);        // click, then realistic typing rhythm
 await human.paste(selector, value);       // Cmd-V style (no per-char timing)
 await human.read(text);                   // dwell based on word count
 await human.scroll('natural');

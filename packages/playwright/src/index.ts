@@ -395,6 +395,26 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
       await performAction(
         { type: 'type', params: { target: description, length: value.length } },
         async () => {
+          // Implicit click before typing: a real user moves the cursor to
+          // the input and clicks it; they don't teleport-focus a field. The
+          // click is a sub-step of the type action — not its own timeline
+          // event (executeClick called directly, bypassing performAction),
+          // same pattern as click's built-in hover-before-click motion.
+          //
+          // Skipped in instant mode (the whole point of which is to bypass
+          // humanization) and for empty values (no typing to set up).
+          if (speed !== 'instant' && value.length > 0) {
+            await executeClick(target, {
+              page,
+              personality,
+              rng,
+              speed,
+              getMousePosition: () => lastMousePosition,
+              setMousePosition: (point) => {
+                lastMousePosition = point;
+              },
+            });
+          }
           await executeType(target, value, { page, personality, rng, speed });
         },
       );
