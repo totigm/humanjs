@@ -15,12 +15,12 @@ import { DemoStatusBar } from './DemoStatusBar';
 
 /**
  * Mock changelog-style feed the demo scrolls through. Reads like a real
- * product timeline — version tags, dates, brand-relevant titles — rather
- * than meta copy about the demo itself.
+ * product timeline — categorical tags (SHIPPED / NOTE / DESIGN), dates,
+ * brand-relevant titles — rather than meta copy about the demo itself.
  */
 const FEED = [
   {
-    tag: 'v1.0',
+    tag: 'SHIPPED',
     date: 'May 21',
     title: 'The cursor takes a real path.',
     body: 'Bezier paths, micro-jitter, hover-before-click. The third pillar lands today.',
@@ -48,7 +48,7 @@ const FEED = [
     glow: 'rgba(215, 127, 163, 0.10)',
   },
   {
-    tag: 'v0.9',
+    tag: 'SHIPPED',
     date: 'May 08',
     title: 'Overshoot + correction.',
     body: 'distracted scrolls past the target and corrects back. precise never overshoots. Same code path; profile dictates behavior.',

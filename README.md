@@ -138,7 +138,7 @@ const recording = await human.record(async () => {
 await recording.toVideo('checkout.mp4');     // mp4 / webm of the session
 await recording.toGif('checkout.gif');       // palette-optimized gif for README embeds
 await recording.toTimeline('checkout.json'); // structured JSON for analysis
-// recording.toPlaywright('checkout.spec.ts') — Playwright code export coming in v0.2
+// recording.toPlaywright('checkout.spec.ts') — Playwright code export coming in a follow-up
 ```
 
 Or one-call for the simple case (browser/page lifecycle handled for you):

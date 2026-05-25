@@ -12,7 +12,7 @@ interface Signal {
 const signals: Signal[] = [
   {
     label: 'Latest',
-    value: '@humanjs/core@0.2.0',
+    value: '@humanjs/core@0.4.0',
     href: 'https://www.npmjs.com/package/@humanjs/core',
     iconKind: 'external',
   },
