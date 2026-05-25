@@ -14,7 +14,7 @@
  */
 
 import { chromium, createHuman, installMouseHelper } from '@humanjs/playwright';
-import { parsePersonality, sleep } from './lib';
+import { parsePersonality } from './lib';
 
 const PASSAGE =
   "The cursor doesn't have to lie. It can take a real path, type at a real rhythm, and dwell where a person would dwell. That's the whole library.";
@@ -171,7 +171,7 @@ async function main() {
       ],
     });
 
-    await sleep(500);
+    await human.sleep(500);
 
     // `human.read()` walks a humanized cursor scan through each element's
     // bounding box by default — the third pillar (the pace) made visible
@@ -184,18 +184,18 @@ async function main() {
 
     // 1. Prose — defaults to kind 'prose'
     await human.read('.passage');
-    await sleep(600);
+    await human.sleep(600);
 
     // 2. Code — auto-detected from <pre> tag, no explicit kind
     await human.read('.code-snippet');
-    await sleep(600);
+    await human.sleep(600);
 
     // 3. Scan — explicit kind to skim a list
     await human.read('.scan-list', { kind: 'scan' });
 
     console.log('\nDone. Browser will stay open for 5 seconds.');
     console.log('Tip: re-run with PERSONALITY=fast (or precise / distracted) to compare.');
-    await sleep(5000);
+    await human.sleep(5000);
   } finally {
     await browser.close();
   }

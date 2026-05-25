@@ -15,7 +15,7 @@
  */
 
 import { record } from '@humanjs/recorder';
-import { parsePersonality, sleep } from './lib';
+import { parsePersonality } from './lib';
 
 const DEMO_HTML = /* html */ `
 <!doctype html>
@@ -191,22 +191,22 @@ async function main() {
       // The visible cursor overlay is auto-installed by record() — no need
       // to call installMouseHelper here. Opt out with `cursor: false` in
       // the options if you want a recording without it.
-      await sleep(800);
+      await human.sleep(800);
 
       await human.click('#start-btn');
-      await sleep(600);
+      await human.sleep(600);
 
       await human.type('#email', 'demo@humanjs.dev');
-      await sleep(600);
+      await human.sleep(600);
 
       await human.scroll('#passage-block');
-      await sleep(400);
+      await human.sleep(400);
 
       // human.read() traces a humanized cursor scan through the target by
       // default. Pass `{ withMotion: false }` to skip the motion if you
       // only care about the dwell timing (e.g. AI agent temporal realism).
       await human.read('.passage');
-      await sleep(400);
+      await human.sleep(400);
     },
   );
 

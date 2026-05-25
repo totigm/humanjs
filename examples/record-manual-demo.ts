@@ -27,7 +27,7 @@
  */
 
 import { chromium, createHuman, installMouseHelper } from '@humanjs/playwright';
-import { parsePersonality, sleep } from './lib';
+import { parsePersonality } from './lib';
 
 const DEMO_HTML = /* html */ `
 <!doctype html>
@@ -156,16 +156,16 @@ async function main() {
       seed: 'record-manual-1',
     });
 
-    await sleep(800);
+    await human.sleep(800);
 
     // 5. `human.record(cb)` starts polled-screenshot capture, runs the
     //    callback, stops capture, and returns a Recording with the frames
     //    + the structured action timeline. Nothing before this is recorded.
     const rec = await human.record(async () => {
       await human.type('#email', 'demo@humanjs.dev');
-      await sleep(400);
+      await human.sleep(400);
       await human.click('#submit');
-      await sleep(400);
+      await human.sleep(400);
     });
 
     // 6. Assemble the captured frames into an mp4 via ffmpeg. The browser
