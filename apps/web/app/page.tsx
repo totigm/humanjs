@@ -10,6 +10,7 @@ import {
   PersonalityLab,
   Playground,
   ReadingShowcase,
+  RecorderShowcase,
   ScrollShowcase,
   TrustStrip,
   TypingShowcase,
@@ -26,6 +27,7 @@ export default function Page() {
         <TypingShowcase />
         <ReadingShowcase />
         <ScrollShowcase />
+        <RecorderShowcase />
         <Audience />
         <FeatureBento />
         <PersonalityLab />
