@@ -1,5 +1,114 @@
 # @humanjs/playwright
 
+## 0.4.0
+
+### Minor Changes
+
+- bab5e49: Add humanized session recording — capture a slice of a Playwright session as mp4 or webm, plus a structured JSON action timeline.
+
+  ```ts
+  import {
+    chromium,
+    createHuman,
+    installMouseHelper,
+  } from "@humanjs/playwright";
+
+  const browser = await chromium.launch({ headless: false });
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await installMouseHelper(context);
+
+  const human = await createHuman(page);
+
+  const rec = await human.record(async () => {
+    await human.click("#login");
+    await human.type("#email", "demo@humanjs.dev");
+  });
+
+  await rec.toVideo("demo.mp4");
+  await rec.toTimeline("demo.json");
+  await browser.close();
+  ```
+
+  New public surfaces:
+
+  - **`human.record(cb)`** — records the wall-clock window of the callback by polling `page.screenshot()` at the target FPS and writing each frame to a temp directory. Returns a `Recording`. Supports `{ video: false }` for timeline-only mode (zero capture overhead) and `{ quality: 'fast' | 'standard' | 'high' | 'lossless' }`.
+  - **`Recording`** — class with `toVideo(path, options?)` (ffmpeg-assembled mp4/webm with quality presets and ffmpeg knob overrides), `toTimeline(path)` (structured JSON), and `.timeline` (in-memory). All exporters are repeatable; captured frames live until `dispose()` (or until the sweep-on-exit handler cleans them at process end — see the toGif changeset for the lifecycle details).
+  - **`Timeline`** + **`TimelineEvent`** — public schema for the captured action timeline, versioned at `1`. Intended for observability pipelines, replay infrastructure, and debugger UIs.
+  - **Re-exports**: `chromium`, `firefox`, `webkit`, `Browser`, `BrowserContext`, `Page`, `Locator`, `LaunchOptions`, `BrowserContextOptions`, `ElementHandle` from Playwright — so users have a single import surface for the integration's common case.
+
+  `installMouseHelper` also got a robustness fix: the visible cursor now survives `page.setContent()` (which Playwright doesn't treat as a navigation, so `addInitScript` doesn't fire). The helper now also re-injects on every `domcontentloaded` event, and the in-page idempotency guard checks for the cursor DOM element instead of a window flag (the window persists across `setContent` but the element doesn't).
+
+  For a one-call API that owns the entire browser/page lifecycle, see [`@humanjs/recorder`](../recorder).
+
+- bab5e49: `human.read()` now defaults `withMotion` to `true` (was `false`).
+
+  The cursor scans across the target's bounding box while the dwell elapses by default — "reading" implies looking, and looking implies motion. The opt-in semantics felt backwards: every demo and most user code was passing `{ withMotion: true }`, and skipping it produced an invisible "just sleep" that looked broken in recordings.
+
+  Pass `{ withMotion: false }` to skip motion when you only care about the temporal pattern — typical AI-agent use case where the cursor position is irrelevant:
+
+  ```ts
+  // Default — cursor traces the passage during the dwell
+  await human.read(".passage");
+
+  // Opt-out — just the dwell, no cursor motion
+  await human.read(".passage", { withMotion: false });
+  ```
+
+  **Migration note**: code that called `human.read(selector)` and depended on the cursor staying put will see the cursor scan across the target. Add `{ withMotion: false }` to restore the previous behavior.
+
+- bab5e49: Add `Recording.toGif(path, options?)` for animated-GIF export, and make exporters repeatable.
+
+  ```ts
+  const rec = await record({ output: "demo.mp4" }, async (human) => {
+    await human.goto("https://humanjs.dev");
+    await human.click("#cta");
+  });
+  await rec.toGif("demo.gif", { fps: 15, width: 720 });
+  await rec.toTimeline("demo.json");
+  await rec.dispose();
+  ```
+
+  Palette-optimized GIF output (per-recording `palettegen` + `paletteuse`, Bayer dither) so README/PR/Slack-embedded GIFs stay sharp at small file sizes. `record()` from `@humanjs/recorder` auto-dispatches to `toGif` when `output` has a `.gif` extension.
+
+  `Recording.toVideo()` and `Recording.toGif()` are now **repeatable and interleavable** — they read the captured frames, they don't consume them. Captured frames are swept automatically by a `process.on('exit')` handler installed on first use, so casual scripts don't need to call `dispose()` at all. For predictable mid-process cleanup (long-running services, batch jobs), call `await rec.dispose()` explicitly, or use `await using rec = await record(...)` (TS ≥ 5.2 / Node ≥ 20.4) — `Recording` implements `Symbol.asyncDispose`.
+
+  Previously each exporter was single-use and the two were mutually exclusive — that was an over-eager cleanup choice, not a real constraint.
+
+  Also fixes a timeline-fidelity bug: `human.sleep(ms)` now emits a `'sleep'` action through the plugin / recording pipeline (added to `KnownActionType` in `@humanjs/core`). Previously, pauses were invisible to the recorded timeline, which would have broken upcoming exporters (`toPlaywright`, `toHumanJS`) that replay timelines.
+
+- bab5e49: Add a `sleep(ms)` helper — exported from `@humanjs/core` and re-exported from `@humanjs/playwright`, plus available as a method on the `Human` instance for users who already have one in scope.
+
+  ```ts
+  // Standalone import — works without a Human session
+  import { sleep } from "@humanjs/playwright";
+  await sleep(800);
+
+  // Or via the Human instance — no extra import needed when you have one
+  const human = await createHuman(page);
+  await human.click("#start");
+  await human.sleep(400);
+  await human.type("#email", "demo@humanjs.dev");
+  ```
+
+  Trivial implementation (`new Promise((r) => setTimeout(r, ms))`) but exported because it shows up in every demo and most user code that paces humanized actions for visual demos or recordings. Playwright's own `page.waitForTimeout()` is the alternative but Playwright's docs discourage it; an explicit `sleep` makes the intent clearer.
+
+  **Not humanized**: `human.sleep(ms)` is a raw setTimeout — not scaled by personality or speed mode, and no plugin events fire. Use it for generic pacing between humanized actions. If you want delays that scale with personality, the per-action `dwell` settings (`preClickMs`, `postActionMs`) and the personality's `speed` multiplier handle that automatically inside the humanized primitives.
+
+### Patch Changes
+
+- bab5e49: Two hardening fixes surfaced during branch review of the recorder pillar:
+
+  - **`installMouseHelper(target)` is now idempotent.** A second call on the same `Page` or `BrowserContext` is a no-op instead of stacking duplicate `domcontentloaded` and `'page'` listeners. The in-page DOM guard already made the install script itself a no-op, but the listener accumulation meant N round-trips to the browser per navigation after N installs. Now an early-return guard (via `Symbol.for('@humanjs/playwright:mouse-helper:installed')` stashed on the target) skips repeat work.
+
+  - **Capture loop write failures no longer poison the queue.** Previously, a single failed `writeFile` (e.g. disk pressure mid-recording) would reject every subsequent write via promise-chain propagation, which in turn made `human.record()`'s `abort()` path throw before its `rm()` cleanup — leaking the temp directory and masking the original error. Each write now fails independently: one frame is dropped, a warning is logged, and the rest of the capture + cleanup proceeds normally. The chain (`pendingChain`) was replaced with an array fed to `Promise.allSettled` in the loop's settle step.
+
+  Neither fix changes the public API. They make existing behavior robust under failure conditions that were unlikely but unrecoverable.
+
+- Updated dependencies [bab5e49]
+- Updated dependencies [bab5e49]
+  - @humanjs/core@0.4.0
+
 ## 0.3.0
 
 ### Minor Changes
