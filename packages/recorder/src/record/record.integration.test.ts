@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
 
-import { stat, unlink } from 'node:fs/promises';
+import { readFile, stat, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -46,6 +46,33 @@ describe('record (integration)', () => {
       expect(rec.hasVideo).toBe(true);
       const info = await stat(outputPath);
       expect(info.size).toBeGreaterThan(500);
+    } finally {
+      await unlink(outputPath).catch(() => undefined);
+    }
+  });
+
+  it('dispatches to toGif when output ends in .gif', async () => {
+    const outputPath = join(tmpdir(), `humanjs-recorder-int-${Date.now()}.gif`);
+    try {
+      const rec = await record(
+        { output: outputPath, headless: true, quality: 'fast' },
+        async (human, page) => {
+          await page.setContent(
+            '<html><body><button id="b" style="margin:200px">x</button></body></html>',
+          );
+          await human.click('#b');
+        },
+      );
+
+      expect(rec.hasVideo).toBe(true);
+      const info = await stat(outputPath);
+      expect(info.size).toBeGreaterThan(500);
+
+      // Magic-byte check confirms the dispatcher actually routed to toGif,
+      // not toVideo with a misleading extension.
+      const header = await readFile(outputPath);
+      expect(header.subarray(0, 3).toString('ascii')).toBe('GIF');
+      expect(header.subarray(3, 6).toString('ascii')).toMatch(/^8[79]a$/);
     } finally {
       await unlink(outputPath).catch(() => undefined);
     }

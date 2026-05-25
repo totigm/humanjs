@@ -49,10 +49,25 @@ export interface InstallMouseHelperOptions {
  * // human-driven actions are now visible in the page
  * ```
  */
+// Cross-realm idempotency flag. We stash this on the target so a second
+// `installMouseHelper(samePageOrContext)` call is a no-op instead of
+// quietly stacking duplicate listeners. `Symbol.for` keeps the key stable
+// across bundle boundaries if @humanjs/playwright ever ends up duplicated
+// in node_modules (e.g. peer-dep resolution quirks).
+const INSTALLED_FLAG = Symbol.for('@humanjs/playwright:mouse-helper:installed');
+
 export async function installMouseHelper(
   target: BrowserContext | Page,
   options: InstallMouseHelperOptions = {},
 ): Promise<void> {
+  // Guard against re-install on the same target. Without this, every extra
+  // call adds another 'domcontentloaded' and 'page' listener, multiplying
+  // the per-navigation evaluate() round-trips (the DOM guard in
+  // `installScript` makes them no-ops, but the round-trips still cost).
+  const tagged = target as unknown as { [k: symbol]: true | undefined };
+  if (tagged[INSTALLED_FLAG]) return;
+  tagged[INSTALLED_FLAG] = true;
+
   const config: HelperConfig = {
     color: options.color ?? '#f5a55c',
     stroke: '#020203',

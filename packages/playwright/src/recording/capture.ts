@@ -1,6 +1,7 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { sleep } from '@humanjs/core';
 import type { Page } from 'playwright';
 
 /**
@@ -89,9 +90,11 @@ export async function startCapture(
 
   let stopped = false;
   let frameIndex = 0;
-  // Tracks the chain of in-flight captures so stop()/abort() can wait for
-  // disk writes to settle before returning.
-  let pendingChain: Promise<void> = Promise.resolve();
+  // Collects every in-flight write so stop()/abort() can wait for them to
+  // settle. Using `allSettled` (in `finish`) means an individual writeFile
+  // failure drops one frame but never blocks the rest of the queue or the
+  // abort() cleanup path — important when disk pressure shows up mid-capture.
+  const writes: Promise<unknown>[] = [];
 
   const startedAtMs = Date.now();
 
@@ -100,17 +103,26 @@ export async function startCapture(
       const loopStart = Date.now();
       try {
         const buf = await page.screenshot({
-          type: format === 'jpeg' ? 'jpeg' : 'png',
+          type: format,
           quality: format === 'jpeg' ? quality : undefined,
         });
         if (stopped) return;
         const idx = frameIndex++;
         const path = join(dir, `frame_${String(idx).padStart(6, '0')}.${ext}`);
         const tMs = loopStart - startedAtMs;
-        const writePromise = writeFile(path, buf).then(() => {
-          frames.push({ path, tMs });
-        });
-        pendingChain = pendingChain.then(() => writePromise);
+        writes.push(
+          writeFile(path, buf).then(
+            () => {
+              frames.push({ path, tMs });
+            },
+            (err) => {
+              // A single failed write drops one frame but doesn't poison the
+              // queue — finish()'s `allSettled` keeps the rest moving and lets
+              // abort() reach its `rm()` cleanup.
+              console.warn(`humanjs capture: write failed for frame ${idx}:`, err);
+            },
+          ),
+        );
       } catch (err) {
         // Page closed mid-capture, or screenshot otherwise failed. Bail
         // cleanly rather than crashing the loop.
@@ -131,7 +143,10 @@ export async function startCapture(
   const finish = async (): Promise<void> => {
     stopped = true;
     await loopPromise;
-    await pendingChain;
+    // `allSettled` over `writes` makes individual failures non-blocking; the
+    // per-write `.then` above already logs them, so callers see one warning
+    // per failed frame and a complete (possibly shorter) frames array.
+    await Promise.allSettled(writes);
   };
 
   return {
@@ -153,8 +168,4 @@ export async function startCapture(
       await rm(dir, { recursive: true, force: true }).catch(() => undefined);
     },
   };
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
