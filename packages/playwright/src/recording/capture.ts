@@ -21,8 +21,10 @@ export interface CaptureResult {
   readonly format: 'jpeg' | 'png';
   readonly fps: number;
   /**
-   * Removes the temp directory + all frames. Called automatically by
-   * `Recording.toVideo()` after assembly; provided here for the error path.
+   * Removes the temp directory + all frames. Called by `Recording.dispose()`
+   * and by the sweep-on-exit handler — not by the exporters, which are
+   * repeatable and read the frames without consuming them. Also called
+   * directly by the error path in `human.record()` when the callback throws.
    */
   cleanup(): Promise<void>;
 }

@@ -1,13 +1,15 @@
 {
   "name": "@humanjs/recorder",
   "version": "0.1.0",
-  "description": "One-call session recording for HumanJS — turn a humanized Playwright session into an mp4.",
+  "description": "One-call session recording for HumanJS — capture a humanized Playwright session as mp4, webm, gif, or a structured JSON timeline.",
   "keywords": [
     "humanjs",
     "playwright",
     "recorder",
     "video",
     "mp4",
+    "webm",
+    "gif",
     "humanize",
     "browser-automation"
   ],

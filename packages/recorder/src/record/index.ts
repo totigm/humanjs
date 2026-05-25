@@ -89,10 +89,12 @@ export type RecordCallback = (human: Human, page: Page) => Promise<void>;
  * humanized session, runs `fn`, and returns a {@link Recording} you can
  * export to video, JSON timeline, or read in-memory.
  *
- * If `options.output` is set, the video is written to that path before
- * `record()` resolves — the returned Recording is still useful for
- * `toTimeline()` and `.timeline`. If `output` is omitted, capture is
- * skipped entirely (no encoding overhead) and only the timeline is captured.
+ * If `options.output` is set, the output file is written to that path before
+ * `record()` resolves — extension dispatches to `toVideo` (`.mp4` / `.webm`)
+ * or `toGif` (`.gif`). The returned Recording is still useful for additional
+ * exports via `toVideo` / `toGif` / `toTimeline` (all repeatable). If
+ * `output` is omitted, frame capture is skipped entirely (no encoding
+ * overhead) and only the timeline is captured.
  *
  * @example
  * ```ts
@@ -142,7 +144,7 @@ export async function record(
   const resolvedQuality: RecordingQuality = quality ?? 'high';
   const browserPreset = QUALITY_BROWSER_PRESETS[resolvedQuality];
   const resolvedViewport = viewport ?? context?.viewport ?? browserPreset.viewport;
-  const wantsVideo = output !== undefined;
+  const wantsCapture = output !== undefined;
 
   const browser = await chromium.launch({
     ...launch,
@@ -167,13 +169,13 @@ export async function record(
 
       const human = await createHuman(page, createHumanOptions);
 
-      // Capture runs only when the caller asked for a video — saves the
-      // screenshot + disk-write overhead for timeline-only recordings.
-      const recording = await human.record({ video: wantsVideo, quality: resolvedQuality }, () =>
+      // Capture runs only when the caller asked for an output file — saves
+      // the screenshot + disk-write overhead for timeline-only recordings.
+      const recording = await human.record({ video: wantsCapture, quality: resolvedQuality }, () =>
         fn(human, page),
       );
 
-      if (wantsVideo && output) {
+      if (wantsCapture && output) {
         // Dispatch by extension: .gif goes through the GIF exporter (which
         // ignores `quality` — GIF doesn't have a CRF concept), everything
         // else flows into the mp4/webm encoder with the chosen preset.

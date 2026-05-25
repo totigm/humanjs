@@ -176,12 +176,6 @@ export async function executeRead(
 // ────────── helpers ──────────
 
 /**
- * Inspects the element's tag for the smart default. Only the narrowest
- * heuristic (literal `<pre>` / `<code>` tagName) — CSS class sniffing would
- * be too magical. Returns undefined for anything else, so the caller's
- * resolution chain falls back to `'prose'`.
- */
-/**
  * Returns one rect per visible line of *text* inside the element, in
  * viewport coordinates (same space as `locator.boundingBox()`).
  *
@@ -253,6 +247,12 @@ async function getLineRects(
   );
 }
 
+/**
+ * Inspects the element's tag for the smart default. Only the narrowest
+ * heuristic (literal `<pre>` / `<code>` tagName) — CSS class sniffing would
+ * be too magical. Returns undefined for anything else, so the caller's
+ * resolution chain falls back to `'prose'`.
+ */
 async function detectKindFromTag(locator: Locator): Promise<ReadKind | undefined> {
   // `evaluate` runs the function in the browser context; Playwright's types
   // give the callback a DOM Element here without needing the lib.dom ref

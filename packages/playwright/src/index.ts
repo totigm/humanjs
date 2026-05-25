@@ -313,9 +313,9 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
     await plugin.install?.(context);
   }
 
-  // Each session can only produce one Recording — `Recording.toVideo()`
-  // finalizes the captured frames, so a second `record()` would silently
-  // capture a window of a dead session. Reject loudly instead.
+  // Each session can only produce one Recording — we can't run two
+  // concurrent capture loops on the same page without their screenshots
+  // interfering. Reject loudly rather than letting both quietly drop frames.
   let hasRecorded = false;
 
   // Timeline capture is "armed" only while `human.record(cb)` is running:
