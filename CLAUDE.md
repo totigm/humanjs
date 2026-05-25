@@ -168,6 +168,25 @@ Don't ship core packages without these:
 - **Comparison rule**: respect ghost-cursor. Different scope, not "we're better."
 - **Skeptic question** ("why humanize AI agents?"): always answer with the 5 legitimate use cases — see PROJECT_BRIEF.md "The 'why humanize' answer" section.
 
+## Release hygiene — update the landing after every version bump
+
+When the changesets-generated "Version Packages" PR merges to `main` (and the release workflow publishes to npm), the landing page and root README hold hard-coded version references that go stale. **Update them in the same commit cycle as the release, not "later."**
+
+Files to touch on every minor/major bump of `@humanjs/playwright` (the user-facing flagship):
+
+- `apps/web/components/sections/Hero.tsx` — the eyebrow line `<span className="text-accent">vX.Y</span>`
+- `apps/web/components/sections/HonestLimits.tsx` — the `latest vX.Y` line in the Designed Scope block
+- `apps/web/components/sections/TrustStrip.tsx` — the `Latest` signal's `value: '@humanjs/core@X.Y.Z'`
+- `README.md` — any sample/comment code blocks that reference shipped vs upcoming versions
+
+Wording rules:
+
+- **Use durable phrasing.** Write `latest vX.Y`, not `vX.Y ships today` — "today" rots the day after release.
+- **Pin only one version per surface.** TrustStrip's "Latest" pill is currently `@humanjs/core@X.Y.Z`. Don't add parallel `@humanjs/playwright@X.Y.Z` / `@humanjs/recorder@X.Y.Z` pills — the user only needs one anchor; the rest live in the README.
+- **No version-style strings in mock/demo data.** Tags like `v0.9` or `v1.0` inside changelog-style demos (e.g. `apps/web/components/motion/ScrollDemo.tsx`) will be misread as real version claims. Use categorical labels — `SHIPPED`, `NOTE`, `DESIGN`.
+
+Check before commit: `grep -rn "v0\.\|@humanjs/.*@0\." apps/web/components apps/web/app README.md packages/*/README.md` — should return only the just-bumped current values, no older references.
+
 ## Conventions
 
 - TypeScript strict. No `any` without an inline comment justifying it.
