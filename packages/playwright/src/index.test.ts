@@ -550,7 +550,7 @@ describe('createHuman', () => {
       expect(pressedKeys).not.toContain('Backspace');
     });
 
-    it('handles an empty value as a no-op without focusing', async () => {
+    it('handles an empty value as a no-op (no click, no focus, no keys)', async () => {
       const { page, locator, pressedKeys, mouseClicks } = makeKeyboardMockPage();
       const human = await createHuman(page);
       await human.type('input', '');
