@@ -11,7 +11,9 @@
  *   PERSONALITY=distracted  pnpm demo:record
  *
  * Output path: ./recordings/humanjs-<personality>.mp4
- *   Override with: OUTPUT=path/to/file.mp4 pnpm demo:record
+ *   Override with: OUTPUT=path/to/file.<mp4|webm|gif> pnpm demo:record
+ *   (record() auto-dispatches by extension — .gif goes through toGif,
+ *    .mp4 / .webm go through toVideo.)
  */
 
 import { record } from '@humanjs/recorder';
@@ -169,14 +171,18 @@ const DEMO_HTML = /* html */ `
 async function main() {
   const personality = parsePersonality(process.env.PERSONALITY, 'careful', 'PERSONALITY');
   const output = process.env.OUTPUT ?? `recordings/humanjs-${personality}.mp4`;
-  const timelineOutput = output.replace(/\.(mp4|webm)$/i, '.json');
+  // Strip whatever video/gif extension the user passed so the timeline
+  // ends up at `<name>.json` instead of, e.g., `demo.gif` (which would
+  // silently overwrite the GIF we just wrote).
+  const timelineOutput = output.replace(/\.(mp4|webm|gif)$/i, '.json');
 
   console.log(`Recording personality: ${personality}`);
   console.log(`Output: ${output}\n`);
 
-  // `record()` returns a Recording — toVideo has already been called
-  // internally because `output` was provided. We still have access to
-  // toTimeline and the in-memory timeline for downstream uses.
+  // `record()` returns a Recording — toVideo / toGif has already been
+  // called internally (extension-dispatched) because `output` was provided.
+  // We still have access to toTimeline and the in-memory timeline for
+  // downstream uses.
   const rec = await record(
     {
       output,
@@ -210,11 +216,23 @@ async function main() {
     },
   );
 
+  // Also emit a GIF from the same captured frames — `toVideo` / `toGif` are
+  // repeatable and interleavable, they read the frames without consuming
+  // them.
+  const gifOutput = `recordings/humanjs-${personality}.gif`;
+  await rec.toGif(gifOutput);
+
   // Also dump the structured timeline alongside the video so the demo
-  // showcases both outputs from a single recorded session.
+  // showcases all three outputs from a single recorded session.
   await rec.toTimeline(timelineOutput);
 
+  // No explicit cleanup needed — a sweep-on-exit handler clears the
+  // captured-frames temp dir when this script ends. Call `await rec.dispose()`
+  // (or use `await using rec = await record(...)`) only if you want
+  // predictable mid-process cleanup, e.g. in a long-running service.
+
   console.log(`\nDone. Video saved to:    ${output}`);
+  console.log(`      GIF saved to:      ${gifOutput}`);
   console.log(`      Timeline saved to: ${timelineOutput}`);
   console.log(`      Captured ${rec.timeline.events.length} actions in ${rec.durationMs}ms.`);
   console.log('Tip: re-run with PERSONALITY=distracted to see typos + overshoot in the recording.');

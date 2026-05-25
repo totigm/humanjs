@@ -1,15 +1,17 @@
 /**
  * HumanJS record demo — manual lifecycle.
  *
- * Same end result as `pnpm demo:record` (one mp4 of a humanized session)
- * but uses the lower-level @humanjs/playwright API directly so you can
- * see how the recording surface composes with normal Playwright code:
+ * Same end result as `pnpm demo:record` (a humanized session captured to
+ * mp4 or gif) but uses the lower-level @humanjs/playwright API directly
+ * so you can see how the recording surface composes with normal Playwright
+ * code:
  *
  *   1. Standard `chromium.launch()` — no recording option needed
  *   2. Standard `browser.newContext()` + `context.newPage()`
  *   3. `human.record(cb)` starts frame capture, runs the callback,
  *      stops capture; returns a Recording
- *   4. `rec.toVideo(path)` assembles captured frames into mp4
+ *   4. `rec.toVideo(path)` / `rec.toGif(path)` assembles captured frames
+ *      into the target format via ffmpeg
  *
  * Use this shape when you already have a Playwright setup, need
  * multi-page flows, or want to record a slice of a longer session.
@@ -23,9 +25,10 @@
  *   PERSONALITY=distracted  pnpm demo:record-manual
  *
  * Output path: ./recordings/humanjs-manual-<personality>.mp4
- *   Override with: OUTPUT=path/to/file.mp4 pnpm demo:record-manual
+ *   Override with: OUTPUT=path/to/file.<mp4|webm|gif> pnpm demo:record-manual
  */
 
+import { extname } from 'node:path';
 import { chromium, createHuman, installMouseHelper } from '@humanjs/playwright';
 import { parsePersonality } from './lib';
 
@@ -131,7 +134,9 @@ const DEMO_HTML = /* html */ `
 async function main() {
   const personality = parsePersonality(process.env.PERSONALITY, 'careful', 'PERSONALITY');
   const output = process.env.OUTPUT ?? `recordings/humanjs-manual-${personality}.mp4`;
-  const timelineOutput = output.replace(/\.(mp4|webm)$/i, '.json');
+  // Strip whatever extension the user passed so the timeline ends up at
+  // `<name>.json` instead of, e.g., overwriting the GIF we just wrote.
+  const timelineOutput = output.replace(/\.(mp4|webm|gif)$/i, '.json');
 
   console.log(`Recording personality: ${personality}`);
   console.log(`Output: ${output}\n`);
@@ -168,15 +173,33 @@ async function main() {
       await human.sleep(400);
     });
 
-    // 6. Assemble the captured frames into an mp4 via ffmpeg. The browser
-    //    context stays open — toVideo doesn't depend on the page lifecycle.
-    await rec.toVideo(output);
+    // 6. Assemble the captured frames via ffmpeg. The browser context stays
+    //    open — these exporters don't depend on the page lifecycle, and
+    //    they're repeatable / interleavable (each call reads the frame
+    //    source, none consumes it). Dispatch the primary output by
+    //    extension, then unconditionally emit a GIF too so the demo shows
+    //    both formats from one recording.
+    if (extname(output).toLowerCase() === '.gif') {
+      await rec.toGif(output);
+    } else {
+      await rec.toVideo(output);
+    }
+    const gifOutput = `recordings/humanjs-manual-${personality}.gif`;
+    if (gifOutput !== output) {
+      await rec.toGif(gifOutput);
+    }
 
     // 7. Timeline is in-memory; safe to write any time.
     await rec.toTimeline(timelineOutput);
 
+    // 8. No explicit cleanup needed — a sweep-on-exit handler clears the
+    //    captured-frames temp dir when this script ends. For long-running
+    //    services that need predictable disk usage, call `await rec.dispose()`
+    //    (or use `await using rec = await human.record(fn)` at step 5).
+
     console.log(`Done (${rec.durationMs}ms recorded, ${rec.timeline.events.length} actions).`);
-    console.log(`  Video:    ${output}`);
+    console.log(`  Output:   ${output}`);
+    if (gifOutput !== output) console.log(`  GIF:      ${gifOutput}`);
     console.log(`  Timeline: ${timelineOutput}`);
     console.log('Tip: re-run with PERSONALITY=distracted to see typos in the recording.');
   } finally {
