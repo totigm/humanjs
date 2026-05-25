@@ -10,6 +10,7 @@ interface MockLocator {
   evaluate?: ReturnType<typeof vi.fn>;
   scrollIntoViewIfNeeded?: ReturnType<typeof vi.fn>;
   boundingBox?: ReturnType<typeof vi.fn>;
+  click?: ReturnType<typeof vi.fn>;
 }
 
 /**
@@ -89,7 +90,9 @@ interface MockPage {
   page: Page;
   locator: MockLocator;
   pressedKeys: string[];
-  mouseClicks: Array<{ x: number; y: number }>;
+  insertedText: string[];
+  mouseClicks: Array<{ x: number; y: number; button?: string }>;
+  mouseButtonEvents: Array<'down' | 'up'>;
 }
 
 /**
@@ -120,16 +123,16 @@ function makeKeyboardMockPage(): MockPage {
   const locator: MockLocator = {
     focus: vi.fn().mockResolvedValue(undefined),
     pressSequentially: vi.fn().mockResolvedValue(undefined),
-    // human.type() now drives an implicit click before typing (so the cursor
-    // moves to the input the way a real user does), which calls
-    // locator.boundingBox() + page.mouse.{move,click}. The fake box is 40×40
-    // at (100, 100) — wide enough that the click-point picker's Gaussian
-    // sampler stays inside its bounds (a tiny box can produce points just
-    // outside the rect, which is fine in production but noisy in tests).
+    // The implicit click in human.type() / human.paste() needs a bounding
+    // box; hover/rightClick/drag use it too. 40×40 at (100, 100) is wide
+    // enough that the Gaussian click-picker stays inside the rect.
     boundingBox: vi.fn().mockResolvedValue({ x: 100, y: 100, width: 40, height: 40 }),
+    click: vi.fn().mockResolvedValue(undefined),
   };
   const pressedKeys: string[] = [];
-  const mouseClicks: Array<{ x: number; y: number }> = [];
+  const insertedText: string[] = [];
+  const mouseClicks: Array<{ x: number; y: number; button?: string }> = [];
+  const mouseButtonEvents: Array<'down' | 'up'> = [];
   const page = {
     goto: vi.fn().mockResolvedValue(null),
     locator: vi.fn().mockReturnValue(locator as unknown as Locator),
@@ -138,16 +141,28 @@ function makeKeyboardMockPage(): MockPage {
         pressedKeys.push(key);
         return Promise.resolve();
       }),
+      insertText: vi.fn().mockImplementation((text: string) => {
+        insertedText.push(text);
+        return Promise.resolve();
+      }),
     },
     mouse: {
       move: vi.fn().mockResolvedValue(undefined),
-      click: vi.fn().mockImplementation((x: number, y: number) => {
-        mouseClicks.push({ x, y });
+      click: vi.fn().mockImplementation((x: number, y: number, opts?: { button?: string }) => {
+        mouseClicks.push({ x, y, button: opts?.button });
+        return Promise.resolve();
+      }),
+      down: vi.fn().mockImplementation(() => {
+        mouseButtonEvents.push('down');
+        return Promise.resolve();
+      }),
+      up: vi.fn().mockImplementation(() => {
+        mouseButtonEvents.push('up');
         return Promise.resolve();
       }),
     },
   } as unknown as Page;
-  return { page, locator, pressedKeys, mouseClicks };
+  return { page, locator, pressedKeys, insertedText, mouseClicks, mouseButtonEvents };
 }
 
 /**
@@ -656,6 +671,223 @@ describe('createHuman', () => {
       const action = beforeAction.mock.calls[0]?.[0];
       expect(action.params).not.toHaveProperty('value');
       expect(JSON.stringify(action.params)).not.toContain('sup3r-secret');
+    });
+  });
+
+  describe('paste', () => {
+    it('inserts the full value via keyboard.insertText (no per-key timing)', async () => {
+      const { page, insertedText, pressedKeys } = makeKeyboardMockPage();
+      const human = await createHuman(page);
+      await human.paste('input', 'long-pasted-value');
+      expect(insertedText).toEqual(['long-pasted-value']);
+      // Critical: paste must NOT use the per-key path. If pressedKeys had
+      // entries, we'd be doing typing-rhythm work for a paste operation.
+      expect(pressedKeys).toEqual([]);
+    });
+
+    it('clicks the target before pasting in human mode (same as type)', async () => {
+      const { page, mouseClicks } = makeKeyboardMockPage();
+      const human = await createHuman(page);
+      await human.paste('input', 'abc');
+      // The implicit click happens for the same reason type() does it: a
+      // real user clicks the field before pasting.
+      expect(mouseClicks).toHaveLength(1);
+    });
+
+    it('skips the implicit click in instant mode', async () => {
+      const { page, mouseClicks, insertedText } = makeKeyboardMockPage();
+      const human = await createHuman(page, { speed: 'instant' });
+      await human.paste('input', 'abc');
+      expect(mouseClicks).toEqual([]);
+      // The value still lands — instant mode bypasses humanization, not the
+      // primitive itself.
+      expect(insertedText).toEqual(['abc']);
+    });
+
+    it('treats an empty value as a no-op (no click, no insertText, no focus)', async () => {
+      const { page, locator, mouseClicks, insertedText } = makeKeyboardMockPage();
+      const human = await createHuman(page);
+      await human.paste('input', '');
+      expect(mouseClicks).toEqual([]);
+      expect(insertedText).toEqual([]);
+      expect(locator.focus).not.toHaveBeenCalled();
+    });
+
+    it('does NOT echo the pasted value into action params (privacy)', async () => {
+      const beforeAction = vi.fn();
+      const { page } = makeKeyboardMockPage();
+      const human = await createHuman(page, { plugins: [{ name: 'p', beforeAction }] });
+      await human.paste('input', 'pasted-token-12345');
+      const action = beforeAction.mock.calls[0]?.[0];
+      expect(action.params).not.toHaveProperty('value');
+      expect(JSON.stringify(action.params)).not.toContain('pasted-token-12345');
+    });
+  });
+
+  describe('shortcut', () => {
+    it('dispatches the resolved chord via page.keyboard.press', async () => {
+      const originalPlatform = process.platform;
+      Object.defineProperty(process, 'platform', { value: 'darwin', configurable: true });
+      try {
+        const { page, pressedKeys } = makeKeyboardMockPage();
+        const human = await createHuman(page);
+        await human.shortcut('Mod+S');
+        expect(pressedKeys).toEqual(['Meta+S']);
+      } finally {
+        Object.defineProperty(process, 'platform', {
+          value: originalPlatform,
+          configurable: true,
+        });
+      }
+    });
+
+    it('dispatches single-key shortcuts (no modifier)', async () => {
+      const { page, pressedKeys } = makeKeyboardMockPage();
+      const human = await createHuman(page);
+      await human.shortcut('Enter');
+      expect(pressedKeys).toEqual(['Enter']);
+    });
+
+    it("emits a 'shortcut' action with the original chord to plugins", async () => {
+      const beforeAction = vi.fn();
+      const { page } = makeKeyboardMockPage();
+      const human = await createHuman(page, { plugins: [{ name: 'p', beforeAction }] });
+      await human.shortcut('Cmd+Shift+P');
+      expect(beforeAction).toHaveBeenCalledWith({
+        type: 'shortcut',
+        params: { chord: 'Cmd+Shift+P' },
+      });
+    });
+
+    it('throws on an invalid modifier and never dispatches', async () => {
+      const { page, pressedKeys } = makeKeyboardMockPage();
+      const human = await createHuman(page);
+      await expect(human.shortcut('Hyper+S')).rejects.toThrow(/Invalid shortcut modifier/);
+      expect(pressedKeys).toEqual([]);
+    });
+  });
+
+  describe('rightClick', () => {
+    it("dispatches mouse.click with button: 'right' in human mode", async () => {
+      const { page, mouseClicks } = makeKeyboardMockPage();
+      const human = await createHuman(page);
+      await human.rightClick('button');
+      expect(mouseClicks).toHaveLength(1);
+      expect(mouseClicks[0]?.button).toBe('right');
+    });
+
+    it("emits a 'rightClick' action to plugins (not 'click')", async () => {
+      const beforeAction = vi.fn();
+      const { page } = makeKeyboardMockPage();
+      const human = await createHuman(page, { plugins: [{ name: 'p', beforeAction }] });
+      await human.rightClick('button');
+      expect(beforeAction).toHaveBeenCalledWith({
+        type: 'rightClick',
+        params: { target: 'button' },
+      });
+    });
+
+    it('in instant mode, falls back to locator.click with the right button', async () => {
+      const { page, locator, mouseClicks } = makeKeyboardMockPage();
+      const human = await createHuman(page, { speed: 'instant' });
+      await human.rightClick('button');
+      expect(locator.click).toHaveBeenCalledWith({ button: 'right' });
+      // Humanized motion path is skipped — no synthetic mouse.click events.
+      expect(mouseClicks).toEqual([]);
+    });
+  });
+
+  describe('hover', () => {
+    it('moves the mouse to the target without clicking', async () => {
+      const { page, mouseClicks } = makeKeyboardMockPage();
+      const human = await createHuman(page);
+      await human.hover('button');
+      // The whole point of hover: motion happens, no click.
+      expect(mouseClicks).toEqual([]);
+    });
+
+    it('walks the mouse along a path (mouse.move is called)', async () => {
+      const { page } = makeKeyboardMockPage();
+      const human = await createHuman(page);
+      await human.hover('button');
+      // Bezier path produces many move events. We just need to confirm
+      // motion happened at all — exact step count is path-implementation-
+      // dependent and would make this test brittle.
+      const movesCalled = (page.mouse.move as ReturnType<typeof vi.fn>).mock.calls.length;
+      expect(movesCalled).toBeGreaterThan(0);
+    });
+
+    it("emits a 'hover' action to plugins", async () => {
+      const beforeAction = vi.fn();
+      const { page } = makeKeyboardMockPage();
+      const human = await createHuman(page, { plugins: [{ name: 'p', beforeAction }] });
+      await human.hover('button');
+      expect(beforeAction).toHaveBeenCalledWith({
+        type: 'hover',
+        params: { target: 'button' },
+      });
+    });
+
+    it('in instant mode, dispatches a single mouse.move to the element center', async () => {
+      const { page, mouseClicks } = makeKeyboardMockPage();
+      const human = await createHuman(page, { speed: 'instant' });
+      await human.hover('button');
+      // Element center: bounding box is (100, 100, 40, 40) → center is (120, 120).
+      expect(page.mouse.move).toHaveBeenCalledWith(120, 120);
+      expect(mouseClicks).toEqual([]);
+    });
+  });
+
+  describe('drag', () => {
+    it('dispatches mouse.down then mouse.up around the motion', async () => {
+      const { page, mouseButtonEvents } = makeKeyboardMockPage();
+      const human = await createHuman(page);
+      await human.drag('#card', '#slot');
+      // Order is load-bearing: every drag is exactly down → ... → up.
+      // Both must fire, and in that order.
+      expect(mouseButtonEvents).toEqual(['down', 'up']);
+    });
+
+    it('accepts raw Point coordinates for either endpoint', async () => {
+      const { page, mouseButtonEvents } = makeKeyboardMockPage();
+      const human = await createHuman(page);
+      // No bounding-box lookup is needed for raw Points — the locator's
+      // boundingBox mock would still be called if the selector branch ran,
+      // but for the destination it shouldn't be.
+      await human.drag('#card', { x: 400, y: 250 });
+      expect(mouseButtonEvents).toEqual(['down', 'up']);
+    });
+
+    it('accepts Point for both endpoints (no DOM resolution needed at all)', async () => {
+      const { page, mouseButtonEvents } = makeKeyboardMockPage();
+      const human = await createHuman(page);
+      await human.drag({ x: 10, y: 10 }, { x: 200, y: 200 });
+      expect(mouseButtonEvents).toEqual(['down', 'up']);
+      // locator() should never be called when both endpoints are Points.
+      expect(page.locator).not.toHaveBeenCalled();
+    });
+
+    it("emits a 'drag' action with both endpoint descriptions to plugins", async () => {
+      const beforeAction = vi.fn();
+      const { page } = makeKeyboardMockPage();
+      const human = await createHuman(page, { plugins: [{ name: 'p', beforeAction }] });
+      await human.drag('#card', { x: 400, y: 250 });
+      expect(beforeAction).toHaveBeenCalledWith({
+        type: 'drag',
+        params: { from: '#card', to: 'point(400, 250)' },
+      });
+    });
+
+    it('in instant mode, fires down → move → up at the endpoints', async () => {
+      const { page, mouseButtonEvents } = makeKeyboardMockPage();
+      const human = await createHuman(page, { speed: 'instant' });
+      await human.drag({ x: 10, y: 10 }, { x: 200, y: 50 });
+      expect(mouseButtonEvents).toEqual(['down', 'up']);
+      // Exactly two moves in instant mode: one to the source, one to the dest.
+      const moves = (page.mouse.move as ReturnType<typeof vi.fn>).mock.calls;
+      expect(moves).toHaveLength(2);
+      expect(moves[0]).toEqual([10, 10]);
+      expect(moves[1]).toEqual([200, 50]);
     });
   });
 

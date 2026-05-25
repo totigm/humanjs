@@ -11,8 +11,8 @@ import {
   sleep,
 } from '@humanjs/core';
 import type { Locator, Page } from 'playwright';
-import { executeType } from './keyboard';
-import { executeClick } from './mouse';
+import { executePaste, executeShortcut, executeType } from './keyboard';
+import { executeClick, executeDrag, executeHover, type MouseTarget } from './mouse';
 import { executeRead, type ReadOptions, type ReadResult, type ReadTarget } from './reading';
 import {
   getCaptureSettingsForQuality,
@@ -151,6 +151,36 @@ export interface Human {
    */
   click(target: Locator | string): Promise<void>;
   /**
+   * Right-click `target` — opens a native context menu. Same Bezier-path
+   * motion and hover dwell as `click()`; only the dispatched button differs.
+   *
+   * In `speed: 'instant'`, falls back to `locator.click({ button: 'right' })`.
+   */
+  rightClick(target: Locator | string): Promise<void>;
+  /**
+   * Move the cursor to `target` along a humanized Bezier path and settle
+   * on it — no click is dispatched. Useful for hover-triggered UI
+   * (tooltips, dropdowns), for positioning the cursor before a non-target
+   * action, or for visible demos where the cursor should pause on
+   * something noteworthy.
+   *
+   * In `speed: 'instant'`, dispatches one `mouse.move()` to the element's
+   * center.
+   */
+  hover(target: Locator | string): Promise<void>;
+  /**
+   * Drag from `from` to `to`. Each endpoint accepts a CSS selector, a
+   * `Locator`, or a literal `Point` — the last form matters for canvas /
+   * SVG / slider drags where the destination isn't a DOM element.
+   *
+   * The motion is two humanized paths back-to-back: cursor → source,
+   * then source → destination with the left button held throughout.
+   *
+   * In `speed: 'instant'`, dispatches `mouse.down → move → up` at the
+   * resolved coordinates without humanized motion.
+   */
+  drag(from: MouseTarget, to: MouseTarget): Promise<void>;
+  /**
    * Type `value` into `target` with humanized per-key timing, optional typo
    * injection (with backspace recovery), and occasional think-pauses.
    *
@@ -161,6 +191,36 @@ export interface Human {
    * zero inter-key delay — events still fire, but humanization is skipped.
    */
   type(target: Locator | string, value: string): Promise<void>;
+  /**
+   * Insert `value` into `target` in one shot — the Cmd-V semantic. No
+   * per-character timing. Like `type()`, drives an implicit click to focus
+   * the field first; unlike `type()`, dispatches the whole value via
+   * `keyboard.insertText` rather than per-key presses.
+   *
+   * Use this for long strings (code blocks, multi-line content, secrets)
+   * where the typing simulation would be slow and unnecessary. If you need
+   * the page's `paste` event handler to fire, call `human.shortcut('Mod+V')`
+   * after setting clipboard contents yourself.
+   *
+   * In `speed: 'instant'`, behaves identically — paste is already instant
+   * by nature.
+   */
+  paste(target: Locator | string, value: string): Promise<void>;
+  /**
+   * Dispatch a keyboard chord like `'Mod+S'`, `'Cmd+Shift+P'`, `'Ctrl+C'`,
+   * or just `'Enter'`. Modifier rules:
+   *
+   * - `Mod` / `CmdOrCtrl` — magic: `Meta` on Mac, `Control` elsewhere. Use
+   *   for cross-platform app shortcuts.
+   * - `Cmd`, `Command`, `Meta`, `Win`, `Super` — literal `Meta` keycode
+   *   (Command on Mac, Windows key on Windows, Super on Linux).
+   * - `Ctrl`, `Control` — literal Control. Stays Control on every OS.
+   * - `Alt`, `Option`, `Opt` — literal Alt.
+   * - `Shift` — literal Shift.
+   *
+   * Case-insensitive. Throws on unknown modifiers.
+   */
+  shortcut(chord: string): Promise<void>;
   /**
    * Dwell as if reading `target` — the third pillar of humanization after
    * the cursor and the keyboard. Real users pause to read; HumanJS models
@@ -365,6 +425,31 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
 
   let lastMousePosition: Point = options.initialMousePosition ?? { x: 0, y: 0 };
 
+  // Mouse context factory — every mouse primitive (click, rightClick, hover,
+  // drag, plus type's implicit click) reads from the same lastMousePosition
+  // closure so successive actions chain off where the cursor actually was.
+  const mouseCtx = () => ({
+    page,
+    personality,
+    rng,
+    speed,
+    getMousePosition: () => lastMousePosition,
+    setMousePosition: (point: Point) => {
+      lastMousePosition = point;
+    },
+  });
+
+  // Mouse-target description for timeline/plugin params. Selectors and
+  // Locators stringify as-is; raw Points show as `point(x, y)` so the
+  // timeline still reads usefully when a drag targets free coordinates.
+  const describeMouseTarget = (target: MouseTarget): string => {
+    if (typeof target === 'string') return target;
+    if ('x' in target && 'y' in target && typeof target.x === 'number') {
+      return `point(${target.x}, ${target.y})`;
+    }
+    return target.toString?.() ?? 'locator';
+  };
+
   return {
     personality,
     speed,
@@ -376,16 +461,26 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
     async click(target) {
       const description = typeof target === 'string' ? target : (target.toString?.() ?? 'locator');
       await performAction({ type: 'click', params: { target: description } }, async () => {
-        await executeClick(target, {
-          page,
-          personality,
-          rng,
-          speed,
-          getMousePosition: () => lastMousePosition,
-          setMousePosition: (point) => {
-            lastMousePosition = point;
-          },
-        });
+        await executeClick(target, mouseCtx());
+      });
+    },
+    async rightClick(target) {
+      const description = typeof target === 'string' ? target : (target.toString?.() ?? 'locator');
+      await performAction({ type: 'rightClick', params: { target: description } }, async () => {
+        await executeClick(target, mouseCtx(), { button: 'right' });
+      });
+    },
+    async hover(target) {
+      const description = typeof target === 'string' ? target : (target.toString?.() ?? 'locator');
+      await performAction({ type: 'hover', params: { target: description } }, async () => {
+        await executeHover(target, mouseCtx());
+      });
+    },
+    async drag(from, to) {
+      const fromDesc = describeMouseTarget(from);
+      const toDesc = describeMouseTarget(to);
+      await performAction({ type: 'drag', params: { from: fromDesc, to: toDesc } }, async () => {
+        await executeDrag(from, to, mouseCtx());
       });
     },
     async type(target, value) {
@@ -404,20 +499,34 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
           // Skipped in instant mode (the whole point of which is to bypass
           // humanization) and for empty values (no typing to set up).
           if (speed !== 'instant' && value.length > 0) {
-            await executeClick(target, {
-              page,
-              personality,
-              rng,
-              speed,
-              getMousePosition: () => lastMousePosition,
-              setMousePosition: (point) => {
-                lastMousePosition = point;
-              },
-            });
+            await executeClick(target, mouseCtx());
           }
           await executeType(target, value, { page, personality, rng, speed });
         },
       );
+    },
+    async paste(target, value) {
+      const description = typeof target === 'string' ? target : (target.toString?.() ?? 'locator');
+      // Same privacy posture as `type`: pasted values may be sensitive
+      // (passwords, tokens, secrets being pasted from a manager). Expose
+      // length only.
+      await performAction(
+        { type: 'paste', params: { target: description, length: value.length } },
+        async () => {
+          // Implicit click before pasting — same reasoning as `type`. A real
+          // user clicks the field before pasting; they don't teleport-focus.
+          // Skipped in instant mode and for empty values.
+          if (speed !== 'instant' && value.length > 0) {
+            await executeClick(target, mouseCtx());
+          }
+          await executePaste(target, value, { page, personality, rng, speed });
+        },
+      );
+    },
+    async shortcut(chord) {
+      await performAction({ type: 'shortcut', params: { chord } }, async () => {
+        await executeShortcut(chord, { page, personality, rng, speed });
+      });
     },
     async read(target, options) {
       const description = describeReadTarget(target);
