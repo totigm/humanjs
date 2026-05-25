@@ -97,11 +97,8 @@ export interface ReadResult {
  *  2. Optionally scroll into view
  *  3. Resolve `kind` (explicit → auto-detected from tag → `'prose'`)
  *  4. Compute dwell via `computeReadingDwellMs` (jittered + scaled)
- *  5. Sleep
- *
- * Eye-scan cursor motion during the dwell (`withMotion`) is planned for a
- * follow-up release — see CLAUDE.md "v1 must-have features." The base
- * dwell ships now because it completes the brand's third pillar.
+ *  5. Walk a humanized eye-scan path across the bounding box (default on),
+ *    pacing the steps so motion ends exactly as the dwell does
  */
 export async function executeRead(
   target: ReadTarget,

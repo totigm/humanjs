@@ -75,15 +75,16 @@ await human.read('ul.changelog', { kind: 'scan' });    // explicit skim
 
 Explicit `kind` always wins over auto-detection.
 
-**Visible eye-scan motion** during the dwell:
+**Eye-scan cursor motion** runs during the dwell by default:
 
 ```ts
-await human.read('article', { withMotion: true });
+await human.read('article');                       // motion: on
+await human.read('article', { withMotion: false }); // motion: off
 ```
 
-The cursor walks a humanized L→R sweep through every line of rendered text and emits a small return-saccade between lines — same `mousemove` events a real reader would dispatch (so reading-time tooltip / hover handlers fire). Off by default.
+The cursor walks a humanized L→R sweep through every line of rendered text and emits a small return-saccade between lines — same `mousemove` events a real reader would dispatch (so reading-time tooltip / hover handlers fire). Pass `{ withMotion: false }` when you only care about the temporal pattern (typical AI-agent use case).
 
-For demos and screen recordings, pair `withMotion` with `installMouseHelper(page)` to render a visible cursor that follows the synthetic motion:
+For demos and screen recordings, pair it with `installMouseHelper(page)` to render a visible cursor that follows the synthetic motion:
 
 ```ts
 import { createHuman, installMouseHelper } from '@humanjs/playwright';
@@ -93,7 +94,7 @@ await page.goto('https://example.com/article');
 await installMouseHelper(page);
 
 const human = await createHuman(page, { personality: 'careful' });
-await human.read('article', { withMotion: true });
+await human.read('article');
 ```
 
 **Returns** a `ReadResult`:
