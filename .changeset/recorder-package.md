@@ -27,4 +27,10 @@ Quality presets pick both source viewport and ffmpeg encoding settings:
 
 The visible cursor overlay is auto-installed by default so the recorded video shows mouse motion; opt out with `cursor: false`.
 
+**Public surface:**
+
+- `record(fn)` / `record(options, fn)` — the one-call helper
+- `RecordOptions`, `RecordCallback` — typed option/callback shapes
+- `Recording` (re-exported from `@humanjs/playwright`) — so users can type local variables without a second import
+
 For users who need to compose with existing Playwright code, `human.record()` from `@humanjs/playwright` is the lower-level API this package wraps.
