@@ -230,6 +230,22 @@ describe('createHuman', () => {
       expect(elapsed).toBeGreaterThanOrEqual(50);
       expect(elapsed).toBeLessThan(500);
     });
+
+    it("emits a 'sleep' action with ms param to plugins", async () => {
+      const beforeAction = vi.fn();
+      const afterAction = vi.fn();
+      const human = await createHuman(makeMockPage(), {
+        plugins: [{ name: 'p', beforeAction, afterAction }],
+      });
+      await human.sleep(20);
+      expect(beforeAction).toHaveBeenCalledWith({
+        type: 'sleep',
+        params: { ms: 20 },
+      });
+      const result = afterAction.mock.calls[0]?.[1];
+      expect(result.type).toBe('sleep');
+      expect(typeof result.durationMs).toBe('number');
+    });
   });
 
   describe('plugin lifecycle', () => {

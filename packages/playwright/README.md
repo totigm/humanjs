@@ -196,7 +196,27 @@ await rec.toTimeline('demo.json');
 await browser.close();
 ```
 
-`human.record(cb)` polls `page.screenshot()` at the target FPS, writes each frame to a temp directory, then assembles them via ffmpeg when you call `toVideo(path)`. The output format is inferred from the extension — `.mp4` (H.264 / yuv420p) or `.webm` (VP9).
+`human.record(cb)` polls `page.screenshot()` at the target FPS, writes each frame to a temp directory, then assembles them via ffmpeg when you call an exporter:
+
+- `rec.toVideo(path)` — `.mp4` (H.264 / yuv420p) or `.webm` (VP9)
+- `rec.toGif(path, { fps?, width? })` — palette-optimized animated GIF (`palettegen` + `paletteuse`, Bayer dither). Defaults to 15 fps, source viewport size.
+
+Both exporters are **repeatable and interleavable** — they read the captured frames, they don't consume them. Want an mp4 for the landing page *and* a GIF for the README from the same recording? Just call both:
+
+```ts
+const rec = await human.record(fn);
+await rec.toVideo('demo.mp4');
+await rec.toGif('demo.gif', { width: 720 });
+// No explicit cleanup needed for one-shot scripts — see below.
+```
+
+Captured frames live in a temp directory under `os.tmpdir()`. Cleanup happens automatically at process exit (a single `process.on('exit')` handler sweeps any un-disposed frame dirs), so casual scripts don't have to think about it. For long-running services, batch jobs, or anywhere you want predictable disk usage, release them proactively:
+
+```ts
+await rec.dispose();                  // explicit, idempotent
+// or with TS ≥ 5.2 / Node ≥ 20.4:
+await using rec = await human.record(fn);   // auto-disposes at scope exit
+```
 
 The same `Recording` exposes a **structured action timeline** of everything that happened during the callback:
 
@@ -232,7 +252,7 @@ await rec.toTimeline('session.json');   // works
 **Lifecycle notes**:
 
 - Each session can produce **one** recording. `human.record()` throws if called twice on the same session — open a new context (and a new human) to record a separate clip.
-- `Recording.toVideo()` is single-use because it cleans up the captured frames after assembly.
+- `Recording.toVideo()` / `Recording.toGif()` are repeatable and interleavable. Frames live until `rec.dispose()` (or `await using` goes out of scope, or the process exits — a sweep-on-exit handler covers forgotten disposes).
 - For a one-call API that owns the entire lifecycle (launch → record → close), use [`@humanjs/recorder`](../recorder)'s `record(options, fn)` instead.
 
 Every recording is a regular plugin action — `beforeAction` and `afterAction` observe `{ type: 'record' }` exactly like `'click'` or `'scroll'`.

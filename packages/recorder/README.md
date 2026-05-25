@@ -1,6 +1,6 @@
 # @humanjs/recorder
 
-One-call session recording for [HumanJS](https://humanjs.dev) — turn a humanized Playwright session into an mp4, a structured JSON timeline, or both.
+One-call session recording for [HumanJS](https://humanjs.dev) — turn a humanized Playwright session into an mp4, an animated GIF, a structured JSON timeline, or any combination.
 
 ## Install
 
@@ -46,18 +46,31 @@ The returned `Recording` has:
 
 | | |
 |---|---|
-| `rec.toVideo(path, options?)` | Write an mp4 or webm. **Note**: if `output` was passed to `record()`, this has already been called — calling it again throws. |
-| `rec.toTimeline(path)` | Write the structured JSON timeline. Safe to call multiple times. |
+| `rec.toVideo(path, options?)` | Write an mp4 or webm. Repeatable. |
+| `rec.toGif(path, options?)` | Write an animated GIF (palette-optimized, defaults to 15fps). Repeatable. |
+| `rec.toTimeline(path)` | Write the structured JSON timeline. Repeatable. |
 | `rec.timeline` | Read the in-memory `Timeline` object. |
 | `rec.durationMs` | Wall-clock duration of the recorded window. |
 | `rec.hasVideo` | True if frames were captured (i.e. `output` was set). |
+| `rec.dispose()` | *Optional.* Release the captured-frames temp directory early — otherwise a sweep-on-exit handler cleans it when the process ends. After this, `toVideo` / `toGif` throw; `toTimeline` still works. Idempotent. |
+
+The exporters are **repeatable and interleavable** — they read the captured frames, they don't consume them. If `output` was passed to `record()`, the matching exporter has already run for you, but you can still call any other exporter (or call the same one again to a different path) on the returned recording. Want mp4 and GIF from the same recording? Just do both:
+
+```ts
+const rec = await record({ output: 'demo.mp4' }, async (human) => { ... });
+await rec.toGif('demo.gif', { width: 720 });
+await rec.toTimeline('demo.json');
+// Done. No explicit cleanup needed for one-shot scripts.
+```
+
+Captured frames live in a temp dir under `os.tmpdir()`. A `process.on('exit')` handler installed on first use sweeps any un-disposed frame dirs, so casual scripts don't have to think about lifecycle. For long-running services or anywhere you want predictable disk usage, call `await rec.dispose()` (idempotent) or use `await using rec = await record(...)` (TypeScript ≥ 5.2 / Node ≥ 20.4).
 
 ## Options
 
 ```ts
 await record(
   {
-    output: 'demo.mp4',          // optional — omit to skip video entirely
+    output: 'demo.mp4',          // .mp4 / .webm / .gif — omit to skip video entirely
     quality: 'high',             // 'fast' | 'standard' | 'high' (default) | 'lossless'
     url: 'https://example.com',  // optional — navigate before the callback
     personality: 'careful',      // any PersonalityConfig

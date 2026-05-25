@@ -96,6 +96,7 @@ export {
   type RecordingQuality,
   type Timeline,
   type TimelineEvent,
+  type ToGifOptions,
   type ToVideoOptions,
 } from './recording';
 export type { ScrollOptions, ScrollResult, ScrollTarget } from './scroll';
@@ -441,7 +442,13 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
         () => executeScroll(target, { page, personality, rng, speed }, options),
       );
     },
-    sleep,
+    async sleep(ms) {
+      // Wrap the core `sleep` in performAction so each pause shows up as a
+      // 'sleep' event in the recorded timeline. Without this, `human.record()`
+      // exporters (toPlaywright, toHumanJS, ...) would emit replay code that
+      // skips the user's intentional pauses entirely.
+      await performAction({ type: 'sleep', params: { ms } }, () => sleep(ms));
+    },
     async record(
       optionsOrFn: HumanRecordOptions | (() => Promise<void>),
       maybeFn?: () => Promise<void>,

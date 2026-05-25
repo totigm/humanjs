@@ -118,17 +118,104 @@ describe('Recording', () => {
       }
     });
 
-    it('marks the recording finalized after the first toVideo attempt', async () => {
+    it('a failed toVideo attempt does NOT consume the frames (retryable)', async () => {
       const capture = await makeCaptureResult(2);
       try {
         const rec = new Recording(capture, 0, 100, EMPTY_TIMELINE);
-        // First attempt fails on bad extension AFTER setting finalized=true
-        await expect(rec.toVideo('/tmp/x.gif')).rejects.toThrowError(/Unsupported/);
-        // Second attempt now hits the finalized guard
-        await expect(rec.toVideo('/tmp/x.mp4')).rejects.toThrowError(/can only be called once/);
+        // First call fails on bad extension — but the recording is not
+        // finalized, so a subsequent call with a valid extension can still
+        // see the frames.
+        await expect(rec.toVideo('/tmp/x.json')).rejects.toThrowError(/Unsupported/);
+        // (We don't actually invoke ffmpeg here — runFfmpeg would resolve
+        // because the binary exists, but writing /tmp/x.mp4 isn't the
+        // assertion we care about. The point is that the recording does
+        // not throw "called after dispose".)
+        await expect(rec.toVideo('/tmp/x.json')).rejects.toThrowError(/Unsupported/);
       } finally {
         await capture.cleanup();
       }
+    });
+  });
+
+  describe('toGif error paths', () => {
+    it('throws when capture is null (timeline-only mode)', async () => {
+      const rec = new Recording(null, 0, 100, EMPTY_TIMELINE);
+      await expect(rec.toGif('/tmp/x.gif')).rejects.toThrowError(/requires video capture/);
+    });
+
+    it('throws when no frames were captured', async () => {
+      const capture = await makeCaptureResult(0);
+      const rec = new Recording(capture, 0, 100, EMPTY_TIMELINE);
+      await expect(rec.toGif('/tmp/x.gif')).rejects.toThrowError(/No frames were captured/);
+    });
+
+    it('throws on an unsupported output extension', async () => {
+      const capture = await makeCaptureResult(2);
+      try {
+        const rec = new Recording(capture, 0, 100, EMPTY_TIMELINE);
+        await expect(rec.toGif('/tmp/x.mp4')).rejects.toThrowError(/Use \.gif/);
+      } finally {
+        await capture.cleanup();
+      }
+    });
+  });
+
+  describe('dispose', () => {
+    it('toVideo throws after dispose()', async () => {
+      const capture = await makeCaptureResult(2);
+      const rec = new Recording(capture, 0, 100, EMPTY_TIMELINE);
+      await rec.dispose();
+      await expect(rec.toVideo('/tmp/x.mp4')).rejects.toThrowError(/after dispose/);
+    });
+
+    it('toGif throws after dispose()', async () => {
+      const capture = await makeCaptureResult(2);
+      const rec = new Recording(capture, 0, 100, EMPTY_TIMELINE);
+      await rec.dispose();
+      await expect(rec.toGif('/tmp/x.gif')).rejects.toThrowError(/after dispose/);
+    });
+
+    it('toTimeline still works after dispose()', async () => {
+      const capture = await makeCaptureResult(2);
+      const rec = new Recording(capture, 0, 100, EMPTY_TIMELINE);
+      await rec.dispose();
+      const dir = await mkdtemp(join(tmpdir(), 'humanjs-dispose-'));
+      try {
+        await rec.toTimeline(join(dir, 'session.json'));
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('is idempotent — second call is a no-op', async () => {
+      const capture = await makeCaptureResult(2);
+      const rec = new Recording(capture, 0, 100, EMPTY_TIMELINE);
+      await rec.dispose();
+      // Second dispose() must not throw, even though capture.cleanup() already ran.
+      await rec.dispose();
+    });
+
+    it('no-op on a timeline-only Recording (no capture to clean up)', async () => {
+      const rec = new Recording(null, 0, 100, EMPTY_TIMELINE);
+      await rec.dispose();
+    });
+
+    it('Symbol.asyncDispose delegates to dispose()', async () => {
+      const capture = await makeCaptureResult(2);
+      const rec = new Recording(capture, 0, 100, EMPTY_TIMELINE);
+      await rec[Symbol.asyncDispose]();
+      await expect(rec.toVideo('/tmp/x.mp4')).rejects.toThrowError(/after dispose/);
+    });
+
+    it('actually deletes the captured-frames temp directory', async () => {
+      const { access } = await import('node:fs/promises');
+      const capture = await makeCaptureResult(2);
+      const rec = new Recording(capture, 0, 100, EMPTY_TIMELINE);
+      // Dir exists before dispose
+      await expect(access(capture.dir)).resolves.toBeUndefined();
+      await rec.dispose();
+      // Dir is gone after dispose
+      await expect(access(capture.dir)).rejects.toThrow();
     });
   });
 

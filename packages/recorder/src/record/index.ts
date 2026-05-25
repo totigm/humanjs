@@ -1,3 +1,4 @@
+import { extname } from 'node:path';
 import {
   type BrowserContextOptions,
   type CreateHumanOptions,
@@ -35,8 +36,9 @@ const QUALITY_BROWSER_PRESETS: Record<RecordingQuality, QualityBrowserPreset> = 
  */
 export interface RecordOptions extends CreateHumanOptions {
   /**
-   * Video output path. Extension determines format — `.mp4` or `.webm`.
-   * Omit to skip video entirely; the returned {@link Recording} still has
+   * Output path. Extension determines format — `.mp4` / `.webm` for video,
+   * or `.gif` for an animated GIF (palette-optimized, defaults to 15fps).
+   * Omit to skip capture entirely; the returned {@link Recording} still has
    * the structured action timeline via `.toTimeline()` / `.timeline`.
    */
   readonly output?: string;
@@ -171,8 +173,16 @@ export async function record(
         fn(human, page),
       );
 
-      if (wantsVideo) {
-        await recording.toVideo(output, { quality: resolvedQuality });
+      if (wantsVideo && output) {
+        // Dispatch by extension: .gif goes through the GIF exporter (which
+        // ignores `quality` — GIF doesn't have a CRF concept), everything
+        // else flows into the mp4/webm encoder with the chosen preset.
+        const ext = extname(output).toLowerCase();
+        if (ext === '.gif') {
+          await recording.toGif(output);
+        } else {
+          await recording.toVideo(output, { quality: resolvedQuality });
+        }
       }
 
       return recording;
