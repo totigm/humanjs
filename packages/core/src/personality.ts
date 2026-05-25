@@ -40,6 +40,15 @@ export interface MouseProfile {
   readonly overshootProbability: number;
   /** Probability of clicking slightly off-target and correcting (0..1). */
   readonly misclickProbability: number;
+  /**
+   * Click-point spread inside the target's bounding box, as a fraction of
+   * each dimension. The click point is a 2D Gaussian centered on the box,
+   * with standard deviation `dimension × clickSpread`. Higher = looser
+   * cluster (more variation from center); lower = tighter cluster.
+   * Typical range: `0.10` (precise) to `0.20` (distracted). Clamped to the
+   * box, so values above `~0.5` start hitting the edges constantly.
+   */
+  readonly clickSpread: number;
 }
 
 /** Parameters that shape keystroke timing and typing errors. */
