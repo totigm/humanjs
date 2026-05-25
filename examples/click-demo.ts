@@ -12,9 +12,8 @@
  *   PERSONALITY=distracted pnpm demo:click   (default)
  */
 
-import { createHuman, installMouseHelper } from '@humanjs/playwright';
-import { chromium } from 'playwright';
-import { parsePersonality, sleep } from './lib';
+import { chromium, createHuman, installMouseHelper } from '@humanjs/playwright';
+import { parsePersonality } from './lib';
 
 const DEMO_HTML = /* html */ `
 <!doctype html>
@@ -208,7 +207,7 @@ async function main() {
       ],
     });
 
-    await sleep(400);
+    await human.sleep(400);
 
     console.log(`Personality: ${personality}`);
     console.log(`Clicking ${TARGET_SEQUENCE.length} targets in sequence…\n`);
@@ -218,12 +217,12 @@ async function main() {
       // Cadence floor so the "clicked" visual stays perceptible across all
       // personalities — postActionMs adds on top for the slower ones. Matches
       // the same floor used by compare-demo.ts.
-      await sleep(250);
+      await human.sleep(250);
     }
 
     console.log('\nDone. Browser will stay open for 5 seconds.');
     console.log('Tip: re-run with PERSONALITY=careful (or fast / precise) to compare.');
-    await sleep(5000);
+    await human.sleep(5000);
   } finally {
     await browser.close();
   }

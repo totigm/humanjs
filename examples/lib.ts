@@ -2,7 +2,12 @@
  * Shared helpers for the runnable demos in this workspace.
  */
 
-import type { PresetName } from '@humanjs/playwright';
+import { type PresetName, sleep } from '@humanjs/playwright';
+
+// Re-export `sleep` so demos can keep doing `import { ..., sleep } from './lib'`
+// — the helper itself now lives in @humanjs/core, but we don't want to
+// touch every demo's import line just for that.
+export { sleep };
 
 /**
  * The four built-in personality preset names. Kept in sync manually with
@@ -33,13 +38,4 @@ export function parsePersonality(
     process.exit(1);
   }
   return value as PresetName;
-}
-
-/**
- * Awaitable sleep — used by every demo to space out actions so the headed
- * browser has a beat between scripted steps. Kept here rather than inline so
- * each demo's main flow reads as a sequence of intent, not setTimeout noise.
- */
-export function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

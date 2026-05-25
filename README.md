@@ -135,9 +135,21 @@ const recording = await human.record(async () => {
   await human.type('Card number', '4242424242424242');
 });
 
-recording.toVideo('checkout.mp4');           // mp4 of the session
-recording.toPlaywright('checkout.spec.ts');  // ready-to-commit test code
-recording.toTimeline('checkout.json');       // structured JSON for analysis
+await recording.toVideo('checkout.mp4');     // mp4 / webm of the session
+await recording.toGif('checkout.gif');       // palette-optimized gif for README embeds
+await recording.toTimeline('checkout.json'); // structured JSON for analysis
+// recording.toPlaywright('checkout.spec.ts') — Playwright code export coming in v0.2
+```
+
+Or one-call for the simple case (browser/page lifecycle handled for you):
+
+```ts
+import { record } from '@humanjs/recorder';
+
+await record({ output: 'demo.mp4' }, async (human) => {
+  await human.click('a');
+  await human.type('#search', 'humanjs');
+});
 ```
 
 Or use the visual generator:

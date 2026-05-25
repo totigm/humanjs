@@ -1,6 +1,6 @@
 {
   "name": "@humanjs/examples",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "description": "Runnable demos for HumanJS.",
   "type": "module",
@@ -8,11 +8,14 @@
     "click": "tsx click-demo.ts",
     "compare": "tsx compare-demo.ts",
     "read": "tsx read-demo.ts",
+    "record": "tsx record-demo.ts",
+    "record-manual": "tsx record-manual-demo.ts",
     "scroll": "tsx scroll-demo.ts",
     "type": "tsx type-demo.ts"
   },
   "dependencies": {
     "@humanjs/playwright": "workspace:*",
+    "@humanjs/recorder": "workspace:*",
     "playwright": "^1.60.0"
   }
 }

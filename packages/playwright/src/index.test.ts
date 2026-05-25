@@ -217,6 +217,37 @@ describe('createHuman', () => {
     });
   });
 
+  describe('sleep', () => {
+    it('pauses for approximately the requested duration', async () => {
+      const page = makeMockPage();
+      const human = await createHuman(page);
+      const startedAt = Date.now();
+      await human.sleep(60);
+      const elapsed = Date.now() - startedAt;
+      // Wide tolerance — setTimeout can fire a few ms early on macOS and is
+      // subject to event-loop scheduling jitter. We're verifying the method
+      // exists and pauses, not measuring timer precision.
+      expect(elapsed).toBeGreaterThanOrEqual(50);
+      expect(elapsed).toBeLessThan(500);
+    });
+
+    it("emits a 'sleep' action with ms param to plugins", async () => {
+      const beforeAction = vi.fn();
+      const afterAction = vi.fn();
+      const human = await createHuman(makeMockPage(), {
+        plugins: [{ name: 'p', beforeAction, afterAction }],
+      });
+      await human.sleep(20);
+      expect(beforeAction).toHaveBeenCalledWith({
+        type: 'sleep',
+        params: { ms: 20 },
+      });
+      const result = afterAction.mock.calls[0]?.[1];
+      expect(result.type).toBe('sleep');
+      expect(typeof result.durationMs).toBe('number');
+    });
+  });
+
   describe('plugin lifecycle', () => {
     it('calls install once with personality and rng in context', async () => {
       const install = vi.fn();

@@ -1,6 +1,6 @@
 {
   "name": "@humanjs/playwright",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Humanize Playwright sessions for AI agents, QA tests, and demos.",
   "keywords": [
     "humanjs",
@@ -49,13 +49,15 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "test": "vitest run",
+    "test:integration": "vitest run -c vitest.integration.config.ts",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
-    "@humanjs/core": "workspace:*"
+    "@humanjs/core": "workspace:*",
+    "ffmpeg-static": "^5.2.0"
   },
   "peerDependencies": {
     "playwright": ">=1.40.0"

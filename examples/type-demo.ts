@@ -13,9 +13,8 @@
  *   PERSONALITY=distracted  pnpm demo:type
  */
 
-import { createHuman, installMouseHelper } from '@humanjs/playwright';
-import { chromium } from 'playwright';
-import { parsePersonality, sleep } from './lib';
+import { chromium, createHuman, installMouseHelper } from '@humanjs/playwright';
+import { parsePersonality } from './lib';
 
 // Brand-direct phrase that matches the rest of the HumanJS surface area:
 // three short sentences that describe what `human.type()` actually does.
@@ -194,7 +193,7 @@ async function main() {
     });
 
     // Give the page a beat to render before we focus + type.
-    await sleep(600);
+    await human.sleep(600);
 
     await human.type('#field', PHRASE);
 
@@ -211,7 +210,7 @@ async function main() {
 
     console.log('\nDone. Browser will stay open for 5 seconds.');
     console.log('Tip: re-run with PERSONALITY=fast (or precise / distracted) to compare.');
-    await sleep(5000);
+    await human.sleep(5000);
   } finally {
     await browser.close();
   }
