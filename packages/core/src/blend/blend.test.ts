@@ -61,6 +61,14 @@ describe('blend', () => {
         expected(careful.mouse.travelTimeMs, distracted.mouse.travelTimeMs),
         10,
       );
+      // clickSpread joined the lerp list with the personality-driven click
+      // placement change — guards against the field silently dropping out
+      // of blend's lerp object (TypeScript would catch a missing field but
+      // not an accidental `personalityA.mouse.clickSpread` typo).
+      expect(result.mouse.clickSpread).toBeCloseTo(
+        expected(careful.mouse.clickSpread, distracted.mouse.clickSpread),
+        10,
+      );
       expect(result.typing.thinkPauseMeanMs).toBeCloseTo(
         expected(careful.typing.thinkPauseMeanMs, distracted.typing.thinkPauseMeanMs),
         10,
