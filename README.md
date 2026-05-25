@@ -135,7 +135,8 @@ const recording = await human.record(async () => {
   await human.type('Card number', '4242424242424242');
 });
 
-await recording.toVideo('checkout.mp4');     // mp4 of the session
+await recording.toVideo('checkout.mp4');     // mp4 / webm of the session
+await recording.toGif('checkout.gif');       // palette-optimized gif for README embeds
 await recording.toTimeline('checkout.json'); // structured JSON for analysis
 // recording.toPlaywright('checkout.spec.ts') — Playwright code export coming in v0.2
 ```

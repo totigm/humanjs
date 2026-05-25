@@ -27,7 +27,7 @@ await browser.close();
 New public surfaces:
 
 - **`human.record(cb)`** — records the wall-clock window of the callback by polling `page.screenshot()` at the target FPS and writing each frame to a temp directory. Returns a `Recording`. Supports `{ video: false }` for timeline-only mode (zero capture overhead) and `{ quality: 'fast' | 'standard' | 'high' | 'lossless' }`.
-- **`Recording`** — class with `toVideo(path, options?)` (ffmpeg-assembled mp4/webm with quality presets and ffmpeg knob overrides), `toTimeline(path)` (structured JSON), and `.timeline` (in-memory). `toVideo` is single-use; `toTimeline` can be called multiple times.
+- **`Recording`** — class with `toVideo(path, options?)` (ffmpeg-assembled mp4/webm with quality presets and ffmpeg knob overrides), `toTimeline(path)` (structured JSON), and `.timeline` (in-memory). All exporters are repeatable; captured frames live until `dispose()` (or until the sweep-on-exit handler cleans them at process end — see the toGif changeset for the lifecycle details).
 - **`Timeline`** + **`TimelineEvent`** — public schema for the captured action timeline, versioned at `1`. Intended for observability pipelines, replay infrastructure, and debugger UIs.
 - **Re-exports**: `chromium`, `firefox`, `webkit`, `Browser`, `BrowserContext`, `Page`, `Locator`, `LaunchOptions`, `BrowserContextOptions`, `ElementHandle` from Playwright — so users have a single import surface for the integration's common case.
 

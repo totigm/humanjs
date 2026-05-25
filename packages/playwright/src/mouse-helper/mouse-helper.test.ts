@@ -113,4 +113,27 @@ describe('installMouseHelper', () => {
     await installMouseHelper(page);
     expect(evaluate).toHaveBeenCalledTimes(1);
   });
+
+  it('is idempotent — a second install on the same Page is a no-op', async () => {
+    // Without the Symbol.for(...) guard in installMouseHelper, repeat calls
+    // would stack duplicate `domcontentloaded` listeners (and another
+    // addInitScript registration), multiplying per-navigation evaluate()
+    // round-trips even though the in-page DOM guard makes each one a no-op.
+    const { page, addInitScript, evaluate } = makeMockPage();
+    await installMouseHelper(page);
+    await installMouseHelper(page);
+    expect(addInitScript).toHaveBeenCalledTimes(1);
+    expect(evaluate).toHaveBeenCalledTimes(1);
+  });
+
+  it('is idempotent — a second install on the same BrowserContext is a no-op', async () => {
+    const { context, addInitScript, pageEvaluates, contextOn } = makeMockContext(1);
+    await installMouseHelper(context);
+    await installMouseHelper(context);
+    expect(addInitScript).toHaveBeenCalledTimes(1);
+    expect(contextOn).toHaveBeenCalledTimes(1);
+    for (const evaluate of pageEvaluates) {
+      expect(evaluate).toHaveBeenCalledTimes(1);
+    }
+  });
 });

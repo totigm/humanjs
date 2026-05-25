@@ -83,6 +83,7 @@ await human.rightClick(selector);
 
 const rec = await human.record(async () => { /* actions */ });
 await rec.toVideo('out.mp4');                // shipped
+await rec.toGif('out.gif');                   // shipped
 await rec.toTimeline('session.json');         // shipped
 // await rec.toPlaywright('test.spec.ts');    // v0.2 — Playwright code export
 
