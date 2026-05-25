@@ -13,6 +13,10 @@ export const careful: Personality = {
     travelTimeJitter: 0.15,
     overshootProbability: 0.05,
     misclickProbability: 0.01,
+    // 0.125 (≈ 1/8) is the previous global default — careful users aim
+    // deliberately. Two-thirds of clicks land within the central quarter
+    // of the element.
+    clickSpread: 0.125,
   },
   typing: {
     baseDelayMs: 140,

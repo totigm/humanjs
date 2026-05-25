@@ -54,6 +54,7 @@ export function blend(a: PersonalityConfig, b: PersonalityConfig, ratio: number)
         personalityB.mouse.misclickProbability,
         t,
       ),
+      clickSpread: lerp(personalityA.mouse.clickSpread, personalityB.mouse.clickSpread, t),
     },
     typing: {
       baseDelayMs: lerp(personalityA.typing.baseDelayMs, personalityB.typing.baseDelayMs, t),

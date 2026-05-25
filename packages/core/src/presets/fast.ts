@@ -18,6 +18,10 @@ export const fast: Personality = {
     travelTimeJitter: 0.1,
     overshootProbability: 0.03,
     misclickProbability: 0.005,
+    // 0.15 — Fitts's Law: speed trades against precision. Faster users
+    // aim less carefully and scatter more across the target, but stay
+    // visibly inside the safe interior — no edge near-misses.
+    clickSpread: 0.15,
   },
   typing: {
     baseDelayMs: 130,

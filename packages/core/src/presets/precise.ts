@@ -13,6 +13,10 @@ export const precise: Personality = {
     travelTimeJitter: 0.05,
     overshootProbability: 0.005,
     misclickProbability: 0.001,
+    // 0.10 — tightest cluster of the four presets. An "expert user" aims
+    // for the center and lands there; ~two-thirds of clicks fall within
+    // the central 20% of the element.
+    clickSpread: 0.1,
   },
   typing: {
     baseDelayMs: 110,

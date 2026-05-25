@@ -62,7 +62,7 @@ export async function executeClick(
     );
   }
 
-  const targetPoint = pickClickPoint(box, ctx.rng);
+  const targetPoint = pickClickPoint(box, ctx.rng, ctx.personality.mouse.clickSpread);
   const startPoint = ctx.getMousePosition();
 
   const rawPath = bezierPath(startPoint, targetPoint, ctx.rng, {
@@ -115,13 +115,17 @@ interface BoundingBox {
  * majority of clicks land near the visual center but with natural spread.
  * Clamped to never fall outside the element.
  */
-function pickClickPoint(box: BoundingBox, rng: Rng): Point {
+function pickClickPoint(box: BoundingBox, rng: Rng, clickSpread: number): Point {
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
-  // Spread is 1/8 of each dimension — most clicks fall within the middle
-  // half of the element, but we never click dead-center deterministically.
-  const x = clamp(cx + rng.nextGaussian(0, box.width / 8), box.x, box.x + box.width);
-  const y = clamp(cy + rng.nextGaussian(0, box.height / 8), box.y, box.y + box.height);
+  // Standard deviation scales with each dimension separately, so wide
+  // elements scatter horizontally and tall elements scatter vertically.
+  // The clickSpread fraction comes from the personality — precise users
+  // cluster near center, distracted users scatter across the target.
+  const sigmaX = box.width * clickSpread;
+  const sigmaY = box.height * clickSpread;
+  const x = clamp(cx + rng.nextGaussian(0, sigmaX), box.x, box.x + box.width);
+  const y = clamp(cy + rng.nextGaussian(0, sigmaY), box.y, box.y + box.height);
   return { x, y };
 }
 

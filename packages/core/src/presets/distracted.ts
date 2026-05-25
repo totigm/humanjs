@@ -13,6 +13,13 @@ export const distracted: Personality = {
     travelTimeJitter: 0.35,
     overshootProbability: 0.15,
     misclickProbability: 0.05,
+    // 0.17 — the loosest of the four presets. A distracted user clicks
+    // where their eye drifted, not exactly where they intended; clicks
+    // scatter noticeably from center. Tuned down from 0.20: that wider
+    // value occasionally placed clicks within a few px of the button edge
+    // — statistically realistic (5% Gaussian tail), but in a demo where
+    // viewers see one click at a time it reads as "almost missed."
+    clickSpread: 0.17,
   },
   typing: {
     baseDelayMs: 180,
