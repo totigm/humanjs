@@ -3,6 +3,7 @@ import type { Locator, Page } from 'playwright';
 import type { Speed } from '../index';
 import { walkMouseAlongPath } from '../internal/mouse-walk';
 import { computeDwellTime, sleep, speedModeFactor } from '../internal/timing';
+import { executeScroll } from '../scroll';
 
 /** Runtime dependencies for a humanized mouse action. */
 export interface MouseContext {
@@ -79,8 +80,10 @@ export async function executeClick(
   const locator = typeof target === 'string' ? ctx.page.locator(target) : target;
 
   if (ctx.speed === 'instant') {
-    // Read the bounding box BEFORE the click — the click may navigate away
-    // or remove the element, after which `boundingBox()` returns null.
+    // Playwright's `locator.click()` auto-scrolls the element into view as
+    // part of its actionability checks, so we don't need a manual scroll
+    // here. Read the box BEFORE the click — the click may navigate away or
+    // remove the element, after which `boundingBox()` returns null.
     const box = await locator.boundingBox();
     await locator.click({ button });
     const center = box
@@ -140,6 +143,11 @@ export async function executeHover(
   const locator = typeof target === 'string' ? ctx.page.locator(target) : target;
 
   if (ctx.speed === 'instant') {
+    // Snap the element into view first — instant mode doesn't humanize
+    // motion, but the mouse.move below would still target an off-viewport
+    // coordinate without this. Playwright's own `locator.click()` does the
+    // same thing internally for clicks; we replicate it for hovers.
+    await locator.scrollIntoViewIfNeeded();
     const box = await locator.boundingBox();
     if (!box) {
       throw new Error(
@@ -190,6 +198,10 @@ export async function executeDrag(
   to: MouseTarget,
   ctx: MouseContext,
 ): Promise<DragResult> {
+  // Resolve `from` first, scrolling if needed. Then resolve `to` — if the
+  // destination is also off-viewport, this triggers a second scroll. That's
+  // the right shape for cross-viewport drags: a real user scrolls to grab,
+  // then scrolls again to drop, rather than dragging through invisible space.
   const fromPoint = await resolveTargetPoint(from, ctx, 'drag');
   const toPoint = await resolveTargetPoint(to, ctx, 'drag');
 
@@ -292,14 +304,7 @@ async function moveToTarget(
   ctx: MouseContext,
   action: 'click' | 'hover',
 ): Promise<Point> {
-  const locator = typeof target === 'string' ? ctx.page.locator(target) : target;
-  const box = await locator.boundingBox();
-  if (!box) {
-    throw new Error(
-      `Cannot ${action}: element not found or has no bounding box (target: ${describeTarget(target)})`,
-    );
-  }
-  const targetPoint = pickClickPoint(box, ctx.rng, ctx.personality.mouse.clickSpread);
+  const targetPoint = await resolveLocatorPoint(target, ctx, action);
   await walkBezierTo(targetPoint, ctx);
   return targetPoint;
 }
@@ -322,6 +327,10 @@ async function walkBezierTo(to: Point, ctx: MouseContext): Promise<void> {
  * `action` is just used to make the error message meaningful when an element
  * lookup fails — "Cannot drag: …" vs "Cannot move: …" reads better than a
  * generic "cannot resolve" complaint.
+ *
+ * Raw `Point` targets pass through untouched — the caller chose explicit
+ * coordinates, so we don't auto-scroll (which has no element to track).
+ * Element targets go through the auto-scroll-aware path.
  */
 async function resolveTargetPoint(
   target: MouseTarget,
@@ -329,14 +338,77 @@ async function resolveTargetPoint(
   action: 'drag' | 'move',
 ): Promise<Point> {
   if (isPoint(target)) return target;
+  return resolveLocatorPoint(target, ctx, action);
+}
+
+/**
+ * Resolves a Locator/selector target to viewport coordinates, scrolling the
+ * element into view first if necessary.
+ *
+ * Why this exists: Playwright's `page.mouse.move/click` use viewport
+ * coordinates, not document coordinates. If we read `locator.boundingBox()`
+ * for an element below the fold, the returned y is greater than the viewport
+ * height — and dispatching a mouse move to that point ends up off-screen,
+ * making the click silently miss the target. Real users scroll to bring the
+ * element into view before clicking, so we do the same: when the resolved
+ * box isn't comfortably inside the viewport, kick off a humanized scroll
+ * (or a `scrollIntoViewIfNeeded` snap in instant mode), then re-read the
+ * box so the click point is computed from post-scroll coordinates.
+ *
+ * The viewport check uses the box's geometric center: if the center sits
+ * inside the visible viewport, the click will land somewhere visible even
+ * with personality-driven Gaussian spread, so no scroll is needed. This
+ * also gracefully handles elements larger than the viewport (e.g. very
+ * tall sections) — the center-in-view rule prevents the impossible "scroll
+ * until fully visible" loop.
+ */
+async function resolveLocatorPoint(
+  target: Locator | string,
+  ctx: MouseContext,
+  action: string,
+): Promise<Point> {
   const locator = typeof target === 'string' ? ctx.page.locator(target) : target;
-  const box = await locator.boundingBox();
+
+  let box = await locator.boundingBox();
   if (!box) {
     throw new Error(
       `Cannot ${action}: element not found or has no bounding box (target: ${describeTarget(target)})`,
     );
   }
+
+  const viewport = ctx.page.viewportSize();
+  if (viewport && !isBoxCenterInViewport(box, viewport)) {
+    if (ctx.speed === 'instant') {
+      await locator.scrollIntoViewIfNeeded();
+    } else {
+      // Humanized scroll. `block: 'nearest'` brings the element just into
+      // view rather than aligning to the top — the minimum-disturbance
+      // shape a real user would use.
+      await executeScroll(locator, ctx, { block: 'nearest' });
+    }
+    box = await locator.boundingBox();
+    if (!box) {
+      throw new Error(
+        `Cannot ${action}: element disappeared after scrolling into view (target: ${describeTarget(target)})`,
+      );
+    }
+  }
+
   return pickClickPoint(box, ctx.rng, ctx.personality.mouse.clickSpread);
+}
+
+/**
+ * True when the box's center sits inside the viewport. Center-based rather
+ * than corner-based so elements that straddle a viewport edge but have
+ * their click target visible don't trigger an unnecessary scroll.
+ */
+function isBoxCenterInViewport(
+  box: BoundingBox,
+  viewport: { readonly width: number; readonly height: number },
+): boolean {
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  return cx >= 0 && cx <= viewport.width && cy >= 0 && cy <= viewport.height;
 }
 
 /** Type guard for raw `Point` targets — distinguishes them from Locator/string. */
