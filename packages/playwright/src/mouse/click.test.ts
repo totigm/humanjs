@@ -32,22 +32,29 @@ function makeMockPage(locatorOverride?: MockLocator): {
   locator: MockLocator;
   mouseMove: ReturnType<typeof vi.fn>;
   mouseClick: ReturnType<typeof vi.fn>;
+  mouseWheel: ReturnType<typeof vi.fn>;
 } {
   const locator = locatorOverride ?? makeMockLocator();
   const mouseMove = vi.fn().mockResolvedValue(undefined);
   const mouseClick = vi.fn().mockResolvedValue(undefined);
+  // Wheel is part of the default mock surface so auto-scroll tests can
+  // assert against it directly. Without it baked in, every off-viewport
+  // test would have to cast `page` to inject a wheel mock — noisy at the
+  // call site and easy to get subtly wrong.
+  const mouseWheel = vi.fn().mockResolvedValue(undefined);
   const page = {
     goto: vi.fn().mockResolvedValue(null),
     locator: vi.fn(() => locator),
     mouse: {
       move: mouseMove,
       click: mouseClick,
+      wheel: mouseWheel,
       down: vi.fn().mockResolvedValue(undefined),
       up: vi.fn().mockResolvedValue(undefined),
     },
     viewportSize: () => ({ width: 1280, height: 720 }),
   } as unknown as Page;
-  return { page, locator, mouseMove, mouseClick };
+  return { page, locator, mouseMove, mouseClick, mouseWheel };
 }
 
 const defaultBox: MockBoundingBox = { x: 100, y: 200, width: 80, height: 30 };
@@ -329,25 +336,21 @@ describe('human.click', () => {
     it('skips the scroll when the target is already inside the viewport', async () => {
       // Default box at (100, 200) sits comfortably inside the 1280×720 mock
       // viewport, so no scroll work should happen at all.
-      const wheelFn = vi.fn();
-      const { page } = makeMockPage();
-      (page as unknown as { mouse: { wheel: typeof wheelFn } }).mouse.wheel = wheelFn;
+      const { page, mouseWheel } = makeMockPage();
       const human = await createHuman(page, { speed: 'fast', seed: 'no-scroll' });
       await human.click('button');
-      expect(wheelFn).not.toHaveBeenCalled();
+      expect(mouseWheel).not.toHaveBeenCalled();
     });
 
     it('does not auto-scroll for raw Point targets in drag', async () => {
       // Raw coordinates bypass the locator resolver entirely — the caller
       // chose the coordinates, so we don't second-guess them with a scroll.
-      const wheelFn = vi.fn();
-      const { page } = makeMockPage();
-      (page as unknown as { mouse: { wheel: typeof wheelFn } }).mouse.wheel = wheelFn;
+      const { page, mouseWheel } = makeMockPage();
       const human = await createHuman(page, { speed: 'fast', seed: 'point-drag' });
       // Both endpoints are raw points, one of which is off-viewport (y=2000).
       // Auto-scroll must not fire — these are explicit coordinates.
       await human.drag({ x: 100, y: 200 }, { x: 400, y: 2000 });
-      expect(wheelFn).not.toHaveBeenCalled();
+      expect(mouseWheel).not.toHaveBeenCalled();
     });
 
     it('calls scrollIntoViewIfNeeded for off-viewport hovers in instant mode', async () => {
