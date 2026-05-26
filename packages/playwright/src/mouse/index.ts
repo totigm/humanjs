@@ -365,7 +365,7 @@ async function resolveTargetPoint(
 async function resolveLocatorPoint(
   target: Locator | string,
   ctx: MouseContext,
-  action: string,
+  action: 'click' | 'hover' | 'drag' | 'move',
 ): Promise<Point> {
   const locator = typeof target === 'string' ? ctx.page.locator(target) : target;
 
@@ -376,6 +376,10 @@ async function resolveLocatorPoint(
     );
   }
 
+  // Playwright returns null from `viewportSize()` when no explicit viewport
+  // is set (rare — requires omitting `viewport` from newContext options).
+  // In that case we fall back to the pre-fix behavior; nothing better to do
+  // without a known viewport size to compare against.
   const viewport = ctx.page.viewportSize();
   if (viewport && !isBoxCenterInViewport(box, viewport)) {
     if (ctx.speed === 'instant') {
@@ -404,6 +408,11 @@ async function resolveLocatorPoint(
  * True when the box's center sits inside the viewport. Center-based rather
  * than corner-based so elements that straddle a viewport edge but have
  * their click target visible don't trigger an unnecessary scroll.
+ *
+ * Trade-off: for elements larger than the viewport, the Gaussian click
+ * point could land outside the visible area in the extreme tail of the
+ * distribution. Acceptable because typical `clickSpread` values keep ±3σ
+ * well inside any element bigger than the viewport.
  */
 function isBoxCenterInViewport(
   box: BoundingBox,
