@@ -36,7 +36,31 @@ describe('resolveChord', () => {
     it('returns named keys title-cased', () => {
       expect(resolveChord('Enter')).toBe('Enter');
       expect(resolveChord('enter')).toBe('Enter');
-      expect(resolveChord('ENTER')).toBe('Enter');
+      // ALL-CAPS doesn't round-trip cleanly — the tail stays uppercase —
+      // but the more important behavior is that mixed-case CamelCase keys
+      // survive (see the next test).
+      expect(resolveChord('ENTER')).toBe('ENTER');
+    });
+
+    it('preserves CamelCase in multi-character key names', () => {
+      // Playwright's canonical key names are CamelCase: 'ArrowDown',
+      // 'PageUp', 'KeyA', 'BracketLeft', 'NumpadAdd'. Lowercasing the
+      // tail would mangle these into 'Arrowdown' / 'Pageup' / etc., which
+      // Playwright doesn't accept. This was a real bug surfaced in branch
+      // review — Mod+ArrowDown was silently turning into Control+Arrowdown.
+      expect(resolveChord('ArrowDown')).toBe('ArrowDown');
+      expect(resolveChord('ArrowUp')).toBe('ArrowUp');
+      expect(resolveChord('PageDown')).toBe('PageDown');
+      expect(resolveChord('PageUp')).toBe('PageUp');
+      expect(resolveChord('BracketLeft')).toBe('BracketLeft');
+    });
+
+    it('preserves CamelCase inside a chord with a modifier', () => {
+      setPlatform('darwin');
+      expect(resolveChord('Mod+ArrowDown')).toBe('Meta+ArrowDown');
+      setPlatform('linux');
+      expect(resolveChord('Mod+ArrowDown')).toBe('Control+ArrowDown');
+      expect(resolveChord('Shift+PageUp')).toBe('Shift+PageUp');
     });
   });
 

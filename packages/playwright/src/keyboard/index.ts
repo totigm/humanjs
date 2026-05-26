@@ -239,13 +239,19 @@ function resolveModifier(token: string): string | null {
 /**
  * Normalizes the final key in a chord. Single-letter keys are upper-cased
  * (Playwright expects `'S'`, not `'s'`, for the `S` key in chord form).
- * Named keys (`Enter`, `Tab`, `Escape`, etc.) preserve their natural case.
+ * Multi-character keys get their first letter upper-cased but **keep the
+ * rest of their case** — Playwright's canonical key names are CamelCase
+ * (`ArrowDown`, `PageUp`, `KeyA`, `BracketLeft`, `NumpadAdd`), and
+ * lowercasing the tail would mangle them into `Arrowdown` / `Pageup` /
+ * etc., which Playwright doesn't recognize.
+ *
+ * Single-word keys (`Tab`, `Enter`, `Escape`) still title-case correctly
+ * with this rule: their tail is already lowercase, so preserving it is
+ * the same as lowercasing it.
  */
 function normalizeKey(key: string): string {
   if (key.length === 1) return key.toUpperCase();
-  // Title-case named keys: 'enter' → 'Enter', 'pageup' → 'Pageup' (Playwright
-  // accepts both 'Pageup' and 'PageUp', so we keep it simple).
-  return key.charAt(0).toUpperCase() + key.slice(1).toLowerCase();
+  return key.charAt(0).toUpperCase() + key.slice(1);
 }
 
 /**
