@@ -46,6 +46,65 @@ await human.type('input[name="email"]', 'gonzalo@example.com');
 
 Pass a `seed` and every random decision (path curvature, typo placement, keystroke jitter) becomes reproducible. Same seed + same personality + same value = same keystrokes.
 
+### Primitives
+
+The full `Human` surface, at a glance. Each one fires real DOM events through Playwright; the humanization wraps the timing and the path, not the dispatch.
+
+| Primitive | Purpose |
+|---|---|
+| `goto(url)` | Navigate the page. |
+| `click(target)` | Bezier path → pre-click hover dwell → click. |
+| `rightClick(target)` | Same as `click` but with `button: 'right'`. Fires `contextmenu`. |
+| `hover(target)` | Walk to the element and settle. No click. Hover-state UI (tooltips, dropdowns) fires. |
+| `move(target)` | Walk to a `Locator \| string \| Point`. Pure positional motion. No dwell, no element interaction — use this when you want the cursor parked somewhere with no implied click. |
+| `drag(from, to)` | Two-phase Bezier (to start → mouse down → curve to end → mouse up). Both endpoints accept `Locator \| string \| Point` — `Point` is essential for canvas / SVG / slider drags. |
+| `type(target, value)` | Clicks the field for focus, then per-key rhythm with optional typos + Backspace recovery. |
+| `paste(target, value)` | Clicks the field for focus, then `insertText` — instant insertion, no per-character timing. Cmd-V semantic. |
+| `press(key)` | Single key (`'Tab'`) or chord (`'Mod+S'`). See [Keyboard](#keyboard) below. |
+| `read(target)` | Dwell as a reader would. Cursor scans across the text in humanized mode. See [Reading](#reading). |
+| `scroll(target?)` | Multi-segment wheel motion, bell-curve velocity, optional mid-scroll pauses. See [Scrolling](#scrolling). |
+| `sleep(ms)` | Re-exported from `@humanjs/core` for convenience. |
+| `record(fn)` | Wrap a block and export as mp4 / gif / JSON. See [Recording](#recording). |
+
+Targets accept a CSS selector string or a Playwright `Locator`. `move` and `drag` additionally accept raw `Point` coordinates. Auto-scroll fires for any element-bound primitive when the target is outside the viewport — humanized scroll in normal speed modes, `scrollIntoViewIfNeeded` in `'instant'`.
+
+### Keyboard
+
+```ts
+await human.press('Tab');               // single key
+await human.press('Mod+S');             // cross-platform save (Meta on Mac, Control elsewhere)
+await human.press('Cmd+Shift+P');       // literal Meta+Shift+P on every OS
+await human.press('Control+C');         // literal Ctrl+C
+await human.press('Shift+ArrowDown');   // extend selection down
+```
+
+`press` accepts a single key or a keyboard chord. IDE autocomplete enumerates every `Modifier+Key` combination — type `'Shift+'` and you get `Shift+A`, `Shift+B`, …, `Shift+Tab`, etc. as completions.
+
+**Modifier rules:**
+
+| Token | Resolves to | Notes |
+|---|---|---|
+| `Mod` / `CmdOrCtrl` / `CommandOrControl` | `Meta` on macOS, `Control` elsewhere | The right token for cross-platform app shortcuts. All three are aliases; `Mod` is shortest. |
+| `Cmd` / `Command` / `Meta` / `Win` / `Super` | `Meta` keycode | Literal — does **not** auto-translate to `Control`. Same physical key on every OS. |
+| `Ctrl` / `Control` | `Control` keycode | Literal — stays `Control` everywhere, so Mac-specific things like terminal `Ctrl+C` still work. |
+| `Alt` / `Option` / `Opt` | `Alt` keycode | Literal. |
+| `Shift` | `Shift` keycode | Literal. |
+
+Case-insensitive at runtime. Modifier typos (`'Mosd+S'`) are caught at compile time — the modifier union is closed.
+
+**Escape hatch for uncommon keys.** Uncommon keys (`'BracketLeft'`, `'NumpadAdd'`, locale-specific keys) and 3+ modifier chords aren't in the typed `KeyOrChord` union. Cast at the call site — the runtime parser handles them:
+
+```ts
+import type { KeyOrChord } from '@humanjs/playwright';
+
+await human.press('Mod+BracketLeft' as KeyOrChord);
+await human.press('Ctrl+Shift+Alt+K' as KeyOrChord);
+```
+
+Why a cast? Including a `(string & {})` escape hatch in the type collapses TypeScript's literal-template IntelliSense, so `'Shift+...'` completions disappear. Autocomplete wins for the 95% case; the cast handles the 5%.
+
+**Press does NOT move the cursor** — keyboard input dispatches against focus, not cursor position. Compose with `click` / `hover` / `move` when you need both.
+
 ### Reading
 
 ```ts
