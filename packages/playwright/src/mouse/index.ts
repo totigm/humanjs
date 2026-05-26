@@ -336,25 +336,11 @@ async function resolveTargetPoint(
 }
 
 /**
- * Resolves a Locator/selector target to viewport coordinates, scrolling the
- * element into view first if necessary.
- *
- * Why this exists: Playwright's `page.mouse.move/click` use viewport
- * coordinates, not document coordinates. If we read `locator.boundingBox()`
- * for an element below the fold, the returned y is greater than the viewport
- * height — and dispatching a mouse move to that point ends up off-screen,
- * making the click silently miss the target. Real users scroll to bring the
- * element into view before clicking, so we do the same: when the resolved
- * box isn't comfortably inside the viewport, kick off a humanized scroll
- * (or a `scrollIntoViewIfNeeded` snap in instant mode), then re-read the
- * box so the click point is computed from post-scroll coordinates.
- *
- * The viewport check uses the box's geometric center: if the center sits
- * inside the visible viewport, the click will land somewhere visible even
- * with personality-driven Gaussian spread, so no scroll is needed. This
- * also gracefully handles elements larger than the viewport (e.g. very
- * tall sections) — the center-in-view rule prevents the impossible "scroll
- * until fully visible" loop.
+ * Picks a click point inside the target's bounding box, auto-scrolling
+ * first when the box isn't in the viewport. See {@link readBoxWithAutoScroll}
+ * for the viewport / scroll rules. The picked point uses personality-driven
+ * Gaussian spread inside the box; raw-box callers (like {@link executeHover}'s
+ * instant mode) bypass this and center on the box directly.
  */
 async function resolveLocatorPoint(
   target: Locator | string,
@@ -371,11 +357,23 @@ async function resolveLocatorPoint(
  * never null. Throws with the action name baked into the message when the
  * element doesn't exist or vanishes mid-scroll.
  *
+ * Why this exists: Playwright's `page.mouse.move/click` use viewport
+ * coordinates, not document coordinates. For an element below the fold,
+ * `locator.boundingBox()` returns a y > viewport height — dispatching a
+ * mouse move to that point lands off-screen and the click silently misses.
+ * Real users scroll to bring the element into view before clicking, so we
+ * do the same: humanized scroll (`block: 'center'`) in regular speed modes,
+ * `scrollIntoViewIfNeeded` snap in `'instant'`.
+ *
+ * The viewport check uses the box's geometric center: if the center sits
+ * inside the visible viewport, the click will land somewhere visible even
+ * with personality-driven Gaussian spread, so no scroll fires. This also
+ * gracefully handles elements larger than the viewport — the center-in-view
+ * rule prevents an impossible "scroll until fully visible" loop.
+ *
  * Shared between {@link resolveLocatorPoint} (humanized paths, which then
  * Gaussian-pick a point inside the box) and {@link executeHover}'s
- * instant-mode path (which centers on the box without humanization). Keeps
- * the viewport-aware scroll behavior in one place instead of duplicating
- * the check across primitives.
+ * instant-mode path (which centers on the box without humanization).
  */
 async function readBoxWithAutoScroll(
   target: Locator | string,
