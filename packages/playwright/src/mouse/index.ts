@@ -381,10 +381,13 @@ async function resolveLocatorPoint(
     if (ctx.speed === 'instant') {
       await locator.scrollIntoViewIfNeeded();
     } else {
-      // Humanized scroll. `block: 'nearest'` brings the element just into
-      // view rather than aligning to the top — the minimum-disturbance
-      // shape a real user would use.
-      await executeScroll(locator, ctx, { block: 'nearest' });
+      // Humanized scroll. `block: 'center'` lands the target in the middle
+      // of the viewport, which is what real users do when they're about to
+      // interact with something — they scroll until they can comfortably
+      // see it, not until it just barely peeks past the edge. `'nearest'`
+      // would feel robotic: minimum-scroll places the element right at the
+      // viewport boundary, which no human reaches for.
+      await executeScroll(locator, ctx, { block: 'center' });
     }
     box = await locator.boundingBox();
     if (!box) {
