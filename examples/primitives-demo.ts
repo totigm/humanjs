@@ -1,13 +1,19 @@
 /**
- * HumanJS primitives demo — exercises the six "second-tier" Human methods
- * in sequence on one page so a viewer can see them all work visually:
+ * HumanJS primitives demo — exercises every Human primitive in sequence
+ * on one page so a viewer can see them all work visually:
  *
- *   1. hover       — cursor moves to a target, tooltip appears via :hover
- *   2. rightClick  — context-menu click, custom menu appears
- *   3. drag        — selector → selector card move, then selector → point slider
- *   4. paste       — long string lands in a textarea via insertText (no rhythm)
- *   5. move        — pure positional motion to a Point, no element under cursor
- *   6. shortcut    — Mod+S triggers a Save indicator (cursor position irrelevant)
+ *    1. hover       — cursor moves to a target, tooltip appears via :hover
+ *    2. click       — basic Bezier-path click on a button
+ *    3. rightClick  — context-menu click, custom menu appears
+ *    4. drag        — selector → selector card move, then selector → Point slider
+ *    5. type        — humanized per-key rhythm into an input
+ *    6. shortcut    — Mod+S triggers a Save indicator (cursor position irrelevant)
+ *    7. paste       — long string lands in a textarea via insertText (no rhythm).
+ *                     The paste section deliberately lives below the fold so
+ *                     this step exercises the auto-scroll path before typing.
+ *    8. read        — humanized cursor scan across prose during the dwell
+ *    9. move        — pure positional motion to a Point, no element under cursor
+ *   10. scroll      — humanized scroll all the way down to a destination
  *
  * Run with:
  *   pnpm demo:primitives
@@ -17,6 +23,9 @@
  *   PERSONALITY=fast        pnpm demo:primitives
  *   PERSONALITY=precise     pnpm demo:primitives
  *   PERSONALITY=distracted  pnpm demo:primitives
+ *
+ * For deep dives on individual primitives, see `pnpm demo:click`,
+ * `pnpm demo:type`, `pnpm demo:read`, `pnpm demo:scroll`.
  */
 
 import { chromium, createHuman, installMouseHelper } from '@humanjs/playwright';
@@ -122,7 +131,25 @@ const DEMO_HTML = /* html */ `
         transform: translateX(-50%) translateY(0);
       }
 
-      /* 2. Right-click */
+      /* 2. Click */
+      .click-button {
+        padding: 14px 28px;
+        font-size: 15px;
+        font-weight: 500;
+        font-family: ui-monospace, SF Mono, monospace;
+        color: #fff;
+        background: linear-gradient(180deg, #334155, #1e293b);
+        border: 1px solid #475569;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+      .click-button.activated {
+        background: linear-gradient(180deg, #22c55e, #16a34a);
+        border-color: #16a34a;
+      }
+
+      /* 3. Right-click */
       .ctx-host {
         position: relative;
         display: inline-block;
@@ -164,7 +191,7 @@ const DEMO_HTML = /* html */ `
       }
       .ctx-menu .item:hover { background: #1a1a1a; color: #f5a55c; }
 
-      /* 3. Drag */
+      /* 4. Drag */
       .drag-row {
         display: flex;
         align-items: center;
@@ -240,7 +267,22 @@ const DEMO_HTML = /* html */ `
         transition: left 0.08s linear;
       }
 
-      /* 4. Paste */
+      /* 5. Type */
+      .text-input {
+        width: 100%;
+        padding: 14px 16px;
+        font-family: ui-monospace, SF Mono, monospace;
+        font-size: 14px;
+        color: #f5a55c;
+        background: #050505;
+        border: 1px solid #2a2a2a;
+        border-radius: 8px;
+        outline: none;
+      }
+      .text-input:focus { border-color: rgba(245, 165, 92, 0.4); }
+      .text-input::placeholder { color: #555; }
+
+      /* 6. Paste */
       .paste-box {
         width: 100%;
         min-height: 100px;
@@ -257,7 +299,7 @@ const DEMO_HTML = /* html */ `
       }
       .paste-box:focus { border-color: rgba(245, 165, 92, 0.4); }
 
-      /* 5. Shortcut */
+      /* 7. Shortcut */
       .save-host {
         display: flex;
         align-items: center;
@@ -291,13 +333,79 @@ const DEMO_HTML = /* html */ `
         background: #f5a55c;
         border-color: #f5a55c;
       }
+
+      /* 8. Read */
+      .read-passage {
+        margin: 0;
+        font-size: 16px;
+        line-height: 1.6;
+        color: #b8b3a9;
+        max-width: 620px;
+      }
+
+      /* Mid-flow spacer that pushes the paste section below the fold so
+         the auto-scroll path is exercised when the demo reaches step 7. */
+      .below-fold-spacer {
+        height: 820px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: ui-monospace, SF Mono, monospace;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.25em;
+        color: #2a2a2a;
+        border-top: 1px dashed #1a1a1a;
+        border-bottom: 1px dashed #1a1a1a;
+      }
+
+      /* 10. Scroll — spacer pushes the destination below the fold so the
+         scroll motion is observable, then a target block at the bottom
+         that highlights when the cursor lands inside it. */
+      .scroll-spacer {
+        height: 720px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: ui-monospace, SF Mono, monospace;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.25em;
+        color: #2a2a2a;
+        border-top: 1px dashed #1a1a1a;
+        border-bottom: 1px dashed #1a1a1a;
+      }
+      .scroll-destination {
+        border-color: #f5a55c33;
+        background: #0c0b0a;
+        transition: all 0.4s ease;
+      }
+      .scroll-destination.arrived {
+        border-color: #f5a55c;
+        background: linear-gradient(180deg, #1a1408, #0c0b0a);
+      }
+      .scroll-destination .marker {
+        margin-top: 12px;
+        padding: 14px 16px;
+        font-family: ui-monospace, SF Mono, monospace;
+        font-size: 13px;
+        color: #555;
+        background: #050505;
+        border: 1px solid #2a2a2a;
+        border-radius: 8px;
+        transition: all 0.4s ease;
+      }
+      .scroll-destination.arrived .marker {
+        color: #f5a55c;
+        border-color: #f5a55c66;
+      }
     </style>
   </head>
   <body>
     <div class="wrap">
       <div class="header">
         <h1>HumanJS primitives</h1>
-        <p>Five things a real user does that scripted automation usually fakes.</p>
+        <p>Ten things a real user does that scripted automation usually fakes.</p>
       </div>
 
       <!-- 1. Hover -->
@@ -309,9 +417,15 @@ const DEMO_HTML = /* html */ `
         </div>
       </div>
 
-      <!-- 2. Right-click -->
+      <!-- 2. Click -->
       <div class="block">
-        <div class="label"><span class="num">2</span> rightClick</div>
+        <div class="label"><span class="num">2</span> click</div>
+        <button id="click-button" class="click-button" type="button">Activate</button>
+      </div>
+
+      <!-- 3. Right-click -->
+      <div class="block">
+        <div class="label"><span class="num">3</span> rightClick</div>
         <div class="ctx-host" id="ctx-target">
           card-001.pdf
           <div class="ctx-menu" id="ctx-menu">
@@ -323,9 +437,9 @@ const DEMO_HTML = /* html */ `
         </div>
       </div>
 
-      <!-- 3. Drag -->
+      <!-- 4. Drag -->
       <div class="block">
-        <div class="label"><span class="num">3</span> drag</div>
+        <div class="label"><span class="num">4</span> drag</div>
         <div class="drag-row">
           <div class="drag-slot has-card" id="slot-from">
             <div class="drag-card" id="drag-card">card-A</div>
@@ -340,26 +454,63 @@ const DEMO_HTML = /* html */ `
         </div>
       </div>
 
-      <!-- 4. Paste -->
+      <!-- 5. Type -->
       <div class="block">
-        <div class="label"><span class="num">4</span> paste</div>
-        <textarea class="paste-box" id="paste-target" placeholder="long content goes here…" spellcheck="false"></textarea>
+        <div class="label"><span class="num">5</span> type</div>
+        <input id="type-input" class="text-input" placeholder="email" autocomplete="off" spellcheck="false" />
       </div>
 
-      <!-- 5. Shortcut -->
+      <!-- 6. Shortcut -->
       <div class="block">
-        <div class="label"><span class="num">5</span> shortcut</div>
+        <div class="label"><span class="num">6</span> shortcut</div>
         <div class="save-host">
           <div class="doc">document — type to edit</div>
           <div class="save-indicator" id="save-indicator">unsaved</div>
         </div>
+      </div>
+
+      <!-- 7. Paste — positioned far below the fold so the auto-scroll path
+           has to fire before the cursor can land on the textarea. -->
+      <div class="below-fold-spacer">paste lives below the fold — auto-scroll brings it into view</div>
+      <div class="block">
+        <div class="label"><span class="num">7</span> paste</div>
+        <textarea class="paste-box" id="paste-target" placeholder="long content goes here…" spellcheck="false"></textarea>
+      </div>
+
+      <!-- 8. Read -->
+      <div class="block">
+        <div class="label"><span class="num">8</span> read</div>
+        <p id="read-passage" class="read-passage">A real cursor curves between targets. A real keyboard has rhythm. A real reader dwells. HumanJS turns automation into something the reader can't tell apart from a person.</p>
+      </div>
+
+      <!-- 9. Move — no UI; the next step parks the cursor in dead space below this section. -->
+      <div class="block">
+        <div class="label"><span class="num">9</span> move</div>
+        <p class="read-passage" style="font-size: 14px; color: #777;">The next beat moves the cursor to a free coordinate — no element under it. Pure positioning, the way you'd place the cursor before a keyboard shortcut or between sections of a demo.</p>
+      </div>
+
+      <!-- Spacer that pushes step 10 below the fold so the scroll motion is observable. -->
+      <div class="scroll-spacer">scroll down to see the next step</div>
+
+      <!-- 10. Scroll -->
+      <div class="block scroll-destination" id="scroll-destination">
+        <div class="label"><span class="num">10</span> scroll</div>
+        <p class="read-passage">The cursor scrolled all the way down here, with multi-segment wheel motion and mid-scroll pauses — the same shape a real user produces, not a single jumpcut.</p>
+        <div class="marker" id="scroll-marker">awaiting cursor…</div>
       </div>
     </div>
 
     <script>
       // --- 1. hover --- (handled purely by CSS :hover on .tooltip-host)
 
-      // --- 2. rightClick --- custom context menu, suppresses the OS one
+      // --- 2. click --- visual feedback on activate
+      const clickButton = document.getElementById('click-button');
+      clickButton.addEventListener('click', () => {
+        clickButton.classList.add('activated');
+        clickButton.textContent = '✓ Activated';
+      });
+
+      // --- 3. rightClick --- custom context menu, suppresses the OS one
       const ctxMenu = document.getElementById('ctx-menu');
       const ctxHost = document.getElementById('ctx-target');
       ctxHost.addEventListener('contextmenu', (e) => {
@@ -368,7 +519,7 @@ const DEMO_HTML = /* html */ `
         setTimeout(() => ctxMenu.classList.remove('visible'), 2200);
       });
 
-      // --- 3. drag --- mousedown/move/up on the card, visual feedback on drop
+      // --- 4. drag --- mousedown/move/up on the card, visual feedback on drop
       const card = document.getElementById('drag-card');
       const slotFrom = document.getElementById('slot-from');
       const slotTo = document.getElementById('slot-to');
@@ -432,7 +583,7 @@ const DEMO_HTML = /* html */ `
       });
       window.addEventListener('mouseup', () => { sliderDragging = false; });
 
-      // --- 5. shortcut --- Mod+S handler flashes the save indicator
+      // --- 7. shortcut --- Mod+S handler flashes the save indicator
       const saveIndicator = document.getElementById('save-indicator');
       window.addEventListener('keydown', (e) => {
         const isSaveCombo = (e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S');
@@ -446,6 +597,21 @@ const DEMO_HTML = /* html */ `
           }, 1800);
         }
       });
+
+      // --- 10. scroll --- IntersectionObserver lights up the destination
+      // when it scrolls into view. Gives a visible "you made it" signal so
+      // the scroll step has a payoff at the end.
+      const dest = document.getElementById('scroll-destination');
+      const marker = document.getElementById('scroll-marker');
+      const observer = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
+            dest.classList.add('arrived');
+            marker.textContent = '✓ scrolled here';
+          }
+        }
+      }, { threshold: [0, 0.25, 0.5, 0.75, 1] });
+      observer.observe(dest);
     </script>
   </body>
 </html>
@@ -462,7 +628,9 @@ async function main() {
   const personality = parsePersonality(process.env.PERSONALITY, 'careful', 'PERSONALITY');
 
   console.log(`Personality: ${personality}`);
-  console.log('Demoing: hover → rightClick → drag → paste → move → shortcut\n');
+  console.log(
+    'Demoing: hover → click → rightClick → drag → type → shortcut → paste → read → move → scroll\n',
+  );
 
   const browser = await chromium.launch({ headless: false });
   try {
@@ -479,42 +647,78 @@ async function main() {
     await human.hover('#tooltip-target');
     await human.sleep(1200);
 
-    // 2. Right-click — custom context menu opens on contextmenu event.
-    console.log('2. rightClick → context menu');
+    // 2. Click — basic Bezier-path click on a button. Visible state change
+    // confirms the click landed.
+    console.log('2. click → button');
+    await human.click('#click-button');
+    await human.sleep(900);
+
+    // 3. Right-click — custom context menu opens on contextmenu event.
+    console.log('3. rightClick → context menu');
     await human.rightClick('#ctx-target');
     await human.sleep(1500);
 
-    // 3. Drag — card from one slot to another. Selector → selector first,
-    // then a slider drag using a Point coordinate to demo the Point variant.
-    console.log('3. drag → card to slot, then slider thumb to point');
+    // 4. Drag — card from one slot to another, then a slider drag using a
+    // Point coordinate to demo the Point variant.
+    console.log('4. drag → card to slot, then slider thumb to point');
     await human.drag('#drag-card', '#slot-to');
     await human.sleep(900);
     await human.drag('#slider-thumb', { x: 800, y: 685 });
     await human.sleep(900);
 
-    // 4. Paste — long string lands in the textarea instantly via insertText.
-    console.log('4. paste → multi-line block into textarea');
+    // 5. Type — realistic per-key rhythm into the input. `human.type()` also
+    // implicitly clicks the input first, so you'll see the cursor land on
+    // the field before the keys land.
+    console.log('5. type → realistic typing rhythm into the input');
+    await human.type('#type-input', 'demo@humanjs.dev');
+    await human.sleep(900);
+
+    // 6. Shortcut — Mod+S triggers the page's save handler, indicator flashes.
+    // The input from step 5 is still focused; cursor position is irrelevant
+    // to which element receives a keyboard shortcut — only focus matters.
+    console.log('6. shortcut → Mod+S triggers Save (against the focused input)');
+    await human.shortcut('Mod+S');
+    await human.sleep(2000);
+
+    // 7. Paste — the paste section lives below an 820px spacer, so its
+    // textarea sits well below the fold when this step starts. The
+    // auto-scroll path inside the locator resolver should bring the
+    // textarea into view *before* the cursor walk — without it, the
+    // cursor would move to an off-viewport coordinate and the paste would
+    // silently miss the field.
+    console.log('7. paste → auto-scroll brings the textarea into view, then pastes');
     await human.paste('#paste-target', LONG_PASTE_VALUE);
     await human.sleep(900);
 
-    // 5. Move — pure positional motion to a Point with no element under it.
-    // Parks the cursor in dead space between sections, showing that move()
-    // doesn't need a DOM target. The textarea is still focused — the next
-    // step proves shortcuts dispatch against focus, not cursor position.
-    console.log('5. move → cursor to a point in dead space');
-    await human.move({ x: 460, y: 540 });
-    await human.sleep(1000);
+    // 8. Read — humanized cursor scan across the prose during the dwell.
+    // `read` auto-detects 'prose' from the <p> tag and uses the personality's
+    // WPM × jitter math for the dwell duration.
+    console.log('8. read → dwell on the passage with cursor scan');
+    await human.read('#read-passage');
+    await human.sleep(800);
 
-    // 6. Shortcut — Mod+S triggers the page's save handler, indicator flashes.
-    // Cursor is parked in dead space from step 5; the shortcut still fires
-    // against the focused textarea. Cursor position is irrelevant to which
-    // element receives a keyboard shortcut — only focus matters.
-    console.log('6. shortcut → Mod+S triggers Save (against the focused textarea)');
-    await human.shortcut('Mod+S');
+    // 9. Move — pure positional motion to a Point with no element under it.
+    // Parks the cursor in dead space above the scroll spacer. Watch the
+    // cursor settle without any element-bound interaction firing.
+    console.log('9. move → cursor to a point in dead space');
+    await human.move({ x: 460, y: 540 });
+    await human.sleep(1200);
+
+    // 10. Scroll — humanized scroll to the destination at the bottom of the
+    // page. Multi-segment wheel motion with mid-scroll pauses, not a single
+    // jumpcut. The destination block highlights when it scrolls into view
+    // (IntersectionObserver in the page script), giving a visible payoff.
+    console.log('10. scroll → to the destination at the bottom');
+    await human.scroll('#scroll-destination');
     await human.sleep(2500);
 
     console.log('\nDone. Browser will stay open for 5 seconds.');
-    console.log('Tip: re-run with PERSONALITY=distracted to see the drag scatter more.');
+    console.log(
+      'Tip: re-run with PERSONALITY=distracted to see typos, overshoot, and wider scatter.',
+    );
+    console.log(
+      '     For deep dives on individual primitives, see pnpm demo:click, demo:type, etc.',
+    );
     await human.sleep(5000);
   } finally {
     await browser.close();
