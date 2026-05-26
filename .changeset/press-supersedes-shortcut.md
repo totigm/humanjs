@@ -3,7 +3,7 @@
 "@humanjs/core": patch
 ---
 
-**Breaking:** `human.shortcut(chord)` is renamed to `human.press(key)`, and now accepts bare keys in addition to chords.
+**Breaking:** `human.shortcut(chord)` is renamed to `human.press(key)` — `shortcut('Tab')` always typechecked, but the name read wrong for single keys. `press` is what Playwright's own `keyboard.press()` does, and reads naturally for both bare keys and chords.
 
 ```ts
 // Before
@@ -58,7 +58,7 @@ We tried a `(string & {})` escape hatch on the key portion of chords to make the
 
 ## Migration
 
-Pure renames — no behavior changes beyond accepting bare uncommon keys:
+Most call sites are a pure rename:
 
 ```diff
 - import { type Shortcut } from '@humanjs/playwright';
@@ -67,9 +67,26 @@ Pure renames — no behavior changes beyond accepting bare uncommon keys:
 - await human.shortcut('Mod+S');
 + await human.press('Mod+S');
 
-  // Plugin handler:
+  // Plugin handler — silent failure mode without this update:
 - if (action.type === 'shortcut') { console.log(action.params.chord); }
 + if (action.type === 'press') { console.log(action.params.key); }
 ```
 
-`@humanjs/core`'s `KnownActionType` swapped `'shortcut'` for `'press'` to match. The `(string & {})` widening on `ActionType` means custom adapters emitting `'shortcut'` still typecheck against the loose form, but they won't autocomplete.
+**Stricter type — note for uncommon-key chords.** The old `Shortcut` type included a `(string & {})` escape hatch on the key portion of chords, so `human.shortcut('Mod+BracketLeft')` typechecked without a cast. `KeyOrChord` is fully enumerated for IntelliSense (so `'Shift+'` autocompletes every `Shift+<key>` combo), and the trade-off is that uncommon-key chords now need an explicit cast:
+
+```diff
+- await human.shortcut('Mod+BracketLeft');
++ await human.press('Mod+BracketLeft' as KeyOrChord);
+
+- await human.shortcut('Ctrl+Shift+Alt+K');
++ await human.press('Ctrl+Shift+Alt+K' as KeyOrChord);
+```
+
+If you have a lot of these in one codebase, a tiny local helper keeps the cast contained:
+
+```ts
+const press = (k: string) => human.press(k as KeyOrChord);
+await press('Mod+BracketLeft');
+```
+
+`@humanjs/core`'s `KnownActionType` swapped `'shortcut'` for `'press'` to match. The `(string & {})` widening on `ActionType` means custom adapters emitting `'shortcut'` still typecheck against the loose form, but they won't autocomplete and they won't match `action.type === 'press'`-style plugin handlers.

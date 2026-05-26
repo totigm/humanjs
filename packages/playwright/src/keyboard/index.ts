@@ -156,9 +156,11 @@ export type KeyModifier =
  * what gets dispatched.
  *
  * Not exhaustive: every other Playwright key (less-common Numpad keys,
- * `BracketLeft`, locale-specific keys, etc.) still works via the
- * `(string & {})` escape hatch on the `KeyOrChord` type below. They just
- * don't autocomplete in IDEs.
+ * `BracketLeft`, locale-specific keys, etc.) is outside the typed union
+ * and needs a cast at the call site (`'BracketLeft' as KeyOrChord`). The
+ * runtime parser handles them — the type just doesn't enumerate them,
+ * because adding a `(string & {})` escape hatch would collapse TypeScript's
+ * template-literal IntelliSense for the chord autocompletes.
  */
 export type KeyName =
   // Letters
