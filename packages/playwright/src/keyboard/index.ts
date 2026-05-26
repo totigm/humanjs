@@ -294,8 +294,10 @@ export interface PressResult {
  *
  * Modifier rules:
  *
- *  - `Mod` / `CmdOrCtrl` → magic: becomes `Meta` on macOS, `Control` elsewhere.
- *    The right token for cross-platform app shortcuts.
+ *  - `Mod` / `CmdOrCtrl` / `CommandOrControl` → magic: becomes `Meta` on
+ *    macOS, `Control` elsewhere. The right token for cross-platform app
+ *    shortcuts. All three are aliases; `Mod` is shortest, the others come
+ *    from the Electron / Mousetrap convention.
  *  - `Cmd` / `Command` / `Meta` / `Win` / `Super` → literal `Meta` keycode.
  *    Same physical key on every OS (Command on Mac, Windows key on Windows,
  *    Super on Linux). Note: this does NOT auto-translate to Control.
@@ -352,7 +354,7 @@ export function resolveChord(key: KeyOrChord): string {
     if (resolved === null) {
       throw new Error(
         `Invalid key modifier: ${JSON.stringify(token)} in ${JSON.stringify(key)}. ` +
-          `Use one of: Mod, CmdOrCtrl, Cmd/Command/Meta/Win/Super, Ctrl/Control, Alt/Option/Opt, Shift.`,
+          `Use one of: Mod/CmdOrCtrl/CommandOrControl, Cmd/Command/Meta/Win/Super, Ctrl/Control, Alt/Option/Opt, Shift.`,
       );
     }
     modifiers.push(resolved);

@@ -231,8 +231,9 @@ export interface Human {
    *
    * Modifier rules:
    *
-   * - `Mod` / `CmdOrCtrl` — magic: `Meta` on Mac, `Control` elsewhere. Use
-   *   for cross-platform app shortcuts.
+   * - `Mod` / `CmdOrCtrl` / `CommandOrControl` — magic: `Meta` on Mac,
+   *   `Control` elsewhere. Use for cross-platform app shortcuts. The three
+   *   are aliases; `Mod` is shortest.
    * - `Cmd`, `Command`, `Meta`, `Win`, `Super` — literal `Meta` keycode
    *   (Command on Mac, Windows key on Windows, Super on Linux).
    * - `Ctrl`, `Control` — literal Control. Stays Control on every OS.

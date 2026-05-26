@@ -193,7 +193,7 @@ describe('resolveChord', () => {
       // The error message is the discovery surface — without it, "what
       // modifiers are accepted?" requires reading the source.
       expect(() => resolveChord(asChord('Bogus+S'))).toThrow(
-        /Mod, CmdOrCtrl, Cmd\/Command\/Meta\/Win\/Super, Ctrl\/Control, Alt\/Option\/Opt, Shift/,
+        /Mod\/CmdOrCtrl\/CommandOrControl, Cmd\/Command\/Meta\/Win\/Super, Ctrl\/Control, Alt\/Option\/Opt, Shift/,
       );
     });
   });
