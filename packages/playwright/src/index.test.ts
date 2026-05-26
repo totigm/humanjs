@@ -838,6 +838,67 @@ describe('createHuman', () => {
     });
   });
 
+  describe('move', () => {
+    it('moves the cursor along a path without clicking', async () => {
+      const { page, mouseClicks, mouseButtonEvents } = makeKeyboardMockPage();
+      const human = await createHuman(page);
+      await human.move('#target');
+      // Pure positioning: no click, no button events.
+      expect(mouseClicks).toEqual([]);
+      expect(mouseButtonEvents).toEqual([]);
+      // Mouse.move was called multiple times (path walk).
+      const movesCalled = (page.mouse.move as ReturnType<typeof vi.fn>).mock.calls.length;
+      expect(movesCalled).toBeGreaterThan(0);
+    });
+
+    it('accepts a raw Point and skips DOM resolution', async () => {
+      const { page } = makeKeyboardMockPage();
+      const human = await createHuman(page);
+      await human.move({ x: 600, y: 400 });
+      // Point input → no locator() lookup, no boundingBox() call.
+      expect(page.locator).not.toHaveBeenCalled();
+    });
+
+    it('accepts a selector and resolves to the element', async () => {
+      const { page, locator } = makeKeyboardMockPage();
+      const human = await createHuman(page);
+      await human.move('#target');
+      expect(page.locator).toHaveBeenCalledWith('#target');
+      expect(locator.boundingBox).toHaveBeenCalled();
+    });
+
+    it("emits a 'move' action with the resolved target description to plugins", async () => {
+      const beforeAction = vi.fn();
+      const { page } = makeKeyboardMockPage();
+      const human = await createHuman(page, { plugins: [{ name: 'p', beforeAction }] });
+      await human.move({ x: 400, y: 220 });
+      expect(beforeAction).toHaveBeenCalledWith({
+        type: 'move',
+        params: { target: 'point(400, 220)' },
+      });
+    });
+
+    it('does NOT emit a hover event (move is distinct from hover)', async () => {
+      const beforeAction = vi.fn();
+      const { page } = makeKeyboardMockPage();
+      const human = await createHuman(page, { plugins: [{ name: 'p', beforeAction }] });
+      await human.move('#target');
+      const types = beforeAction.mock.calls.map((c) => (c[0] as { type: string }).type);
+      expect(types).toEqual(['move']);
+      expect(types).not.toContain('hover');
+    });
+
+    it('in instant mode, dispatches one mouse.move at the resolved coordinates', async () => {
+      const { page } = makeKeyboardMockPage();
+      const human = await createHuman(page, { speed: 'instant' });
+      await human.move({ x: 250, y: 100 });
+      // Instant mode = single move, no path walk.
+      const moves = (page.mouse.move as ReturnType<typeof vi.fn>).mock.calls;
+      expect(moves).toHaveLength(1);
+      expect(moves[0]).toEqual([250, 100]);
+    });
+  });
+
   describe('drag', () => {
     it('dispatches mouse.down then mouse.up around the motion', async () => {
       const { page, mouseButtonEvents } = makeKeyboardMockPage();

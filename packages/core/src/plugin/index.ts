@@ -63,6 +63,7 @@ export type KnownActionType =
   | 'drag'
   | 'goto'
   | 'hover'
+  | 'move'
   | 'paste'
   | 'read'
   | 'rightClick'

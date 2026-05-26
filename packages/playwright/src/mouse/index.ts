@@ -39,6 +39,12 @@ export interface DragResult {
   readonly to: Point;
 }
 
+/** Result of a move action. */
+export interface MoveResult {
+  /** Coordinates the cursor settled at. */
+  readonly target: Point;
+}
+
 /** Options for {@link executeClick}. */
 export interface ClickOptions {
   /**
@@ -184,8 +190,8 @@ export async function executeDrag(
   to: MouseTarget,
   ctx: MouseContext,
 ): Promise<DragResult> {
-  const fromPoint = await resolveDragTarget(from, ctx);
-  const toPoint = await resolveDragTarget(to, ctx);
+  const fromPoint = await resolveTargetPoint(from, ctx, 'drag');
+  const toPoint = await resolveTargetPoint(to, ctx, 'drag');
 
   if (ctx.speed === 'instant') {
     await ctx.page.mouse.move(fromPoint.x, fromPoint.y);
@@ -239,6 +245,39 @@ export async function executeDrag(
 }
 
 /**
+ * Moves the cursor to `target` along a humanized Bezier path. Pure
+ * positioning — no settle dwell, no element interaction, no event beyond
+ * the standard mousemove sequence from walking the path. Accepts the same
+ * `MouseTarget` shape as `drag`'s endpoints (Locator | string | Point).
+ *
+ * Distinct from `executeHover`:
+ *
+ *  - `move` is positional. Pass coordinates or an element; the cursor
+ *    arrives and stops. Use this for canvas painting, slider drags
+ *    composed with separate up/down, pre-shortcut placement, or cinematic
+ *    beats where the cursor should pause somewhere with no element under it.
+ *  - `hover` is element-bound and includes the post-arrival dwell that
+ *    lets hover-state UI fire (tooltips, dropdown reveals).
+ *
+ * In `speed: 'instant'`, dispatches a single `page.mouse.move()` to the
+ * resolved coordinates — same bypass semantic as the rest of the mouse
+ * primitives in instant mode.
+ */
+export async function executeMove(target: MouseTarget, ctx: MouseContext): Promise<MoveResult> {
+  const point = await resolveTargetPoint(target, ctx, 'move');
+
+  if (ctx.speed === 'instant') {
+    await ctx.page.mouse.move(point.x, point.y);
+    ctx.setMousePosition(point);
+    return { target: point };
+  }
+
+  await walkBezierTo(point, ctx);
+  ctx.setMousePosition(point);
+  return { target: point };
+}
+
+/**
  * Shared core for any action that moves the cursor to an element-resolved
  * target: resolve the bounding box, pick a Gaussian point inside, generate
  * the Bezier path, walk it. Returns the chosen target point.
@@ -275,14 +314,25 @@ async function walkBezierTo(to: Point, ctx: MouseContext): Promise<void> {
   await walkMouseAlongPath(ctx.page, path, travelMs);
 }
 
-/** Resolves a drag endpoint (selector, Locator, or raw Point) to coordinates. */
-async function resolveDragTarget(target: MouseTarget, ctx: MouseContext): Promise<Point> {
+/**
+ * Resolves a mouse target (selector, Locator, or raw Point) to absolute
+ * coordinates. Shared by `executeDrag` (both endpoints) and `executeMove`.
+ *
+ * `action` is just used to make the error message meaningful when an element
+ * lookup fails — "Cannot drag: …" vs "Cannot move: …" reads better than a
+ * generic "cannot resolve" complaint.
+ */
+async function resolveTargetPoint(
+  target: MouseTarget,
+  ctx: MouseContext,
+  action: 'drag' | 'move',
+): Promise<Point> {
   if (isPoint(target)) return target;
   const locator = typeof target === 'string' ? ctx.page.locator(target) : target;
   const box = await locator.boundingBox();
   if (!box) {
     throw new Error(
-      `Cannot drag: element not found or has no bounding box (target: ${describeTarget(target)})`,
+      `Cannot ${action}: element not found or has no bounding box (target: ${describeTarget(target)})`,
     );
   }
   return pickClickPoint(box, ctx.rng, ctx.personality.mouse.clickSpread);

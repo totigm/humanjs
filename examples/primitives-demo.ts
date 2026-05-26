@@ -1,12 +1,13 @@
 /**
- * HumanJS primitives demo — exercises the five "second-tier" Human methods
+ * HumanJS primitives demo — exercises the six "second-tier" Human methods
  * in sequence on one page so a viewer can see them all work visually:
  *
  *   1. hover       — cursor moves to a target, tooltip appears via :hover
  *   2. rightClick  — context-menu click, custom menu appears
  *   3. drag        — selector → selector card move, then selector → point slider
  *   4. paste       — long string lands in a textarea via insertText (no rhythm)
- *   5. shortcut    — Mod+S triggers a Save indicator
+ *   5. move        — pure positional motion to a Point, no element under cursor
+ *   6. shortcut    — Mod+S triggers a Save indicator (cursor position irrelevant)
  *
  * Run with:
  *   pnpm demo:primitives
@@ -461,7 +462,7 @@ async function main() {
   const personality = parsePersonality(process.env.PERSONALITY, 'careful', 'PERSONALITY');
 
   console.log(`Personality: ${personality}`);
-  console.log('Demoing: hover → rightClick → drag → paste → shortcut\n');
+  console.log('Demoing: hover → rightClick → drag → paste → move → shortcut\n');
 
   const browser = await chromium.launch({ headless: false });
   try {
@@ -496,10 +497,19 @@ async function main() {
     await human.paste('#paste-target', LONG_PASTE_VALUE);
     await human.sleep(900);
 
-    // 5. Shortcut — Mod+S triggers the page's save handler, indicator flashes.
-    // The textarea is still focused from the paste above, so the keystroke
-    // dispatches on a real element with focus.
-    console.log('5. shortcut → Mod+S triggers Save');
+    // 5. Move — pure positional motion to a Point with no element under it.
+    // Parks the cursor in dead space between sections, showing that move()
+    // doesn't need a DOM target. The textarea is still focused — the next
+    // step proves shortcuts dispatch against focus, not cursor position.
+    console.log('5. move → cursor to a point in dead space');
+    await human.move({ x: 460, y: 540 });
+    await human.sleep(1000);
+
+    // 6. Shortcut — Mod+S triggers the page's save handler, indicator flashes.
+    // Cursor is parked in dead space from step 5; the shortcut still fires
+    // against the focused textarea. Cursor position is irrelevant to which
+    // element receives a keyboard shortcut — only focus matters.
+    console.log('6. shortcut → Mod+S triggers Save (against the focused textarea)');
     await human.shortcut('Mod+S');
     await human.sleep(2500);
 

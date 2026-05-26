@@ -12,7 +12,7 @@ import {
 } from '@humanjs/core';
 import type { Locator, Page } from 'playwright';
 import { executePaste, executeShortcut, executeType } from './keyboard';
-import { executeClick, executeDrag, executeHover, type MouseTarget } from './mouse';
+import { executeClick, executeDrag, executeHover, executeMove, type MouseTarget } from './mouse';
 import { executeRead, type ReadOptions, type ReadResult, type ReadTarget } from './reading';
 import {
   getCaptureSettingsForQuality,
@@ -168,6 +168,23 @@ export interface Human {
    * center.
    */
   hover(target: Locator | string): Promise<void>;
+  /**
+   * Move the cursor to `target` along a humanized Bezier path. Pure
+   * positioning — no settle dwell, no element interaction. `target` accepts
+   * a CSS selector, a `Locator`, or a literal `Point`; the `Point` form
+   * lets you position the cursor anywhere (canvas, SVG, dead space) without
+   * a DOM element to anchor on.
+   *
+   * Distinct from `hover()`: `hover` is element-bound and includes a settle
+   * dwell to let hover-state UI fire (tooltips, dropdowns). `move` is
+   * positional only — use it when you want the cursor placed somewhere
+   * without implying interaction with what's under it (pre-shortcut
+   * placement, canvas painting, cinematic beats).
+   *
+   * In `speed: 'instant'`, dispatches one `mouse.move()` at the resolved
+   * coordinates.
+   */
+  move(target: MouseTarget): Promise<void>;
   /**
    * Drag from `from` to `to`. Each endpoint accepts a CSS selector, a
    * `Locator`, or a literal `Point` — the last form matters for canvas /
@@ -474,6 +491,12 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
       const description = typeof target === 'string' ? target : (target.toString?.() ?? 'locator');
       await performAction({ type: 'hover', params: { target: description } }, async () => {
         await executeHover(target, mouseCtx());
+      });
+    },
+    async move(target) {
+      const description = describeMouseTarget(target);
+      await performAction({ type: 'move', params: { target: description } }, async () => {
+        await executeMove(target, mouseCtx());
       });
     },
     async drag(from, to) {
