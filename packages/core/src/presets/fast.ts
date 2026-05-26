@@ -27,7 +27,7 @@ export const fast: Personality = {
     baseDelayMs: 130,
     delayJitter: 0.25,
     typoProbability: 0.015,
-    typoCorrectionProbability: 0.9,
+    typoCorrectionProbability: 1.0,
     thinkPauseProbability: 0.02,
     thinkPauseMeanMs: 150,
   },

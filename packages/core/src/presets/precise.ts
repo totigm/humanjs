@@ -22,7 +22,7 @@ export const precise: Personality = {
     baseDelayMs: 110,
     delayJitter: 0.1,
     typoProbability: 0.003,
-    typoCorrectionProbability: 0.99,
+    typoCorrectionProbability: 1.0,
     thinkPauseProbability: 0.03,
     thinkPauseMeanMs: 200,
   },

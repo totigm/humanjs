@@ -22,13 +22,7 @@ export const careful: Personality = {
     baseDelayMs: 140,
     delayJitter: 0.3,
     typoProbability: 0.02,
-    // 0.99 (was 0.95): the rare typo still slips through, but at 0.02%
-    // per character the chance of an uncorrected typo over a normal-length
-    // field-fill is negligible. The earlier 0.95 produced an uncorrected
-    // typo ~1.6% of the time over 16 characters — enough that demo seeds
-    // hit it and "careful" stopped feeling careful. Users who want
-    // realistic-imperfect typing pick `distracted` or override explicitly.
-    typoCorrectionProbability: 0.99,
+    typoCorrectionProbability: 1.0,
     thinkPauseProbability: 0.08,
     thinkPauseMeanMs: 400,
   },
