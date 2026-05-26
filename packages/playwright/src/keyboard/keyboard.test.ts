@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { resolveChord } from './index';
+import { resolveChord, type Shortcut } from './index';
+
+// Many tests below pass deliberately type-invalid strings to verify the
+// parser's runtime robustness — lowercase modifiers, whitespace tokens,
+// empty strings, unknown modifiers like `'Hyper+S'`. The `Shortcut` type
+// (rightly) rejects these at compile time, so we cast to bypass the type
+// check and exercise the runtime path. Production code should NOT do this;
+// it's a test-only escape.
+const asChord = (s: string): Shortcut => s as Shortcut;
 
 /**
  * Unit tests for `resolveChord` — the chord parser that powers
@@ -29,17 +37,20 @@ describe('resolveChord', () => {
 
   describe('plain key (no modifier)', () => {
     it('returns single-letter keys upper-cased', () => {
-      expect(resolveChord('s')).toBe('S');
+      // Lowercase 's' isn't a valid `Shortcut` literal (canonical is 'S'),
+      // but the runtime parser still upper-cases it — so we cast for the
+      // test. Real callers should write 'S'.
+      expect(resolveChord(asChord('s'))).toBe('S');
       expect(resolveChord('S')).toBe('S');
     });
 
     it('returns named keys title-cased', () => {
       expect(resolveChord('Enter')).toBe('Enter');
-      expect(resolveChord('enter')).toBe('Enter');
+      expect(resolveChord(asChord('enter'))).toBe('Enter');
       // ALL-CAPS doesn't round-trip cleanly — the tail stays uppercase —
       // but the more important behavior is that mixed-case CamelCase keys
       // survive (see the next test).
-      expect(resolveChord('ENTER')).toBe('ENTER');
+      expect(resolveChord(asChord('ENTER'))).toBe('ENTER');
     });
 
     it('preserves CamelCase in multi-character key names', () => {
@@ -52,7 +63,11 @@ describe('resolveChord', () => {
       expect(resolveChord('ArrowUp')).toBe('ArrowUp');
       expect(resolveChord('PageDown')).toBe('PageDown');
       expect(resolveChord('PageUp')).toBe('PageUp');
-      expect(resolveChord('BracketLeft')).toBe('BracketLeft');
+      // `'BracketLeft'` as a bare key isn't in the `ShortcutKey` union (it's
+      // a key you'd use with a modifier, e.g. `'Mod+BracketLeft'` for "go
+      // back"). The runtime parser still handles it; we cast to test that
+      // path explicitly.
+      expect(resolveChord(asChord('BracketLeft'))).toBe('BracketLeft');
     });
 
     it('preserves CamelCase inside a chord with a modifier', () => {
@@ -120,15 +135,19 @@ describe('resolveChord', () => {
   });
 
   describe('case insensitivity', () => {
-    it('modifier names are case-insensitive', () => {
+    it('modifier names are case-insensitive at runtime (canonical case in types)', () => {
+      // The `Shortcut` type only lists canonical-case modifiers ('Mod',
+      // 'Cmd', 'Ctrl', etc.), so lowercase/uppercase variants are TS errors
+      // — but the parser handles them. Casting here verifies the runtime
+      // forgiveness; production code should write canonical case.
       setPlatform('darwin');
-      expect(resolveChord('mod+s')).toBe('Meta+S');
-      expect(resolveChord('MOD+S')).toBe('Meta+S');
-      expect(resolveChord('Mod+s')).toBe('Meta+S');
+      expect(resolveChord(asChord('mod+s'))).toBe('Meta+S');
+      expect(resolveChord(asChord('MOD+S'))).toBe('Meta+S');
+      expect(resolveChord(asChord('Mod+s'))).toBe('Meta+S');
     });
 
     it('single-letter keys are case-insensitive (always uppercased)', () => {
-      expect(resolveChord('Shift+a')).toBe('Shift+A');
+      expect(resolveChord(asChord('Shift+a'))).toBe('Shift+A');
       expect(resolveChord('Shift+A')).toBe('Shift+A');
     });
   });
@@ -150,18 +169,24 @@ describe('resolveChord', () => {
 
   describe('error paths', () => {
     it('throws on an empty chord', () => {
-      expect(() => resolveChord('')).toThrow(/empty or only separators/);
-      expect(() => resolveChord('+++')).toThrow(/empty or only separators/);
+      // Empty strings + separator-only strings aren't valid `Shortcut`
+      // literals, so we cast to exercise the runtime guards.
+      expect(() => resolveChord(asChord(''))).toThrow(/empty or only separators/);
+      expect(() => resolveChord(asChord('+++'))).toThrow(/empty or only separators/);
     });
 
     it('throws on an unknown modifier with a useful message', () => {
-      expect(() => resolveChord('Hyper+S')).toThrow(/Invalid shortcut modifier.*"Hyper"/);
+      // 'Hyper+S' isn't a valid Shortcut (Hyper isn't a ShortcutModifier),
+      // so TS rejects it — that's actually the FIRST line of defense.
+      // Casting tests the runtime fallback for inputs that slip through
+      // (e.g. user-supplied strings from config).
+      expect(() => resolveChord(asChord('Hyper+S'))).toThrow(/Invalid shortcut modifier.*"Hyper"/);
     });
 
     it('error message lists valid modifiers so users can self-correct', () => {
       // The error message is the discovery surface — without it, "what
       // modifiers are accepted?" requires reading the source.
-      expect(() => resolveChord('Bogus+S')).toThrow(
+      expect(() => resolveChord(asChord('Bogus+S'))).toThrow(
         /Mod, CmdOrCtrl, Cmd\/Command\/Meta\/Win\/Super, Ctrl\/Control, Alt\/Option\/Opt, Shift/,
       );
     });
@@ -169,9 +194,12 @@ describe('resolveChord', () => {
 
   describe('whitespace tolerance', () => {
     it('trims tokens so "Mod + S" works the same as "Mod+S"', () => {
+      // Whitespace-padded chords aren't valid `Shortcut` literals (the type
+      // expects exact 'Mod+S' form), but the runtime parser trims tokens —
+      // useful for config files or user input. Casting to exercise that path.
       setPlatform('darwin');
-      expect(resolveChord('Mod + S')).toBe('Meta+S');
-      expect(resolveChord(' Mod+S ')).toBe('Meta+S');
+      expect(resolveChord(asChord('Mod + S'))).toBe('Meta+S');
+      expect(resolveChord(asChord(' Mod+S '))).toBe('Meta+S');
     });
   });
 });

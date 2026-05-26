@@ -122,6 +122,151 @@ export async function executePaste(
   return { characters: value.length };
 }
 
+/**
+ * Modifier tokens accepted in a shortcut chord. `Mod` and `CmdOrCtrl` /
+ * `CommandOrControl` are the magic auto-mapping tokens (Meta on Mac,
+ * Control elsewhere). The rest are literal — they always resolve to the
+ * keycode they name, on every platform.
+ *
+ * Canonical-case names are listed here for IntelliSense; the runtime
+ * parser is case-insensitive, so `'cmd+s'` and `'CMD+S'` work too — they
+ * just won't autocomplete.
+ */
+export type ShortcutModifier =
+  | 'Mod'
+  | 'CmdOrCtrl'
+  | 'CommandOrControl'
+  | 'Cmd'
+  | 'Command'
+  | 'Meta'
+  | 'Win'
+  | 'Super'
+  | 'Ctrl'
+  | 'Control'
+  | 'Alt'
+  | 'Option'
+  | 'Opt'
+  | 'Shift';
+
+/**
+ * The canonical key names a `Shortcut` can end with. Mirrors Playwright's
+ * accepted key vocabulary, plus a few common synonyms. CamelCase names
+ * (`ArrowDown`, `PageUp`) are listed in their canonical form — `normalizeKey`
+ * preserves case from the input, so what you type is what gets dispatched.
+ *
+ * Not exhaustive: every other Playwright key (less-common Numpad keys,
+ * `BracketLeft`, locale-specific keys, etc.) still works via the
+ * `(string & {})` escape hatch on the `Shortcut` type below. They just
+ * don't autocomplete in IDEs.
+ */
+export type ShortcutKey =
+  // Letters
+  | 'A'
+  | 'B'
+  | 'C'
+  | 'D'
+  | 'E'
+  | 'F'
+  | 'G'
+  | 'H'
+  | 'I'
+  | 'J'
+  | 'K'
+  | 'L'
+  | 'M'
+  | 'N'
+  | 'O'
+  | 'P'
+  | 'Q'
+  | 'R'
+  | 'S'
+  | 'T'
+  | 'U'
+  | 'V'
+  | 'W'
+  | 'X'
+  | 'Y'
+  | 'Z'
+  // Digits
+  | '0'
+  | '1'
+  | '2'
+  | '3'
+  | '4'
+  | '5'
+  | '6'
+  | '7'
+  | '8'
+  | '9'
+  // Function keys
+  | 'F1'
+  | 'F2'
+  | 'F3'
+  | 'F4'
+  | 'F5'
+  | 'F6'
+  | 'F7'
+  | 'F8'
+  | 'F9'
+  | 'F10'
+  | 'F11'
+  | 'F12'
+  // Navigation
+  | 'ArrowUp'
+  | 'ArrowDown'
+  | 'ArrowLeft'
+  | 'ArrowRight'
+  | 'PageUp'
+  | 'PageDown'
+  | 'Home'
+  | 'End'
+  // Editing & control
+  | 'Enter'
+  | 'Tab'
+  | 'Escape'
+  | 'Space'
+  | 'Backspace'
+  | 'Delete'
+  | 'Insert'
+  // Lock & system keys
+  | 'CapsLock'
+  | 'NumLock'
+  | 'ScrollLock'
+  | 'PrintScreen'
+  | 'Pause';
+
+/**
+ * Strings accepted by `human.shortcut(chord)`:
+ *
+ *  - A bare known key: `'Enter'`, `'F4'`, `'ArrowDown'`, `'S'`
+ *  - One known modifier + any key: `'Mod+S'`, `'Mod+BracketLeft'`, …
+ *  - Two known modifiers + any key: `'Mod+Shift+P'`, `'Ctrl+Alt+Delete'`, …
+ *
+ * The escape hatch lives on the **key portion only**, not on the whole
+ * chord — so modifier typos get caught at compile time (`'Mosd+S'` is a
+ * TS error) while less-common keys (`'BracketLeft'`, `'NumpadAdd'`,
+ * locale-specific keys) still typecheck under a known modifier.
+ *
+ * 3+ modifier chords (`'Ctrl+Shift+Alt+X'`) typecheck through the same
+ * key-side escape hatch — TS sees two modifiers + `'Alt+X'` as the "key,"
+ * the runtime parser handles three modifiers + `X` correctly. The cap at
+ * two literal modifiers is a TypeScript size-of-union constraint, not a
+ * runtime limit.
+ *
+ * Bare uncommon keys (`'BracketLeft'` alone, no modifier) DON'T typecheck
+ * — that route would slip past the modifier guard. Workarounds: use a
+ * modifier, or `'BracketLeft' as Shortcut`. The case is vanishingly rare
+ * in real shortcut bindings.
+ *
+ * Lowercase modifiers (`'mod+s'`) also DON'T typecheck even though the
+ * runtime accepts them — TS-strict steers users toward the canonical
+ * casing, which keeps shortcut strings consistent across a codebase.
+ */
+export type Shortcut =
+  | ShortcutKey
+  | `${ShortcutModifier}+${ShortcutKey | (string & {})}`
+  | `${ShortcutModifier}+${ShortcutModifier}+${ShortcutKey | (string & {})}`;
+
 /** Result of a shortcut action. */
 export interface ShortcutResult {
   /** The exact chord that was dispatched (after Mod-resolution). */
@@ -159,7 +304,7 @@ export interface ShortcutResult {
  * ```
  */
 export async function executeShortcut(
-  chord: string,
+  chord: Shortcut,
   ctx: KeyboardContext,
 ): Promise<ShortcutResult> {
   const dispatched = resolveChord(chord);
@@ -174,8 +319,11 @@ export async function executeShortcut(
  *
  * Exported for the test suite — not part of the public API.
  */
-export function resolveChord(chord: string): string {
-  const parts = chord
+export function resolveChord(chord: Shortcut): string {
+  // Narrow to plain string for the parser — `Shortcut` is a wide template
+  // literal union and TS can't always infer the callbacks' parameter type
+  // from `.split()` when the input is the full union shape.
+  const parts = (chord as string)
     .split('+')
     .map((p) => p.trim())
     .filter((p) => p.length > 0);

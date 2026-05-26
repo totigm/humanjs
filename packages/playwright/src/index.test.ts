@@ -762,7 +762,11 @@ describe('createHuman', () => {
     it('throws on an invalid modifier and never dispatches', async () => {
       const { page, pressedKeys } = makeKeyboardMockPage();
       const human = await createHuman(page);
-      await expect(human.shortcut('Hyper+S')).rejects.toThrow(/Invalid shortcut modifier/);
+      // `'Hyper+S'` is a TS error too (Hyper isn't a `ShortcutModifier`),
+      // so the type guard is the first line of defense. The cast exercises
+      // the runtime fallback — important because real callers might pass
+      // strings from config / user input that TS can't validate at compile.
+      await expect(human.shortcut('Hyper+S' as never)).rejects.toThrow(/Invalid shortcut modifier/);
       expect(pressedKeys).toEqual([]);
     });
   });

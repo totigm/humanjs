@@ -11,7 +11,7 @@ import {
   sleep,
 } from '@humanjs/core';
 import type { Locator, Page } from 'playwright';
-import { executePaste, executeShortcut, executeType } from './keyboard';
+import { executePaste, executeShortcut, executeType, type Shortcut } from './keyboard';
 import { executeClick, executeDrag, executeHover, executeMove, type MouseTarget } from './mouse';
 import { executeRead, type ReadOptions, type ReadResult, type ReadTarget } from './reading';
 import {
@@ -86,6 +86,8 @@ export {
   type Page,
   webkit,
 } from 'playwright';
+export type { Shortcut, ShortcutKey, ShortcutModifier } from './keyboard';
+export type { MouseTarget } from './mouse';
 export type { InstallMouseHelperOptions } from './mouse-helper';
 export { installMouseHelper } from './mouse-helper';
 export type { ReadOptions, ReadResult, ReadTarget } from './reading';
@@ -235,9 +237,14 @@ export interface Human {
    * - `Alt`, `Option`, `Opt` — literal Alt.
    * - `Shift` — literal Shift.
    *
-   * Case-insensitive. Throws on unknown modifiers.
+   * Case-insensitive. Throws on unknown modifiers. The `Shortcut` type is
+   * a template-literal union of every modifier × key combination (up to
+   * three modifiers + a key), so IDEs autocomplete valid chords as you
+   * type. Less common keys (`BracketLeft`, `NumpadAdd`, etc.) still
+   * typecheck through the union's string escape hatch — they just don't
+   * autocomplete.
    */
-  shortcut(chord: string): Promise<void>;
+  shortcut(chord: Shortcut): Promise<void>;
   /**
    * Dwell as if reading `target` — the third pillar of humanization after
    * the cursor and the keyboard. Real users pause to read; HumanJS models
