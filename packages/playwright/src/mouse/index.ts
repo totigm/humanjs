@@ -282,9 +282,10 @@ export async function executeMove(target: MouseTarget, ctx: MouseContext): Promi
  * target: resolve the bounding box, pick a Gaussian point inside, generate
  * the Bezier path, walk it. Returns the chosen target point.
  *
- * Used by `executeClick` and `executeHover` (drag reaches the same logic
- * via `resolveDragTarget` + `walkBezierTo` because its `from` can also be
- * a `Point`).
+ * Used by `executeClick` and `executeHover` for their element-bound paths.
+ * `executeDrag` and `executeMove` accept raw `Point` inputs too, so they
+ * reach the same Bezier walk through `resolveTargetPoint` + `walkBezierTo`
+ * instead of going through here.
  */
 async function moveToTarget(
   target: Locator | string,

@@ -476,19 +476,19 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
       });
     },
     async click(target) {
-      const description = typeof target === 'string' ? target : (target.toString?.() ?? 'locator');
+      const description = describeMouseTarget(target);
       await performAction({ type: 'click', params: { target: description } }, async () => {
         await executeClick(target, mouseCtx());
       });
     },
     async rightClick(target) {
-      const description = typeof target === 'string' ? target : (target.toString?.() ?? 'locator');
+      const description = describeMouseTarget(target);
       await performAction({ type: 'rightClick', params: { target: description } }, async () => {
         await executeClick(target, mouseCtx(), { button: 'right' });
       });
     },
     async hover(target) {
-      const description = typeof target === 'string' ? target : (target.toString?.() ?? 'locator');
+      const description = describeMouseTarget(target);
       await performAction({ type: 'hover', params: { target: description } }, async () => {
         await executeHover(target, mouseCtx());
       });
@@ -507,7 +507,7 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
       });
     },
     async type(target, value) {
-      const description = typeof target === 'string' ? target : (target.toString?.() ?? 'locator');
+      const description = describeMouseTarget(target);
       // `value` itself is intentionally not echoed into params — typed input may
       // be sensitive (passwords, tokens). Expose length only for observability.
       await performAction(
@@ -529,7 +529,7 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
       );
     },
     async paste(target, value) {
-      const description = typeof target === 'string' ? target : (target.toString?.() ?? 'locator');
+      const description = describeMouseTarget(target);
       // Same privacy posture as `type`: pasted values may be sensitive
       // (passwords, tokens, secrets being pasted from a manager). Expose
       // length only.
