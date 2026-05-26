@@ -12,12 +12,18 @@ interface MockBoundingBox {
 interface MockLocator {
   readonly boundingBox: ReturnType<typeof vi.fn>;
   readonly click: ReturnType<typeof vi.fn>;
+  readonly scrollIntoViewIfNeeded: ReturnType<typeof vi.fn>;
 }
 
 function makeMockLocator(box: MockBoundingBox | null = defaultBox): MockLocator {
   return {
     boundingBox: vi.fn().mockResolvedValue(box),
     click: vi.fn().mockResolvedValue(undefined),
+    // Required for any test whose box falls outside the 1280×720 mock
+    // viewport — the auto-scroll path calls this in instant mode and
+    // re-reads boundingBox after. Always-present mock prevents future
+    // off-viewport tests from crashing with "not a function".
+    scrollIntoViewIfNeeded: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -26,19 +32,29 @@ function makeMockPage(locatorOverride?: MockLocator): {
   locator: MockLocator;
   mouseMove: ReturnType<typeof vi.fn>;
   mouseClick: ReturnType<typeof vi.fn>;
+  mouseWheel: ReturnType<typeof vi.fn>;
 } {
   const locator = locatorOverride ?? makeMockLocator();
   const mouseMove = vi.fn().mockResolvedValue(undefined);
   const mouseClick = vi.fn().mockResolvedValue(undefined);
+  // Wheel is part of the default mock surface so auto-scroll tests can
+  // assert against it directly. Without it baked in, every off-viewport
+  // test would have to cast `page` to inject a wheel mock — noisy at the
+  // call site and easy to get subtly wrong.
+  const mouseWheel = vi.fn().mockResolvedValue(undefined);
   const page = {
     goto: vi.fn().mockResolvedValue(null),
     locator: vi.fn(() => locator),
     mouse: {
       move: mouseMove,
       click: mouseClick,
+      wheel: mouseWheel,
+      down: vi.fn().mockResolvedValue(undefined),
+      up: vi.fn().mockResolvedValue(undefined),
     },
+    viewportSize: () => ({ width: 1280, height: 720 }),
   } as unknown as Page;
-  return { page, locator, mouseMove, mouseClick };
+  return { page, locator, mouseMove, mouseClick, mouseWheel };
 }
 
 const defaultBox: MockBoundingBox = { x: 100, y: 200, width: 80, height: 30 };
@@ -157,6 +173,7 @@ describe('human.click', () => {
       const locator: MockLocator = {
         boundingBox: vi.fn().mockResolvedValue(defaultBox),
         click: vi.fn().mockResolvedValue(undefined),
+        scrollIntoViewIfNeeded: vi.fn().mockResolvedValue(undefined),
       };
       const human = await createHuman(page, { speed: 'fast' });
       await human.click(locator as unknown as Locator);
@@ -265,6 +282,101 @@ describe('human.click', () => {
       // point should equal the previous path's last point with no slack.
       expect(secondPathStart[0]).toBe(firstClickEnd[0]);
       expect(secondPathStart[1]).toBe(firstClickEnd[1]);
+    });
+  });
+
+  describe('auto-scroll into view', () => {
+    it('triggers a humanized scroll when the target is below the viewport', async () => {
+      // Real-browser flow: `boundingBox()` returns y=2000 while the element
+      // is below the fold; once a wheel-scroll moves the document, the next
+      // read returns the post-scroll viewport-relative y. The mock mirrors
+      // this — boundingBox responses flip as soon as a wheel event lands.
+      const offViewportBox: MockBoundingBox = { x: 100, y: 2000, width: 80, height: 30 };
+      const inViewportBox: MockBoundingBox = { x: 100, y: 0, width: 80, height: 30 };
+      let scrolled = false;
+      const wheelCalls: Array<{ dx: number; dy: number }> = [];
+
+      const locator: MockLocator = {
+        boundingBox: vi.fn(() => Promise.resolve(scrolled ? inViewportBox : offViewportBox)),
+        click: vi.fn().mockResolvedValue(undefined),
+        scrollIntoViewIfNeeded: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const mouseMove = vi.fn().mockResolvedValue(undefined);
+      const mouseClick = vi.fn().mockResolvedValue(undefined);
+      const page = {
+        goto: vi.fn().mockResolvedValue(null),
+        locator: vi.fn(() => locator),
+        evaluate: vi.fn().mockResolvedValue({ current: 0, viewport: 720, total: 3000 }),
+        mouse: {
+          move: mouseMove,
+          click: mouseClick,
+          wheel: vi.fn().mockImplementation((dx: number, dy: number) => {
+            wheelCalls.push({ dx, dy });
+            scrolled = true;
+            return Promise.resolve();
+          }),
+        },
+        viewportSize: () => ({ width: 1280, height: 720 }),
+      } as unknown as Page;
+
+      const human = await createHuman(page, { speed: 'fast', seed: 'auto-scroll' });
+      await human.click('button');
+
+      // Wheel was dispatched at least once → humanized scroll happened.
+      expect(wheelCalls.length).toBeGreaterThan(0);
+      // The click landed on the in-viewport coordinates, not the original
+      // off-screen y=2000. y is somewhere inside [0, 30] after the scroll.
+      expect(mouseClick).toHaveBeenCalledTimes(1);
+      const [, clickY] = mouseClick.mock.calls[0] as [number, number];
+      expect(clickY).toBeGreaterThanOrEqual(0);
+      expect(clickY).toBeLessThanOrEqual(30);
+    });
+
+    it('skips the scroll when the target is already inside the viewport', async () => {
+      // Default box at (100, 200) sits comfortably inside the 1280×720 mock
+      // viewport, so no scroll work should happen at all.
+      const { page, mouseWheel } = makeMockPage();
+      const human = await createHuman(page, { speed: 'fast', seed: 'no-scroll' });
+      await human.click('button');
+      expect(mouseWheel).not.toHaveBeenCalled();
+    });
+
+    it('does not auto-scroll for raw Point targets in drag', async () => {
+      // Raw coordinates bypass the locator resolver entirely — the caller
+      // chose the coordinates, so we don't second-guess them with a scroll.
+      const { page, mouseWheel } = makeMockPage();
+      const human = await createHuman(page, { speed: 'fast', seed: 'point-drag' });
+      // Both endpoints are raw points, one of which is off-viewport (y=2000).
+      // Auto-scroll must not fire — these are explicit coordinates.
+      await human.drag({ x: 100, y: 200 }, { x: 400, y: 2000 });
+      expect(mouseWheel).not.toHaveBeenCalled();
+    });
+
+    it('calls scrollIntoViewIfNeeded for off-viewport hovers in instant mode', async () => {
+      // Instant mode bypasses humanized scrolling but the cursor still needs
+      // to land at an in-viewport coordinate — otherwise mouse.move dispatches
+      // off-screen. Mirrors what `locator.click()` does internally.
+      const offViewportBox: MockBoundingBox = { x: 100, y: 2000, width: 80, height: 30 };
+      const inViewportBox: MockBoundingBox = { x: 100, y: 300, width: 80, height: 30 };
+      let scrolled = false;
+      const locator: MockLocator = {
+        boundingBox: vi.fn(() => Promise.resolve(scrolled ? inViewportBox : offViewportBox)),
+        click: vi.fn().mockResolvedValue(undefined),
+        scrollIntoViewIfNeeded: vi.fn().mockImplementation(() => {
+          scrolled = true;
+          return Promise.resolve();
+        }),
+      };
+      const { page } = makeMockPage(locator);
+
+      const human = await createHuman(page, { speed: 'instant' });
+      await human.hover('button');
+
+      expect(locator.scrollIntoViewIfNeeded).toHaveBeenCalledTimes(1);
+      // Cursor lands at the post-scroll in-viewport coordinates: center of
+      // (100, 300, 80, 30) → (140, 315).
+      expect(page.mouse.move).toHaveBeenCalledWith(140, 315);
     });
   });
 });

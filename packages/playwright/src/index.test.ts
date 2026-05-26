@@ -82,6 +82,7 @@ function makeScrollMockPage(
         return Promise.resolve();
       }),
     },
+    viewportSize: () => ({ width: 1280, height: viewport }),
   } as unknown as Page;
   return { page, locator, wheelDeltas, wheelDeltasX, scrollToCalls };
 }
@@ -111,6 +112,7 @@ function makeMockPage(overrides: Partial<Page> = {}): Page {
     keyboard: {
       press: vi.fn().mockResolvedValue(undefined),
     },
+    viewportSize: () => ({ width: 1280, height: 720 }),
     ...overrides,
   } as unknown as Page;
 }
@@ -125,9 +127,12 @@ function makeKeyboardMockPage(): MockPage {
     pressSequentially: vi.fn().mockResolvedValue(undefined),
     // The implicit click in human.type() / human.paste() needs a bounding
     // box; hover/rightClick/drag use it too. 40×40 at (100, 100) is wide
-    // enough that the Gaussian click-picker stays inside the rect.
+    // enough that the Gaussian click-picker stays inside the rect, and the
+    // center falls inside the default 1280×720 mock viewport so the
+    // auto-scroll path stays dormant.
     boundingBox: vi.fn().mockResolvedValue({ x: 100, y: 100, width: 40, height: 40 }),
     click: vi.fn().mockResolvedValue(undefined),
+    scrollIntoViewIfNeeded: vi.fn().mockResolvedValue(undefined),
   };
   const pressedKeys: string[] = [];
   const insertedText: string[] = [];
@@ -161,6 +166,7 @@ function makeKeyboardMockPage(): MockPage {
         return Promise.resolve();
       }),
     },
+    viewportSize: () => ({ width: 1280, height: 720 }),
   } as unknown as Page;
   return { page, locator, pressedKeys, insertedText, mouseClicks, mouseButtonEvents };
 }
@@ -205,6 +211,7 @@ function makeReadingMockPage(
         return Promise.resolve();
       }),
     },
+    viewportSize: () => ({ width: 1280, height: 720 }),
   } as unknown as Page;
   return { page, locator, mouseMoves };
 }
@@ -1511,6 +1518,7 @@ describe('createHuman', () => {
               return Promise.resolve();
             }),
           },
+          viewportSize: () => ({ width: 1280, height: 720 }),
         } as unknown as Page;
         return {
           page,
