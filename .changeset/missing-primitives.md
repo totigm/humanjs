@@ -27,6 +27,15 @@ await human.shortcut('Enter');                   // single key
 - **`human.paste(target, value)`** — drives an implicit click to focus (same pattern as `type`), then dumps the value via `page.keyboard.insertText`. The Cmd-V semantic — fast, no per-character rhythm. The implicit click is a sub-step of the paste action, same as `type`'s.
 - **`human.shortcut(chord)`** — keyboard chord dispatcher with platform-aware `Mod` token. Detailed modifier rules in the JSDoc; new `'shortcut'` action type emitted to plugins with the original chord string in `params`. Does **not** move the cursor — keyboard shortcuts dispatch against focus, not cursor position. Compose with `click`/`hover`/`move` when you need both.
 
+  **Typed chord parameter.** `chord` is a `Shortcut` — a template-literal union of every (canonical) modifier × key combination up to two modifiers. IDEs autocomplete valid chords as you type (`'Mod+S'`, `'Cmd+Shift+P'`, `'Ctrl+Alt+Delete'`), and **invalid modifiers are caught at compile time**: `'Mosd+S'` and `'Hyper+S'` are TypeScript errors, not runtime errors. The escape hatch lives on the key portion only — uncommon keys (`'Mod+BracketLeft'`, `'Mod+NumpadAdd'`, locale-specific keys) still typecheck under a known modifier. 3+ modifier chords (`'Ctrl+Shift+Alt+X'`) typecheck through the same key-side escape hatch; the cap at two literal modifiers is a TypeScript size-of-union constraint, not a runtime limit. Lowercase modifiers (`'mod+s'`) and bare uncommon keys without a modifier (`'BracketLeft'` alone) are TS errors too — runtime still accepts them, but the type steers toward canonical form for codebase consistency.
+
+## New public types
+
+- **`Shortcut`** — the typed chord union used by `human.shortcut(chord)`. Importable for users typing chord strings in their own helpers / config.
+- **`ShortcutModifier`** — the canonical-case modifier names (`'Mod'`, `'Cmd'`, `'Ctrl'`, `'Alt'`, `'Shift'`, …). Plus aliases (`'Command'`, `'Control'`, `'Option'`, `'Win'`, `'Super'`, `'CmdOrCtrl'`).
+- **`ShortcutKey`** — the canonical bare-key set (`'A'`–`'Z'`, `'0'`–`'9'`, `'F1'`–`'F12'`, `'ArrowUp'`, `'Enter'`, etc.). Uncommon keys go through the `Shortcut` union's key-side escape hatch.
+- **`MouseTarget`** — `Locator | string | Point`. Used by `human.move()` and `human.drag()`. Was internal-only before this release; now exported so users can type local variables to that shape without a deep import.
+
 ## Modifier semantics for `shortcut`
 
 | Token | Resolves to | Notes |

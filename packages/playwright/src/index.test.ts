@@ -1,7 +1,7 @@
 import type { HumanPlugin } from '@humanjs/core';
 import type { Locator, Page } from 'playwright';
 import { describe, expect, it, vi } from 'vitest';
-import { createHuman } from './index';
+import { createHuman, type Shortcut } from './index';
 
 interface MockLocator {
   focus: ReturnType<typeof vi.fn>;
@@ -766,7 +766,11 @@ describe('createHuman', () => {
       // so the type guard is the first line of defense. The cast exercises
       // the runtime fallback — important because real callers might pass
       // strings from config / user input that TS can't validate at compile.
-      await expect(human.shortcut('Hyper+S' as never)).rejects.toThrow(/Invalid shortcut modifier/);
+      // Cast to `Shortcut` (not `any` / `never`) — same pattern as the
+      // `asChord` helper in `keyboard.test.ts`.
+      await expect(human.shortcut('Hyper+S' as Shortcut)).rejects.toThrow(
+        /Invalid shortcut modifier/,
+      );
       expect(pressedKeys).toEqual([]);
     });
   });
