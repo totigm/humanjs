@@ -166,6 +166,7 @@ describe('human.click', () => {
       const locator: MockLocator = {
         boundingBox: vi.fn().mockResolvedValue(defaultBox),
         click: vi.fn().mockResolvedValue(undefined),
+        scrollIntoViewIfNeeded: vi.fn().mockResolvedValue(undefined),
       };
       const human = await createHuman(page, { speed: 'fast' });
       await human.click(locator as unknown as Locator);
