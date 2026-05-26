@@ -25,7 +25,7 @@ export const distracted: Personality = {
     baseDelayMs: 180,
     delayJitter: 0.5,
     typoProbability: 0.06,
-    typoCorrectionProbability: 0.7,
+    typoCorrectionProbability: 1.0,
     thinkPauseProbability: 0.18,
     thinkPauseMeanMs: 700,
   },

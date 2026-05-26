@@ -65,7 +65,18 @@ export interface TypingProfile {
   readonly typoProbability: number;
   /**
    * Probability of correcting a typo with backspace once one occurs (0..1).
-   * Lower values leave more uncorrected typos in the output.
+   *
+   * All built-in presets ship `1.0` — the library's default contract is
+   * "the value you pass to `human.type()` lands in the field as-is."
+   * Personality controls *how* the value is typed (rate of mid-typing
+   * stumbles, key delays, think pauses), not *what* lands.
+   *
+   * Lower this — with eyes open — only when you specifically want the
+   * simulation to leave occasional uncorrected typos (stress-testing form
+   * validation under noisy input, modeling truly inattentive users, etc.).
+   * Output stays deterministic given a fixed `seed`, but with `< 1.0` the
+   * final field-value becomes **seed-dependent**: change the seed and the
+   * surviving typos shift, which is rarely what tests or agents want.
    */
   readonly typoCorrectionProbability: number;
   /** Probability of pausing mid-word as if thinking (0..1). */

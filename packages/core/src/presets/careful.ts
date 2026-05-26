@@ -22,7 +22,7 @@ export const careful: Personality = {
     baseDelayMs: 140,
     delayJitter: 0.3,
     typoProbability: 0.02,
-    typoCorrectionProbability: 0.95,
+    typoCorrectionProbability: 1.0,
     thinkPauseProbability: 0.08,
     thinkPauseMeanMs: 400,
   },
