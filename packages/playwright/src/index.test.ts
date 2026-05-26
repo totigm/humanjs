@@ -1,7 +1,7 @@
 import type { HumanPlugin } from '@humanjs/core';
 import type { Locator, Page } from 'playwright';
 import { describe, expect, it, vi } from 'vitest';
-import { createHuman, type Shortcut } from './index';
+import { createHuman, type KeyOrChord } from './index';
 
 interface MockLocator {
   focus: ReturnType<typeof vi.fn>;
@@ -731,14 +731,14 @@ describe('createHuman', () => {
     });
   });
 
-  describe('shortcut', () => {
+  describe('press', () => {
     it('dispatches the resolved chord via page.keyboard.press', async () => {
       const originalPlatform = process.platform;
       Object.defineProperty(process, 'platform', { value: 'darwin', configurable: true });
       try {
         const { page, pressedKeys } = makeKeyboardMockPage();
         const human = await createHuman(page);
-        await human.shortcut('Mod+S');
+        await human.press('Mod+S');
         expect(pressedKeys).toEqual(['Meta+S']);
       } finally {
         Object.defineProperty(process, 'platform', {
@@ -748,36 +748,34 @@ describe('createHuman', () => {
       }
     });
 
-    it('dispatches single-key shortcuts (no modifier)', async () => {
+    it('dispatches a single key with no modifier', async () => {
       const { page, pressedKeys } = makeKeyboardMockPage();
       const human = await createHuman(page);
-      await human.shortcut('Enter');
+      await human.press('Enter');
       expect(pressedKeys).toEqual(['Enter']);
     });
 
-    it("emits a 'shortcut' action with the original chord to plugins", async () => {
+    it("emits a 'press' action with the original key to plugins", async () => {
       const beforeAction = vi.fn();
       const { page } = makeKeyboardMockPage();
       const human = await createHuman(page, { plugins: [{ name: 'p', beforeAction }] });
-      await human.shortcut('Cmd+Shift+P');
+      await human.press('Cmd+Shift+P');
       expect(beforeAction).toHaveBeenCalledWith({
-        type: 'shortcut',
-        params: { chord: 'Cmd+Shift+P' },
+        type: 'press',
+        params: { key: 'Cmd+Shift+P' },
       });
     });
 
     it('throws on an invalid modifier and never dispatches', async () => {
       const { page, pressedKeys } = makeKeyboardMockPage();
       const human = await createHuman(page);
-      // `'Hyper+S'` is a TS error too (Hyper isn't a `ShortcutModifier`),
-      // so the type guard is the first line of defense. The cast exercises
+      // `'Hyper+S'` is a TS error too (Hyper isn't a `KeyModifier`), so
+      // the type guard is the first line of defense. The cast exercises
       // the runtime fallback — important because real callers might pass
       // strings from config / user input that TS can't validate at compile.
-      // Cast to `Shortcut` (not `any` / `never`) — same pattern as the
+      // Cast to `KeyOrChord` (not `any` / `never`) — same pattern as the
       // `asChord` helper in `keyboard.test.ts`.
-      await expect(human.shortcut('Hyper+S' as Shortcut)).rejects.toThrow(
-        /Invalid shortcut modifier/,
-      );
+      await expect(human.press('Hyper+S' as KeyOrChord)).rejects.toThrow(/Invalid key modifier/);
       expect(pressedKeys).toEqual([]);
     });
   });

@@ -260,7 +260,7 @@ export async function executeDrag(
  *
  *  - `move` is positional. Pass coordinates or an element; the cursor
  *    arrives and stops. Use this for canvas painting, slider drags
- *    composed with separate up/down, pre-shortcut placement, or cinematic
+ *    composed with separate up/down, placement before a keyboard press, or cinematic
  *    beats where the cursor should pause somewhere with no element under it.
  *  - `hover` is element-bound and includes the post-arrival dwell that
  *    lets hover-state UI fire (tooltips, dropdown reveals).

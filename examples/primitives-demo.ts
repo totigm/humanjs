@@ -7,7 +7,7 @@
  *    3. rightClick  — context-menu click, custom menu appears
  *    4. drag        — selector → selector card move, then selector → Point slider
  *    5. type        — humanized per-key rhythm into an input
- *    6. shortcut    — Mod+S triggers a Save indicator (cursor position irrelevant)
+ *    6. press       — Mod+S triggers a Save indicator (cursor position irrelevant)
  *    7. paste       — long string lands in a textarea via insertText (no rhythm).
  *                     The paste section deliberately lives below the fold so
  *                     this step exercises the auto-scroll path before typing.
@@ -462,7 +462,7 @@ const DEMO_HTML = /* html */ `
 
       <!-- 6. Shortcut -->
       <div class="block">
-        <div class="label"><span class="num">6</span> shortcut</div>
+        <div class="label"><span class="num">6</span> press</div>
         <div class="save-host">
           <div class="doc">document — type to edit</div>
           <div class="save-indicator" id="save-indicator">unsaved</div>
@@ -583,7 +583,7 @@ const DEMO_HTML = /* html */ `
       });
       window.addEventListener('mouseup', () => { sliderDragging = false; });
 
-      // --- 7. shortcut --- Mod+S handler flashes the save indicator
+      // --- 6. press --- Mod+S handler flashes the save indicator
       const saveIndicator = document.getElementById('save-indicator');
       window.addEventListener('keydown', (e) => {
         const isSaveCombo = (e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S');
@@ -629,7 +629,7 @@ async function main() {
 
   console.log(`Personality: ${personality}`);
   console.log(
-    'Demoing: hover → click → rightClick → drag → type → shortcut → paste → read → move → scroll\n',
+    'Demoing: hover → click → rightClick → drag → type → press → paste → read → move → scroll\n',
   );
 
   const browser = await chromium.launch({ headless: false });
@@ -673,11 +673,11 @@ async function main() {
     await human.type('#type-input', 'demo@humanjs.dev');
     await human.sleep(900);
 
-    // 6. Shortcut — Mod+S triggers the page's save handler, indicator flashes.
+    // 6. Press — Mod+S triggers the page's save handler, indicator flashes.
     // The input from step 5 is still focused; cursor position is irrelevant
-    // to which element receives a keyboard shortcut — only focus matters.
-    console.log('6. shortcut → Mod+S triggers Save (against the focused input)');
-    await human.shortcut('Mod+S');
+    // to which element receives a key press — only focus matters.
+    console.log('6. press → Mod+S triggers Save (against the focused input)');
+    await human.press('Mod+S');
     await human.sleep(2000);
 
     // 7. Paste — the paste section lives below an 820px spacer, so its

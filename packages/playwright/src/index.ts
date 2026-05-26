@@ -11,7 +11,7 @@ import {
   sleep,
 } from '@humanjs/core';
 import type { Locator, Page } from 'playwright';
-import { executePaste, executeShortcut, executeType, type Shortcut } from './keyboard';
+import { executePaste, executePress, executeType, type KeyOrChord } from './keyboard';
 import { executeClick, executeDrag, executeHover, executeMove, type MouseTarget } from './mouse';
 import { executeRead, type ReadOptions, type ReadResult, type ReadTarget } from './reading';
 import {
@@ -86,7 +86,7 @@ export {
   type Page,
   webkit,
 } from 'playwright';
-export type { Shortcut, ShortcutKey, ShortcutModifier } from './keyboard';
+export type { KeyModifier, KeyName, KeyOrChord, PressResult } from './keyboard';
 export type { MouseTarget } from './mouse';
 export type { InstallMouseHelperOptions } from './mouse-helper';
 export { installMouseHelper } from './mouse-helper';
@@ -180,7 +180,7 @@ export interface Human {
    * Distinct from `hover()`: `hover` is element-bound and includes a settle
    * dwell to let hover-state UI fire (tooltips, dropdowns). `move` is
    * positional only — use it when you want the cursor placed somewhere
-   * without implying interaction with what's under it (pre-shortcut
+   * without implying interaction with what's under it (pre-press
    * placement, canvas painting, cinematic beats).
    *
    * In `speed: 'instant'`, dispatches one `mouse.move()` at the resolved
@@ -218,7 +218,7 @@ export interface Human {
    *
    * Use this for long strings (code blocks, multi-line content, secrets)
    * where the typing simulation would be slow and unnecessary. If you need
-   * the page's `paste` event handler to fire, call `human.shortcut('Mod+V')`
+   * the page's `paste` event handler to fire, call `human.press('Mod+V')`
    * after setting clipboard contents yourself.
    *
    * In `speed: 'instant'`, behaves identically — paste is already instant
@@ -226,25 +226,32 @@ export interface Human {
    */
   paste(target: Locator | string, value: string): Promise<void>;
   /**
-   * Dispatch a keyboard chord like `'Mod+S'`, `'Cmd+Shift+P'`, `'Ctrl+C'`,
-   * or just `'Enter'`. Modifier rules:
+   * Press a single key (`'Tab'`, `'Enter'`, `'Escape'`, `'ArrowDown'`, …)
+   * or a keyboard chord (`'Mod+S'`, `'Cmd+Shift+P'`, `'Ctrl+C'`, …).
    *
-   * - `Mod` / `CmdOrCtrl` — magic: `Meta` on Mac, `Control` elsewhere. Use
-   *   for cross-platform app shortcuts.
+   * Modifier rules:
+   *
+   * - `Mod` / `CmdOrCtrl` / `CommandOrControl` — magic: `Meta` on Mac,
+   *   `Control` elsewhere. Use for cross-platform app shortcuts. The three
+   *   are aliases; `Mod` is shortest.
    * - `Cmd`, `Command`, `Meta`, `Win`, `Super` — literal `Meta` keycode
    *   (Command on Mac, Windows key on Windows, Super on Linux).
    * - `Ctrl`, `Control` — literal Control. Stays Control on every OS.
    * - `Alt`, `Option`, `Opt` — literal Alt.
    * - `Shift` — literal Shift.
    *
-   * Case-insensitive. Throws on unknown modifiers. The `Shortcut` type is
-   * a template-literal union of every modifier × key combination (up to
-   * three modifiers + a key), so IDEs autocomplete valid chords as you
-   * type. Less common keys (`BracketLeft`, `NumpadAdd`, etc.) still
-   * typecheck through the union's string escape hatch — they just don't
-   * autocomplete.
+   * Case-insensitive. Throws on unknown modifiers. The `KeyOrChord` type
+   * is a template-literal union of every modifier × key combination (up to
+   * two literal modifiers + a key), so IDEs autocomplete common bare keys
+   * and chords as you type. Less common keys (`BracketLeft`, `NumpadAdd`,
+   * locale-specific keys) still typecheck through the union's string
+   * escape hatch — they just don't autocomplete.
+   *
+   * Does **not** move the cursor — keyboard input dispatches against
+   * focus, not cursor position. Compose with `click` / `hover` / `move`
+   * when you need both.
    */
-  shortcut(chord: Shortcut): Promise<void>;
+  press(key: KeyOrChord): Promise<void>;
   /**
    * Dwell as if reading `target` — the third pillar of humanization after
    * the cursor and the keyboard. Real users pause to read; HumanJS models
@@ -553,9 +560,9 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
         },
       );
     },
-    async shortcut(chord) {
-      await performAction({ type: 'shortcut', params: { chord } }, async () => {
-        await executeShortcut(chord, { page, personality, rng, speed });
+    async press(key) {
+      await performAction({ type: 'press', params: { key } }, async () => {
+        await executePress(key, { page, personality, rng, speed });
       });
     },
     async read(target, options) {

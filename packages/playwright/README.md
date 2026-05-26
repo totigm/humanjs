@@ -46,6 +46,112 @@ await human.type('input[name="email"]', 'gonzalo@example.com');
 
 Pass a `seed` and every random decision (path curvature, typo placement, keystroke jitter) becomes reproducible. Same seed + same personality + same value = same keystrokes.
 
+### Primitives
+
+The full `Human` surface, at a glance. Each one fires real DOM events through Playwright; the humanization wraps the timing and the path, not the dispatch.
+
+| Primitive | Purpose |
+|---|---|
+| `goto(url)` | Navigate the page. |
+| `click(target)` | Bezier path → pre-click hover dwell → click. |
+| `rightClick(target)` | Same as `click` but with `button: 'right'`. Fires `contextmenu`. |
+| `hover(target)` | Walk to the element and settle. No click. Hover-state UI (tooltips, dropdowns) fires. |
+| `move(target)` | Walk to a `Locator \| string \| Point`. Pure positional motion. No dwell, no element interaction — use this when you want the cursor parked somewhere with no implied click. |
+| `drag(from, to)` | Two-phase Bezier (to start → mouse down → curve to end → mouse up). Both endpoints accept `Locator \| string \| Point` — `Point` is essential for canvas / SVG / slider drags. |
+| `type(target, value)` | Clicks the field for focus, then per-key rhythm with optional typos + Backspace recovery. |
+| `paste(target, value)` | Clicks the field for focus, then `insertText` — instant insertion, no per-character timing. Cmd-V semantic. |
+| `press(key)` | Single key (`'Tab'`) or chord (`'Mod+S'`). See [Keyboard](#keyboard) below. |
+| `read(target)` | Dwell as a reader would. Cursor scans across the text in humanized mode. See [Reading](#reading). |
+| `scroll(target?)` | Multi-segment wheel motion, bell-curve velocity, optional mid-scroll pauses. See [Scrolling](#scrolling). |
+| `sleep(ms)` | Re-exported from `@humanjs/core` for convenience. |
+| `record(fn)` | Wrap a block and export as mp4 / gif / JSON. See [Recording](#recording). |
+
+Targets accept a CSS selector string or a Playwright `Locator`. `move` and `drag` additionally accept raw `Point` coordinates. Auto-scroll fires for any element-bound primitive when the target is outside the viewport — humanized scroll in normal speed modes, `scrollIntoViewIfNeeded` in `'instant'`.
+
+### Keyboard
+
+```ts
+await human.press('Tab');               // single key
+await human.press('Mod+S');             // cross-platform save (Meta on Mac, Control elsewhere)
+await human.press('Cmd+Shift+P');       // literal Meta+Shift+P on every OS
+await human.press('Control+C');         // literal Ctrl+C
+await human.press('Shift+ArrowDown');   // extend selection down
+```
+
+`press` accepts a single key or a keyboard chord. IDE autocomplete enumerates every `Modifier+Key` combination — type `'Shift+'` and you get `Shift+A`, `Shift+B`, …, `Shift+Tab`, etc. as completions.
+
+**Modifier rules:**
+
+| Token | Resolves to | Notes |
+|---|---|---|
+| `Mod` / `CmdOrCtrl` / `CommandOrControl` | `Meta` on macOS, `Control` elsewhere | The right token for cross-platform app shortcuts. All three are aliases; `Mod` is shortest. |
+| `Cmd` / `Command` / `Meta` / `Win` / `Super` | `Meta` keycode | Literal — does **not** auto-translate to `Control`. Same physical key on every OS. |
+| `Ctrl` / `Control` | `Control` keycode | Literal — stays `Control` everywhere, so Mac-specific things like terminal `Ctrl+C` still work. |
+| `Alt` / `Option` / `Opt` | `Alt` keycode | Literal. |
+| `Shift` | `Shift` keycode | Literal. |
+
+Case-insensitive at runtime. Modifier typos (`'Mosd+S'`) are caught at compile time — the modifier union is closed.
+
+**Escape hatch for uncommon keys.** Uncommon keys (`'BracketLeft'`, `'NumpadAdd'`, locale-specific keys) and 3+ modifier chords aren't in the typed `KeyOrChord` union. Cast at the call site — the runtime parser handles them:
+
+```ts
+import type { KeyOrChord } from '@humanjs/playwright';
+
+await human.press('Mod+BracketLeft' as KeyOrChord);
+await human.press('Ctrl+Shift+Alt+K' as KeyOrChord);
+```
+
+Why a cast? Including a `(string & {})` escape hatch in the type collapses TypeScript's literal-template IntelliSense, so `'Shift+...'` completions disappear. Autocomplete wins for the 95% case; the cast handles the 5%.
+
+**Press does NOT move the cursor** — keyboard input dispatches against focus, not cursor position. Compose with `click` / `hover` / `move` when you need both.
+
+### Typing
+
+```ts
+await human.type('input[name="email"]', 'gonzalo@example.com');
+```
+
+`type` simulates a real keyboard. Per-key delays scale with the personality's typing speed (with jitter); the `distracted` personality occasionally injects QWERTY typos and recovers them with `Backspace`. Single ASCII characters route through Playwright's `keyboard.press` so per-key handlers (autocomplete, validation) fire; non-ASCII characters fall back to `keyboard.insertText` since `press` is keyboard-layout-aware and can't reliably synthesize `é` or `🎉` on every layout.
+
+Like every other element-bound primitive, `type` clicks the field first to focus it — a real user moves the cursor to the input and clicks; they don't teleport-focus a field. The implicit click is a sub-step of the `'type'` action, not its own timeline event.
+
+**Privacy.** The typed value is never echoed to plugin params. The `'type'` action surfaces only `{ target, length }` — by design, since this argument may carry passwords, tokens, or other secrets.
+
+In `'instant'` speed mode, the humanized loop is bypassed for Playwright's `locator.pressSequentially(value, { delay: 0 })` — per-key events still fire, just without the timing.
+
+### Pasting
+
+```ts
+await human.paste('textarea', longCodeBlock);
+```
+
+The Cmd-V semantic. `paste` clicks the field for focus (same mouse-led pattern as `type`), then dispatches the value via `page.keyboard.insertText` — instant, no per-character timing, the value lands in the field in a single beat.
+
+When to use which:
+
+- **`type`** — short strings where the per-key rhythm is the showcase (form fills, search queries, demo content). Slow on long input by design.
+- **`paste`** — long content where humanized typing would be slow and uninformative (code blocks, multi-paragraph text, anything you'd realistically Cmd-V into the field).
+
+`paste` does NOT fire the page's `paste` event. If you need that, drive it yourself: write to the clipboard, focus the field, then `human.press('Mod+V')`.
+
+**Privacy.** Same posture as `type` — `{ target, length }` only.
+
+### Dragging
+
+```ts
+await human.drag('#card-1', '#slot-3');                       // selector → selector
+await human.drag('#slider-thumb', { x: 800, y: 450 });        // selector → Point
+await human.drag('#card', locator);                           // any combination
+```
+
+Two-phase Bezier motion: walk to `from`, press the left button, curve to `to` with the button held, release. Each endpoint accepts a `Locator`, a CSS selector, or a raw `Point` coordinate.
+
+The `Point` form is essential for canvas / SVG drags where the destination isn't a DOM element — sliders, signature pads, freehand drawing tools. The selector-to-Point shape is the canonical "drag this thumb to that position" pattern.
+
+Both Bezier paths (start-to-`from` and `from`-to-`to`) are humanized independently with their own curvature and jitter, so drags don't trace robotic straight lines mid-flight.
+
+Auto-scroll fires on both endpoints when needed — if the destination is below the fold, the cursor scrolls to bring it into view before releasing, the way a real user would scroll-to-grab then scroll-to-drop. Raw `Point` endpoints opt out of auto-scroll (explicit coordinates are the caller's responsibility).
+
 ### Reading
 
 ```ts
