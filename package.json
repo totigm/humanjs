@@ -42,6 +42,7 @@
     "prepare": "lefthook install",
     "demo:click": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples click",
     "demo:compare": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples compare",
+    "demo:primitives": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples primitives",
     "demo:read": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples read",
     "demo:record": "turbo run build --filter=@humanjs/recorder... && pnpm --filter @humanjs/examples record",
     "demo:record-manual": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples record-manual",

@@ -7,6 +7,7 @@
   "scripts": {
     "click": "tsx click-demo.ts",
     "compare": "tsx compare-demo.ts",
+    "primitives": "tsx primitives-demo.ts",
     "read": "tsx read-demo.ts",
     "record": "tsx record-demo.ts",
     "record-manual": "tsx record-manual-demo.ts",
