@@ -1,17 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { resolveChord, type Shortcut } from './index';
+import { type KeyOrChord, resolveChord } from './index';
 
 // Many tests below pass deliberately type-invalid strings to verify the
 // parser's runtime robustness — lowercase modifiers, whitespace tokens,
-// empty strings, unknown modifiers like `'Hyper+S'`. The `Shortcut` type
+// empty strings, unknown modifiers like `'Hyper+S'`. The `KeyOrChord` type
 // (rightly) rejects these at compile time, so we cast to bypass the type
 // check and exercise the runtime path. Production code should NOT do this;
 // it's a test-only escape.
-const asChord = (s: string): Shortcut => s as Shortcut;
+const asChord = (s: string): KeyOrChord => s as KeyOrChord;
 
 /**
- * Unit tests for `resolveChord` — the chord parser that powers
- * `human.shortcut()`. Pure function, no Playwright needed.
+ * Unit tests for `resolveChord` — the parser that powers `human.press()`.
+ * Pure function, no Playwright needed. (Function name is historical — it
+ * resolves any key string, bare or chord; a bare key is just a chord with
+ * zero modifiers.)
  *
  * Platform-dependent tests stub `process.platform` because the `Mod` token
  * maps based on it. The original value is restored after each test so other
@@ -37,7 +39,7 @@ describe('resolveChord', () => {
 
   describe('plain key (no modifier)', () => {
     it('returns single-letter keys upper-cased', () => {
-      // Lowercase 's' isn't a valid `Shortcut` literal (canonical is 'S'),
+      // Lowercase 's' isn't a valid `KeyOrChord` literal (canonical is 'S'),
       // but the runtime parser still upper-cases it — so we cast for the
       // test. Real callers should write 'S'.
       expect(resolveChord(asChord('s'))).toBe('S');
@@ -63,7 +65,7 @@ describe('resolveChord', () => {
       expect(resolveChord('ArrowUp')).toBe('ArrowUp');
       expect(resolveChord('PageDown')).toBe('PageDown');
       expect(resolveChord('PageUp')).toBe('PageUp');
-      // `'BracketLeft'` as a bare key isn't in the `ShortcutKey` union (it's
+      // `'BracketLeft'` as a bare key isn't in the `KeyName` union (it's
       // a key you'd use with a modifier, e.g. `'Mod+BracketLeft'` for "go
       // back"). The runtime parser still handles it; we cast to test that
       // path explicitly.
@@ -136,7 +138,7 @@ describe('resolveChord', () => {
 
   describe('case insensitivity', () => {
     it('modifier names are case-insensitive at runtime (canonical case in types)', () => {
-      // The `Shortcut` type only lists canonical-case modifiers ('Mod',
+      // The `KeyOrChord` type only lists canonical-case modifiers ('Mod',
       // 'Cmd', 'Ctrl', etc.), so lowercase/uppercase variants are TS errors
       // — but the parser handles them. Casting here verifies the runtime
       // forgiveness; production code should write canonical case.
@@ -169,18 +171,18 @@ describe('resolveChord', () => {
 
   describe('error paths', () => {
     it('throws on an empty chord', () => {
-      // Empty strings + separator-only strings aren't valid `Shortcut`
+      // Empty strings + separator-only strings aren't valid `KeyOrChord`
       // literals, so we cast to exercise the runtime guards.
       expect(() => resolveChord(asChord(''))).toThrow(/empty or only separators/);
       expect(() => resolveChord(asChord('+++'))).toThrow(/empty or only separators/);
     });
 
     it('throws on an unknown modifier with a useful message', () => {
-      // 'Hyper+S' isn't a valid Shortcut (Hyper isn't a ShortcutModifier),
+      // 'Hyper+S' isn't a valid Shortcut (Hyper isn't a KeyModifier),
       // so TS rejects it — that's actually the FIRST line of defense.
       // Casting tests the runtime fallback for inputs that slip through
       // (e.g. user-supplied strings from config).
-      expect(() => resolveChord(asChord('Hyper+S'))).toThrow(/Invalid shortcut modifier.*"Hyper"/);
+      expect(() => resolveChord(asChord('Hyper+S'))).toThrow(/Invalid key modifier.*"Hyper"/);
     });
 
     it('error message lists valid modifiers so users can self-correct', () => {
@@ -194,7 +196,7 @@ describe('resolveChord', () => {
 
   describe('whitespace tolerance', () => {
     it('trims tokens so "Mod + S" works the same as "Mod+S"', () => {
-      // Whitespace-padded chords aren't valid `Shortcut` literals (the type
+      // Whitespace-padded chords aren't valid `KeyOrChord` literals (the type
       // expects exact 'Mod+S' form), but the runtime parser trims tokens —
       // useful for config files or user input. Casting to exercise that path.
       setPlatform('darwin');

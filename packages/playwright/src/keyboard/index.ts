@@ -105,7 +105,7 @@ export interface PasteResult {
  * Uses `page.keyboard.insertText` rather than synthesizing a paste event —
  * the goal is "the value lands in the field instantly," not "fire the page's
  * paste handler." If a user needs paste-event semantics, they can call
- * `human.shortcut('Mod+V')` after setting clipboard contents themselves.
+ * `human.press('Mod+V')` after setting clipboard contents themselves.
  *
  * In `speed: 'instant'`, behaves identically — paste is already instant by
  * nature; there's nothing to humanize about the timing.
@@ -123,7 +123,7 @@ export async function executePaste(
 }
 
 /**
- * Modifier tokens accepted in a shortcut chord. `Mod` and `CmdOrCtrl` /
+ * Modifier tokens accepted in a `human.press()` chord. `Mod` and `CmdOrCtrl` /
  * `CommandOrControl` are the magic auto-mapping tokens (Meta on Mac,
  * Control elsewhere). The rest are literal — they always resolve to the
  * keycode they name, on every platform.
@@ -132,7 +132,7 @@ export async function executePaste(
  * parser is case-insensitive, so `'cmd+s'` and `'CMD+S'` work too — they
  * just won't autocomplete.
  */
-export type ShortcutModifier =
+export type KeyModifier =
   | 'Mod'
   | 'CmdOrCtrl'
   | 'CommandOrControl'
@@ -149,17 +149,18 @@ export type ShortcutModifier =
   | 'Shift';
 
 /**
- * The canonical key names a `Shortcut` can end with. Mirrors Playwright's
- * accepted key vocabulary, plus a few common synonyms. CamelCase names
- * (`ArrowDown`, `PageUp`) are listed in their canonical form — `normalizeKey`
- * preserves case from the input, so what you type is what gets dispatched.
+ * The canonical key names that autocomplete in a `KeyOrChord`. Mirrors
+ * Playwright's accepted key vocabulary, plus a few common synonyms.
+ * CamelCase names (`ArrowDown`, `PageUp`) are listed in their canonical
+ * form — `normalizeKey` preserves case from the input, so what you type is
+ * what gets dispatched.
  *
  * Not exhaustive: every other Playwright key (less-common Numpad keys,
  * `BracketLeft`, locale-specific keys, etc.) still works via the
- * `(string & {})` escape hatch on the `Shortcut` type below. They just
+ * `(string & {})` escape hatch on the `KeyOrChord` type below. They just
  * don't autocomplete in IDEs.
  */
-export type ShortcutKey =
+export type KeyName =
   // Letters
   | 'A'
   | 'B'
@@ -236,49 +237,48 @@ export type ShortcutKey =
   | 'Pause';
 
 /**
- * Strings accepted by `human.shortcut(chord)`:
+ * Strings accepted by `human.press(key)`:
  *
- *  - A bare known key: `'Enter'`, `'F4'`, `'ArrowDown'`, `'S'`
+ *  - A bare known key: `'Enter'`, `'F4'`, `'ArrowDown'`, `'S'`, …
+ *  - Any other bare key via escape hatch: `'BracketLeft'`, `'NumpadAdd'`,
+ *    locale-specific keys — they typecheck, they just don't autocomplete.
  *  - One known modifier + any key: `'Mod+S'`, `'Mod+BracketLeft'`, …
  *  - Two known modifiers + any key: `'Mod+Shift+P'`, `'Ctrl+Alt+Delete'`, …
  *
- * The escape hatch lives on the **key portion only**, not on the whole
- * chord — so modifier typos get caught at compile time (`'Mosd+S'` is a
- * TS error) while less-common keys (`'BracketLeft'`, `'NumpadAdd'`,
- * locale-specific keys) still typecheck under a known modifier.
+ * The escape hatch lives on the **key portions only**, never on modifiers —
+ * so modifier typos get caught at compile time (`'Mosd+S'` is a TS error)
+ * while less-common keys (`'BracketLeft'`, `'NumpadAdd'`, locale keys)
+ * typecheck under both bare-key and `Modifier+...` paths.
  *
  * 3+ modifier chords (`'Ctrl+Shift+Alt+X'`) typecheck through the same
  * key-side escape hatch — TS sees two modifiers + `'Alt+X'` as the "key,"
  * the runtime parser handles three modifiers + `X` correctly. The cap at
- * two literal modifiers is a TypeScript size-of-union constraint, not a
- * runtime limit.
+ * two literal modifiers in the type is a TypeScript size-of-union
+ * constraint, not a runtime limit.
  *
- * Bare uncommon keys (`'BracketLeft'` alone, no modifier) DON'T typecheck
- * — that route would slip past the modifier guard. Workarounds: use a
- * modifier, or `'BracketLeft' as Shortcut`. The case is vanishingly rare
- * in real shortcut bindings.
- *
- * Lowercase modifiers (`'mod+s'`) also DON'T typecheck even though the
- * runtime accepts them — TS-strict steers users toward the canonical
- * casing, which keeps shortcut strings consistent across a codebase.
+ * Lowercase modifiers (`'mod+s'`) DON'T typecheck even though the runtime
+ * accepts them — TS-strict steers users toward the canonical casing,
+ * which keeps key strings consistent across a codebase.
  */
-export type Shortcut =
-  | ShortcutKey
-  | `${ShortcutModifier}+${ShortcutKey | (string & {})}`
-  | `${ShortcutModifier}+${ShortcutModifier}+${ShortcutKey | (string & {})}`;
+export type KeyOrChord =
+  | KeyName
+  | (string & {})
+  | `${KeyModifier}+${KeyName | (string & {})}`
+  | `${KeyModifier}+${KeyModifier}+${KeyName | (string & {})}`;
 
-/** Result of a shortcut action. */
-export interface ShortcutResult {
+/** Result of a `press` action. */
+export interface PressResult {
   /** The exact chord that was dispatched (after Mod-resolution). */
   readonly dispatched: string;
 }
 
 /**
- * Dispatches a keyboard chord like `'Mod+S'`, `'Cmd+Shift+P'`, `'Ctrl+C'`.
+ * Dispatches a single key or keyboard chord — `'Tab'`, `'Enter'`, `'Mod+S'`,
+ * `'Cmd+Shift+P'`, `'Ctrl+C'`, …
  *
- * Parses the chord into modifiers + a final key, normalizes aliases, then
- * dispatches via `page.keyboard.press()` which uses Playwright's standard
- * `Modifier+Key` syntax.
+ * Parses the input into zero-or-more modifiers + a final key, normalizes
+ * aliases, then dispatches via `page.keyboard.press()` which uses
+ * Playwright's standard `Modifier+Key` syntax (or just `Key` for bare keys).
  *
  * Modifier rules:
  *
@@ -292,48 +292,45 @@ export interface ShortcutResult {
  *  - `Alt` / `Option` / `Opt` → literal Alt.
  *  - `Shift` → literal Shift.
  *
- * Modifier names and key names are case-insensitive. The final key in the
- * chord is the only non-modifier — at least one is required.
+ * Modifier names and key names are case-insensitive.
  *
  * @example
  * ```ts
- * await human.shortcut('Mod+S');             // cross-platform save
- * await human.shortcut('Cmd+Shift+P');       // literal Meta+Shift+P
- * await human.shortcut('Control+C');         // literal Ctrl+C
- * await human.shortcut('Enter');             // just the key
+ * await human.press('Tab');                // bare key
+ * await human.press('Enter');              // bare key
+ * await human.press('Mod+S');              // cross-platform save
+ * await human.press('Cmd+Shift+P');        // literal Meta+Shift+P
+ * await human.press('Control+C');          // literal Ctrl+C
  * ```
  */
-export async function executeShortcut(
-  chord: Shortcut,
-  ctx: KeyboardContext,
-): Promise<ShortcutResult> {
-  const dispatched = resolveChord(chord);
+export async function executePress(key: KeyOrChord, ctx: KeyboardContext): Promise<PressResult> {
+  const dispatched = resolveChord(key);
   await ctx.page.keyboard.press(dispatched);
   return { dispatched };
 }
 
 /**
- * Parses the user-facing chord string and resolves it to Playwright's
- * canonical `Modifier+Modifier+Key` form, with `Mod` mapped per platform
- * and aliases normalized.
+ * Parses the user-facing key string and resolves it to Playwright's
+ * canonical `Modifier+...+Key` form (or just `Key` for bare keys), with
+ * `Mod` mapped per platform and aliases normalized.
  *
  * Exported for the test suite — not part of the public API.
  */
-export function resolveChord(chord: Shortcut): string {
-  // Narrow to plain string for the parser — `Shortcut` is a wide template
+export function resolveChord(key: KeyOrChord): string {
+  // Narrow to plain string for the parser — `KeyOrChord` is a wide template
   // literal union and TS can't always infer the callbacks' parameter type
   // from `.split()` when the input is the full union shape.
-  const parts = (chord as string)
+  const parts = (key as string)
     .split('+')
     .map((p) => p.trim())
     .filter((p) => p.length > 0);
   if (parts.length === 0) {
-    throw new Error(`Invalid shortcut chord: ${JSON.stringify(chord)} — empty or only separators`);
+    throw new Error(`Invalid key: ${JSON.stringify(key)} — empty or only separators`);
   }
 
   const keyToken = parts[parts.length - 1];
   if (keyToken === undefined) {
-    throw new Error(`Invalid shortcut chord: ${JSON.stringify(chord)} — missing key`);
+    throw new Error(`Invalid key: ${JSON.stringify(key)} — missing key`);
   }
   const modifierTokens = parts.slice(0, -1);
 
@@ -342,7 +339,7 @@ export function resolveChord(chord: Shortcut): string {
     const resolved = resolveModifier(token);
     if (resolved === null) {
       throw new Error(
-        `Invalid shortcut modifier: ${JSON.stringify(token)} in chord ${JSON.stringify(chord)}. ` +
+        `Invalid key modifier: ${JSON.stringify(token)} in ${JSON.stringify(key)}. ` +
           `Use one of: Mod, CmdOrCtrl, Cmd/Command/Meta/Win/Super, Ctrl/Control, Alt/Option/Opt, Shift.`,
       );
     }

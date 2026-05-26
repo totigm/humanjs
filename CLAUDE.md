@@ -81,7 +81,8 @@ await human.type(selector, value);        // click, then realistic typing rhythm
 await human.paste(selector, value);       // Cmd-V style (no per-char timing)
 await human.read(text);                   // dwell based on word count
 await human.scroll('natural');
-await human.shortcut('Mod+S');            // 'Mod' auto-maps: Meta on Mac, Control elsewhere
+await human.press('Mod+S');               // chord — 'Mod' auto-maps: Meta on Mac, Control elsewhere
+await human.press('Tab');                  // bare key — single keys work too
 
 const rec = await human.record(async () => { /* actions */ });
 await rec.toVideo('out.mp4');                // shipped
