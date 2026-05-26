@@ -105,6 +105,53 @@ Why a cast? Including a `(string & {})` escape hatch in the type collapses TypeS
 
 **Press does NOT move the cursor** — keyboard input dispatches against focus, not cursor position. Compose with `click` / `hover` / `move` when you need both.
 
+### Typing
+
+```ts
+await human.type('input[name="email"]', 'gonzalo@example.com');
+```
+
+`type` simulates a real keyboard. Per-key delays scale with the personality's typing speed (with jitter); the `distracted` personality occasionally injects QWERTY typos and recovers them with `Backspace`. Single ASCII characters route through Playwright's `keyboard.press` so per-key handlers (autocomplete, validation) fire; non-ASCII characters fall back to `keyboard.insertText` since `press` is keyboard-layout-aware and can't reliably synthesize `é` or `🎉` on every layout.
+
+Like every other element-bound primitive, `type` clicks the field first to focus it — a real user moves the cursor to the input and clicks; they don't teleport-focus a field. The implicit click is a sub-step of the `'type'` action, not its own timeline event.
+
+**Privacy.** The typed value is never echoed to plugin params. The `'type'` action surfaces only `{ target, length }` — by design, since this argument may carry passwords, tokens, or other secrets.
+
+In `'instant'` speed mode, the humanized loop is bypassed for Playwright's `locator.pressSequentially(value, { delay: 0 })` — per-key events still fire, just without the timing.
+
+### Pasting
+
+```ts
+await human.paste('textarea', longCodeBlock);
+```
+
+The Cmd-V semantic. `paste` clicks the field for focus (same mouse-led pattern as `type`), then dispatches the value via `page.keyboard.insertText` — instant, no per-character timing, the value lands in the field in a single beat.
+
+When to use which:
+
+- **`type`** — short strings where the per-key rhythm is the showcase (form fills, search queries, demo content). Slow on long input by design.
+- **`paste`** — long content where humanized typing would be slow and uninformative (code blocks, multi-paragraph text, anything you'd realistically Cmd-V into the field).
+
+`paste` does NOT fire the page's `paste` event. If you need that, drive it yourself: write to the clipboard, focus the field, then `human.press('Mod+V')`.
+
+**Privacy.** Same posture as `type` — `{ target, length }` only.
+
+### Dragging
+
+```ts
+await human.drag('#card-1', '#slot-3');                       // selector → selector
+await human.drag('#slider-thumb', { x: 800, y: 450 });        // selector → Point
+await human.drag('#card', locator);                           // any combination
+```
+
+Two-phase Bezier motion: walk to `from`, press the left button, curve to `to` with the button held, release. Each endpoint accepts a `Locator`, a CSS selector, or a raw `Point` coordinate.
+
+The `Point` form is essential for canvas / SVG drags where the destination isn't a DOM element — sliders, signature pads, freehand drawing tools. The selector-to-Point shape is the canonical "drag this thumb to that position" pattern.
+
+Both Bezier paths (start-to-`from` and `from`-to-`to`) are humanized independently with their own curvature and jitter, so drags don't trace robotic straight lines mid-flight.
+
+Auto-scroll fires on both endpoints when needed — if the destination is below the fold, the cursor scrolls to bring it into view before releasing, the way a real user would scroll-to-grab then scroll-to-drop. Raw `Point` endpoints opt out of auto-scroll (explicit coordinates are the caller's responsibility).
+
 ### Reading
 
 ```ts
