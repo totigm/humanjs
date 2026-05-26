@@ -63,6 +63,21 @@ interface PathSegment {
   readonly target: string;
 }
 
+declare global {
+  interface Window {
+    /**
+     * Demo entry point installed by the inline `<script>` inside `makeDemoHtml`
+     * — starts the dual-cursor animation against both lanes' precomputed
+     * segments. Typed here so this file can call `window.__startDemo(...)`
+     * inside `page.evaluate()` without an `as any` cast. Marked optional
+     * because TS can't statically prove the in-page script has run yet;
+     * the optional-call `?.` at the call site handles the unlikely "script
+     * never injected" case gracefully.
+     */
+    __startDemo?: (data: { left: PathSegment[]; right: PathSegment[] }) => void;
+  }
+}
+
 function planSequence(personality: Personality, seed: string): PathSegment[] {
   const rng = createRng(seed);
   const segments: PathSegment[] = [];
@@ -412,8 +427,7 @@ async function main() {
 
     await page.evaluate(
       ({ left, right }) => {
-        // biome-ignore lint/suspicious/noExplicitAny: window extension for the demo
-        (window as any).__startDemo({ left, right });
+        window.__startDemo?.({ left, right });
       },
       { left: segmentsA, right: segmentsB },
     );
