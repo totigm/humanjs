@@ -13,8 +13,7 @@ pnpm add @humanjs/playwright playwright
 ## Quick start
 
 ```ts
-import { chromium } from 'playwright';
-import { createHuman } from '@humanjs/playwright';
+import { chromium, createHuman } from '@humanjs/playwright';
 
 const browser = await chromium.launch();
 const page = await browser.newPage();
