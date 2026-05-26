@@ -12,12 +12,18 @@ interface MockBoundingBox {
 interface MockLocator {
   readonly boundingBox: ReturnType<typeof vi.fn>;
   readonly click: ReturnType<typeof vi.fn>;
+  readonly scrollIntoViewIfNeeded: ReturnType<typeof vi.fn>;
 }
 
 function makeMockLocator(box: MockBoundingBox | null = defaultBox): MockLocator {
   return {
     boundingBox: vi.fn().mockResolvedValue(box),
     click: vi.fn().mockResolvedValue(undefined),
+    // Required for any test whose box falls outside the 1280×720 mock
+    // viewport — the auto-scroll path calls this in instant mode and
+    // re-reads boundingBox after. Always-present mock prevents future
+    // off-viewport tests from crashing with "not a function".
+    scrollIntoViewIfNeeded: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -282,9 +288,7 @@ describe('human.click', () => {
       let scrolled = false;
       const wheelCalls: Array<{ dx: number; dy: number }> = [];
 
-      const locator: MockLocator & {
-        scrollIntoViewIfNeeded: ReturnType<typeof vi.fn>;
-      } = {
+      const locator: MockLocator = {
         boundingBox: vi.fn(() => Promise.resolve(scrolled ? inViewportBox : offViewportBox)),
         click: vi.fn().mockResolvedValue(undefined),
         scrollIntoViewIfNeeded: vi.fn().mockResolvedValue(undefined),
@@ -352,9 +356,7 @@ describe('human.click', () => {
       const offViewportBox: MockBoundingBox = { x: 100, y: 2000, width: 80, height: 30 };
       const inViewportBox: MockBoundingBox = { x: 100, y: 300, width: 80, height: 30 };
       let scrolled = false;
-      const locator: MockLocator & {
-        scrollIntoViewIfNeeded: ReturnType<typeof vi.fn>;
-      } = {
+      const locator: MockLocator = {
         boundingBox: vi.fn(() => Promise.resolve(scrolled ? inViewportBox : offViewportBox)),
         click: vi.fn().mockResolvedValue(undefined),
         scrollIntoViewIfNeeded: vi.fn().mockImplementation(() => {

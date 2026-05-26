@@ -140,20 +140,14 @@ export async function executeHover(
   target: Locator | string,
   ctx: MouseContext,
 ): Promise<HoverResult> {
-  const locator = typeof target === 'string' ? ctx.page.locator(target) : target;
-
   if (ctx.speed === 'instant') {
-    // Snap the element into view first — instant mode doesn't humanize
-    // motion, but the mouse.move below would still target an off-viewport
-    // coordinate without this. Playwright's own `locator.click()` does the
-    // same thing internally for clicks; we replicate it for hovers.
-    await locator.scrollIntoViewIfNeeded();
-    const box = await locator.boundingBox();
-    if (!box) {
-      throw new Error(
-        `Cannot hover: element not found or has no bounding box (target: ${describeTarget(target)})`,
-      );
-    }
+    // Snap the element into view only if its center isn't already inside
+    // the viewport — same shape as the humanized path's viewport check.
+    // Skipping the no-op `scrollIntoViewIfNeeded()` call saves a protocol
+    // round-trip on every hover, and keeps all four instant-mode paths
+    // (click via locator.click, hover, move, drag) consistent: scroll only
+    // when required, never unconditionally.
+    const box = await readBoxWithAutoScroll(target, ctx, 'hover');
     const center = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
     await ctx.page.mouse.move(center.x, center.y);
     ctx.setMousePosition(center);
@@ -367,8 +361,28 @@ async function resolveLocatorPoint(
   ctx: MouseContext,
   action: 'click' | 'hover' | 'drag' | 'move',
 ): Promise<Point> {
-  const locator = typeof target === 'string' ? ctx.page.locator(target) : target;
+  const box = await readBoxWithAutoScroll(target, ctx, action);
+  return pickClickPoint(box, ctx.rng, ctx.personality.mouse.clickSpread);
+}
 
+/**
+ * Reads the target's bounding box, auto-scrolling first when the box is
+ * outside the viewport. Returns the (post-scroll, if applicable) box —
+ * never null. Throws with the action name baked into the message when the
+ * element doesn't exist or vanishes mid-scroll.
+ *
+ * Shared between {@link resolveLocatorPoint} (humanized paths, which then
+ * Gaussian-pick a point inside the box) and {@link executeHover}'s
+ * instant-mode path (which centers on the box without humanization). Keeps
+ * the viewport-aware scroll behavior in one place instead of duplicating
+ * the check across primitives.
+ */
+async function readBoxWithAutoScroll(
+  target: Locator | string,
+  ctx: MouseContext,
+  action: 'click' | 'hover' | 'drag' | 'move',
+): Promise<BoundingBox> {
+  const locator = typeof target === 'string' ? ctx.page.locator(target) : target;
   let box = await locator.boundingBox();
   if (!box) {
     throw new Error(
@@ -401,7 +415,7 @@ async function resolveLocatorPoint(
     }
   }
 
-  return pickClickPoint(box, ctx.rng, ctx.personality.mouse.clickSpread);
+  return box;
 }
 
 /**
