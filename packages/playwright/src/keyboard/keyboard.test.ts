@@ -163,9 +163,13 @@ describe('resolveChord', () => {
       expect(resolveChord('Shift+Mod+P')).toBe('Shift+Meta+P');
     });
 
-    it('supports three-modifier chords', () => {
+    it('supports three-modifier chords (via cast — outside the typed union)', () => {
+      // Three-modifier chords like 'Ctrl+Shift+Alt+K' aren't in the typed
+      // `KeyOrChord` union (the cap at 2 literal modifiers is a TS
+      // size-of-union constraint). The runtime parser handles them fine,
+      // so users opt in with `as KeyOrChord`.
       setPlatform('darwin');
-      expect(resolveChord('Mod+Shift+Alt+K')).toBe('Meta+Shift+Alt+K');
+      expect(resolveChord(asChord('Mod+Shift+Alt+K'))).toBe('Meta+Shift+Alt+K');
     });
   });
 

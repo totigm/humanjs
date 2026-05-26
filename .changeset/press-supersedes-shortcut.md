@@ -33,20 +33,28 @@ A single key like `Tab` isn't a "shortcut," and forcing users through `human.sho
 | Action params `{ type: 'shortcut', params: { chord } }` | `{ type: 'press', params: { key } }` |
 | Runtime error: `"Invalid shortcut modifier: ..."` | `"Invalid key modifier: ..."` |
 
-## Type behavior (unchanged from `Shortcut`)
+## Type behavior
 
-`KeyOrChord` keeps the same compile-time guarantees as the previous `Shortcut` type:
+`KeyOrChord` is fully enumerated — `KeyName | ${KeyModifier}+${KeyName} | ${KeyModifier}+${KeyModifier}+${KeyName}` — so every `Modifier+Key` combination is an autocomplete-able literal. Type `'Shift+'` in your IDE and you get the full `Shift+A`, `Shift+B`, …, `Shift+Tab` list as completions.
 
 ```ts
-await human.press('Tab');           // ✓ autocompletes from KeyName
-await human.press('Mod+S');         // ✓
-await human.press('Mod+BracketLeft'); // ✓ — key-side escape hatch under a modifier
-await human.press('Mosd+S');        // ✗ TS error — modifier strictly closed
-await human.press('Hyper+S');       // ✗ TS error
-await human.press('BracketLeft');   // ✗ TS error — bare uncommon keys need a cast
+await human.press('Tab');             // ✓ autocompletes from KeyName
+await human.press('Mod+S');           // ✓ autocompletes from Modifier × KeyName
+await human.press('Shift+ArrowDown'); // ✓
+await human.press('Mod+Shift+P');     // ✓ two-modifier chord
+await human.press('Mosd+S');          // ✗ TS error — modifier closed set
+await human.press('Hyper+S');         // ✗ TS error
+await human.press('BracketLeft');     // ✗ TS error — outside KeyName
 ```
 
-TypeScript's template-literal types can't express "any bare string, but not one shaped like a chord," so allowing `'BracketLeft'` at the bare position would also let `'Mosd+S'` slip through. Modifier-typo protection is the more valuable half — uncommon bare keys (rare in real bindings) require `'BracketLeft' as KeyOrChord`.
+**Escape hatch.** Uncommon keys (`'BracketLeft'`, `'NumpadAdd'`, locale keys) and 3+ modifier chords (`'Ctrl+Shift+Alt+K'`) need a cast at the call site — the runtime parser handles them, the type just doesn't enumerate them:
+
+```ts
+await human.press('Mod+BracketLeft' as KeyOrChord);
+await human.press('Ctrl+Shift+Alt+K' as KeyOrChord);
+```
+
+We tried a `(string & {})` escape hatch on the key portion of chords to make these work without a cast, but the cost was unacceptable: any `(string & {})` member in the union collapses TypeScript's template-literal IntelliSense to a single wide template, so completions for `'Shift+...'` / `'Mod+...'` disappear entirely. Autocomplete for the 95% case is the killer feature; the cast for rare keys is a worthwhile trade.
 
 ## Migration
 

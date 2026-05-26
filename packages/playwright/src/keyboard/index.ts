@@ -240,35 +240,43 @@ export type KeyName =
  * Strings accepted by `human.press(key)`:
  *
  *  - A bare known key: `'Enter'`, `'F4'`, `'ArrowDown'`, `'S'`, …
- *  - One known modifier + any key: `'Mod+S'`, `'Mod+BracketLeft'`, …
- *  - Two known modifiers + any key: `'Mod+Shift+P'`, `'Ctrl+Alt+Delete'`, …
+ *  - One known modifier + a known key: `'Mod+S'`, `'Shift+ArrowDown'`, …
+ *  - Two known modifiers + a known key: `'Mod+Shift+P'`, `'Ctrl+Alt+Tab'`, …
  *
- * The escape hatch lives on the **key portion of a chord**, never at the
- * bare-key position and never on the modifier — so modifier typos get
- * caught at compile time (`'Mosd+S'` is a TS error) while less-common
- * keys (`'BracketLeft'`, `'NumpadAdd'`, locale-specific keys) still
- * typecheck under a known modifier.
+ * Every member of the union is a fully-enumerated literal, which is what
+ * makes IDE autocomplete work — type `'Shift+'` and you get every
+ * `Shift+<key>` combination as a completion. Adding a `(string & {})`
+ * escape hatch anywhere would collapse that down to a single wide
+ * template member, killing the completion list.
  *
- * 3+ modifier chords (`'Ctrl+Shift+Alt+X'`) typecheck through the same
- * key-side escape hatch — TS sees two modifiers + `'Alt+X'` as the "key,"
- * the runtime parser handles three modifiers + `X` correctly. The cap at
- * two literal modifiers in the type is a TypeScript size-of-union
- * constraint, not a runtime limit.
+ * Modifier typos (`'Mosd+S'`) and uncommon-key typos (`'Mod+BraketLeft'`)
+ * are both TS errors at the call site — the closed sets on both sides
+ * give you compile-time protection that Playwright's plain `string` key
+ * type can't.
  *
- * Bare uncommon keys (`'BracketLeft'` alone, no modifier) DON'T typecheck
- * — that route would slip past the modifier guard, since TypeScript can't
- * express "any string not containing `+`." Workarounds: use a modifier,
- * or `'BracketLeft' as KeyOrChord`. The case is vanishingly rare in real
- * bindings; modifier-typo protection is the more valuable half.
+ * **Escape hatch for uncommon keys.** Less-common Playwright keys
+ * (`'BracketLeft'`, `'NumpadAdd'`, locale-specific keys, …) and 3+
+ * modifier chords (`'Ctrl+Shift+Alt+K'`) aren't in the union and need a
+ * cast at the call site:
  *
- * Lowercase modifiers (`'mod+s'`) also DON'T typecheck even though the
+ * ```ts
+ * await human.press('Mod+BracketLeft' as KeyOrChord);
+ * await human.press('Ctrl+Shift+Alt+K' as KeyOrChord);
+ * ```
+ *
+ * The runtime parser handles these fine — the cast just acknowledges
+ * "I'm using a key outside the autocomplete vocabulary." If you find
+ * yourself casting often for a specific key, propose adding it to
+ * `KeyName` in a PR.
+ *
+ * Lowercase modifiers (`'mod+s'`) also don't typecheck even though the
  * runtime accepts them — TS-strict steers users toward the canonical
  * casing, which keeps key strings consistent across a codebase.
  */
 export type KeyOrChord =
   | KeyName
-  | `${KeyModifier}+${KeyName | (string & {})}`
-  | `${KeyModifier}+${KeyModifier}+${KeyName | (string & {})}`;
+  | `${KeyModifier}+${KeyName}`
+  | `${KeyModifier}+${KeyModifier}+${KeyName}`;
 
 /** Result of a `press` action. */
 export interface PressResult {
