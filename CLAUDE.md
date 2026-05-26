@@ -73,13 +73,15 @@ const human = await createHuman(page, {
 
 await human.goto(url);
 await human.click(selector);              // hover, micro-move, click
+await human.rightClick(selector);         // context-menu click
+await human.hover(selector);              // hover without clicking
+await human.move(target);                 // selector | Locator | Point — positional, no settle dwell
+await human.drag(from, to);               // each endpoint: selector | Locator | Point
 await human.type(selector, value);        // click, then realistic typing rhythm
 await human.paste(selector, value);       // Cmd-V style (no per-char timing)
 await human.read(text);                   // dwell based on word count
 await human.scroll('natural');
-await human.shortcut('Cmd+S');
-await human.drag(from, to);
-await human.rightClick(selector);
+await human.shortcut('Mod+S');            // 'Mod' auto-maps: Meta on Mac, Control elsewhere
 
 const rec = await human.record(async () => { /* actions */ });
 await rec.toVideo('out.mp4');                // shipped
