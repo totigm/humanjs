@@ -33,19 +33,20 @@ A single key like `Tab` isn't a "shortcut," and forcing users through `human.sho
 | Action params `{ type: 'shortcut', params: { chord } }` | `{ type: 'press', params: { key } }` |
 | Runtime error: `"Invalid shortcut modifier: ..."` | `"Invalid key modifier: ..."` |
 
-## Type changes
+## Type behavior (unchanged from `Shortcut`)
 
-The `KeyOrChord` union adds a `(string & {})` escape hatch at the bare-key position, so uncommon keys (`'BracketLeft'`, `'NumpadAdd'`, locale-specific keys, …) typecheck without a modifier:
+`KeyOrChord` keeps the same compile-time guarantees as the previous `Shortcut` type:
 
 ```ts
-await human.press('BracketLeft');   // ✓ now typechecks (was a TS error under Shortcut)
-await human.press('Mod+S');         // ✓
 await human.press('Tab');           // ✓ autocompletes from KeyName
-await human.press('Mosd+S');        // ✗ TS error — modifier still strictly closed
+await human.press('Mod+S');         // ✓
+await human.press('Mod+BracketLeft'); // ✓ — key-side escape hatch under a modifier
+await human.press('Mosd+S');        // ✗ TS error — modifier strictly closed
 await human.press('Hyper+S');       // ✗ TS error
+await human.press('BracketLeft');   // ✗ TS error — bare uncommon keys need a cast
 ```
 
-Modifier-typo protection is preserved: modifier names remain a closed union, so `'Mosd+S'` / `'Hyper+S'` / etc. are still caught at compile time.
+TypeScript's template-literal types can't express "any bare string, but not one shaped like a chord," so allowing `'BracketLeft'` at the bare position would also let `'Mosd+S'` slip through. Modifier-typo protection is the more valuable half — uncommon bare keys (rare in real bindings) require `'BracketLeft' as KeyOrChord`.
 
 ## Migration
 

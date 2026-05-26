@@ -240,15 +240,14 @@ export type KeyName =
  * Strings accepted by `human.press(key)`:
  *
  *  - A bare known key: `'Enter'`, `'F4'`, `'ArrowDown'`, `'S'`, …
- *  - Any other bare key via escape hatch: `'BracketLeft'`, `'NumpadAdd'`,
- *    locale-specific keys — they typecheck, they just don't autocomplete.
  *  - One known modifier + any key: `'Mod+S'`, `'Mod+BracketLeft'`, …
  *  - Two known modifiers + any key: `'Mod+Shift+P'`, `'Ctrl+Alt+Delete'`, …
  *
- * The escape hatch lives on the **key portions only**, never on modifiers —
- * so modifier typos get caught at compile time (`'Mosd+S'` is a TS error)
- * while less-common keys (`'BracketLeft'`, `'NumpadAdd'`, locale keys)
- * typecheck under both bare-key and `Modifier+...` paths.
+ * The escape hatch lives on the **key portion of a chord**, never at the
+ * bare-key position and never on the modifier — so modifier typos get
+ * caught at compile time (`'Mosd+S'` is a TS error) while less-common
+ * keys (`'BracketLeft'`, `'NumpadAdd'`, locale-specific keys) still
+ * typecheck under a known modifier.
  *
  * 3+ modifier chords (`'Ctrl+Shift+Alt+X'`) typecheck through the same
  * key-side escape hatch — TS sees two modifiers + `'Alt+X'` as the "key,"
@@ -256,13 +255,18 @@ export type KeyName =
  * two literal modifiers in the type is a TypeScript size-of-union
  * constraint, not a runtime limit.
  *
- * Lowercase modifiers (`'mod+s'`) DON'T typecheck even though the runtime
- * accepts them — TS-strict steers users toward the canonical casing,
- * which keeps key strings consistent across a codebase.
+ * Bare uncommon keys (`'BracketLeft'` alone, no modifier) DON'T typecheck
+ * — that route would slip past the modifier guard, since TypeScript can't
+ * express "any string not containing `+`." Workarounds: use a modifier,
+ * or `'BracketLeft' as KeyOrChord`. The case is vanishingly rare in real
+ * bindings; modifier-typo protection is the more valuable half.
+ *
+ * Lowercase modifiers (`'mod+s'`) also DON'T typecheck even though the
+ * runtime accepts them — TS-strict steers users toward the canonical
+ * casing, which keeps key strings consistent across a codebase.
  */
 export type KeyOrChord =
   | KeyName
-  | (string & {})
   | `${KeyModifier}+${KeyName | (string & {})}`
   | `${KeyModifier}+${KeyModifier}+${KeyName | (string & {})}`;
 
