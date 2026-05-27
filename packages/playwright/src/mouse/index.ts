@@ -174,15 +174,21 @@ export async function executeHover(
 /**
  * Executes a humanized drag from one location to another.
  *
- *  1. Move the cursor to the `from` target along a Bezier path.
- *  2. Press the left mouse button down.
- *  3. Walk a fresh Bezier path from `from` to `to`, with the button still
+ *  1. Optionally near-miss the grab — with probability
+ *     `personality.mouse.misclickProbability`, the cursor first walks to a
+ *     point just outside the `from` target (or near it, for raw-Point
+ *     `from`), dwells briefly, then approaches the real grab point. No
+ *     mousedown fires at the off-target coordinates.
+ *  2. Move the cursor to the `from` target along a Bezier path.
+ *  3. Press the left mouse button down.
+ *  4. Walk a fresh Bezier path from `from` to `to`, with the button still
  *     held. This is the actual drag motion the page sees.
- *  4. Release the button at `to`.
+ *  5. Release the button at `to`.
  *
  * Both endpoints accept a CSS selector, a Locator, or a literal `Point` —
  * the last form is essential for canvas/SVG drags where the destination
- * isn't a DOM element.
+ * isn't a DOM element. The `to` endpoint does NOT misclick — mouseup is
+ * the single commit moment, with no "almost dropped" pattern to model.
  *
  * In `speed: 'instant'`, dispatches a single `mouse.down → move → up`
  * sequence at the resolved endpoints without humanized motion.

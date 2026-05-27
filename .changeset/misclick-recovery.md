@@ -47,3 +47,9 @@ Or set it higher than the preset for stronger humanization signal in demos. The 
 
 - Targets at the viewport edge: if the candidate misclick point would land off-screen, the misclick is skipped for that action (rather than producing a "near-miss" that gets clamped back onto the target).
 - Determinism: same seed produces the same misclick decisions and same misclick coordinates. Misclick fires/skips deterministically per seed, like every other humanization knob.
+
+## Note for snapshot-style tests
+
+Wiring `misclickProbability` into the mouse path consumes one RNG value per click / rightClick / drag-from action, regardless of whether the misclick fires that round. Existing seeded sessions will produce **different intermediate cursor coordinates** after upgrade — even when the misclick doesn't fire — because downstream RNG state is shifted by one consumer.
+
+Action outcomes (click coordinates, mousedown / mouseup positions, the resolved button, the target element) are unchanged. Only tests snapshotting the exact mouse-move sequence against a seed will need to refresh their snapshots. Tests asserting page state, form values, or action results (the typical kind) are unaffected.
