@@ -537,5 +537,31 @@ describe('human.click', () => {
       expect(mouseDown).toHaveBeenCalledTimes(1);
       expect(mouseUp).toHaveBeenCalledTimes(1);
     });
+
+    it("drag's `to` misclick keeps the drop coordinates exact", async () => {
+      // With both endpoints rolling for misclick (prob 1 here), the drop
+      // misclick wanders the cursor near `to` and dwells, then walks back
+      // to the real drop coordinates. The contract that mouseup fires at
+      // exactly `to` must still hold — visual-only safety, like the grab
+      // side. Using raw Points so we know the exact resolved drop coords.
+      const { page, mouseMove } = makeMockPage();
+      const mouseUp = page.mouse.up as ReturnType<typeof vi.fn>;
+      const human = await createHuman(page, {
+        personality: { extends: 'careful', mouse: { misclickProbability: 1 } },
+        speed: 'fast',
+        seed: 'drag-to-misclick',
+      });
+      await human.drag({ x: 100, y: 100 }, { x: 500, y: 500 });
+
+      // mouseup called exactly once — the misclick is visual-only.
+      expect(mouseUp).toHaveBeenCalledTimes(1);
+
+      // The last mouse.move before mouseup lands at the exact drop point.
+      // If the to-endpoint misclick leaked into the actual drop coords, the
+      // cursor would end somewhere 5–15 px off and this would fail.
+      const lastMove = mouseMove.mock.calls.at(-1) as [number, number];
+      expect(lastMove[0]).toBe(500);
+      expect(lastMove[1]).toBe(500);
+    });
   });
 });

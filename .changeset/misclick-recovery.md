@@ -7,23 +7,26 @@ Wires up the long-declared `personality.mouse.misclickProbability` knob: actions
 
 The behavior change is in `@humanjs/playwright`. The `@humanjs/core` patch is a JSDoc update on `MouseProfile.misclickProbability` reflecting the now-wired semantics — no API or runtime changes in core.
 
-When the probability fires for `click`, `rightClick`, or the `from` endpoint of `drag`:
+When the probability fires for `click`, `rightClick`, or either endpoint of `drag` (grab and drop roll independently):
 
 1. Cursor walks via Bezier path to a near-miss point — 5–15 px outside an edge of the bounding box (element-bound targets) or 5–15 px from the target coordinate in a random direction (raw-`Point` targets, for canvas/SVG drags).
 2. Brief "oh, I missed" dwell (scaled by personality — same shape as the pre-click settle beat).
-3. Cursor walks the small distance to the real click point.
-4. Click / mousedown fires once, on the target.
+3. Cursor walks the small distance to the real commit point.
+4. Click / mousedown / mouseup fires once, on the target.
 
-**The misclick is visible cursor motion only — no `mouse.click` or `mouse.down` event fires at the off-target coordinates.** That's deliberate: dispatching real clicks just outside the target risks hitting ancestor / sibling elements with their own handlers (a destructive button, a modal trigger, a navigation link). Since we can't reliably detect "does this element have an `addEventListener`-attached handler?" from outside the page, the safe-by-construction design is to never fire an event anywhere we didn't mean to.
+**The misclick is visible cursor motion only — no `mouse.click`, `mouse.down`, or `mouse.up` event fires at the off-target coordinates.** That's deliberate: dispatching real clicks just outside the target risks hitting ancestor / sibling elements with their own handlers (a destructive button, a modal trigger, a navigation link). Since we can't reliably detect "does this element have an `addEventListener`-attached handler?" from outside the page, the safe-by-construction design is to never fire an event anywhere we didn't mean to.
+
+Drag-over events (`dragover`, `dragenter`, `dragleave`) fire on whatever the cursor passes during a drop-side misclick detour, but those events already fire throughout normal drag motion — the misclick just adds a small extra loop, which reads as exploratory cursor behavior.
 
 ## What changes for callers
 
-- `human.click('#target')`, `human.rightClick('#target')`, and `human.drag('#card', '#slot')` may now show a small cursor detour on the way to the click / grab. The action itself still commits at the resolved coordinates with the same button and same assertions.
-- `human.drag({ x, y }, ...)` (raw-Point `from`) also misclicks — the near-miss point is picked 5–15 px from the coordinate in a random direction.
-- Action duration is slightly longer when the misclick fires (one extra Bezier walk + a short dwell).
-- `hover`, `move`, `type`, `paste`, `read`, `scroll`, `press` are unchanged. Drag's `to` endpoint is also unchanged: mouseup is the single commit moment, with no "almost dropped" pattern to model.
+- `human.click('#target')` and `human.rightClick('#target')` may now show a small cursor detour on the way to the click. The action itself still commits at the resolved coordinates with the same button and same assertions.
+- `human.drag('#card', '#slot')` may near-miss the grab, the drop, both, or neither — each endpoint rolls independently. `mousedown` still fires at the resolved `from`; `mouseup` still fires at the resolved `to`.
+- Raw-`Point` drag endpoints (`human.drag({ x, y }, ...)`) also misclick — the near-miss is picked 5–15 px from the coordinate in a random direction.
+- Action duration is slightly longer when the misclick fires (one extra Bezier walk + a short dwell per fired endpoint).
+- `hover`, `move`, `type`, `paste`, `read`, `scroll`, `press` are unchanged.
 
-This is process humanization: how the click / grab happened differs, not what got clicked. Personality controls the *rate* of near-misses (precise: 0.001, careful: 0.01, fast: 0.005, distracted: 0.05); the per-action behavior is the same shape across all personalities.
+This is process humanization: how the click / grab / drop happened differs, not what got clicked or where it landed. Personality controls the *rate* of near-misses (precise: 0.001, careful: 0.01, fast: 0.005, distracted: 0.05); the per-action behavior is the same shape across all personalities. Drag's effective miss rate is ~2× the per-roll value because both endpoints roll independently — realistic, since drag is two cognitive moments (grab and drop).
 
 ## What stayed the same
 
@@ -53,6 +56,6 @@ Or set it higher than the preset for stronger humanization signal in demos. The 
 
 ## Note for snapshot-style tests
 
-Wiring `misclickProbability` into the mouse path consumes one RNG value per click / rightClick / drag-from action, regardless of whether the misclick fires that round. Existing seeded sessions will produce **different intermediate cursor coordinates** after upgrade — even when the misclick doesn't fire — because downstream RNG state is shifted by one consumer.
+Wiring `misclickProbability` into the mouse path consumes one RNG value per misclick decision — once per `click` / `rightClick` action, and twice per `drag` (one per endpoint). Existing seeded sessions will produce **different intermediate cursor coordinates** after upgrade — even when no misclick fires — because downstream RNG state is shifted by those consumers.
 
 Action outcomes (click coordinates, mousedown / mouseup positions, the resolved button, the target element) are unchanged. Only tests snapshotting the exact mouse-move sequence against a seed will need to refresh their snapshots. Tests asserting page state, form values, or action results (the typical kind) are unaffected.

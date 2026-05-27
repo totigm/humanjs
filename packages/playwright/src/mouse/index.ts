@@ -181,14 +181,20 @@ export async function executeHover(
  *     mousedown fires at the off-target coordinates.
  *  2. Move the cursor to the `from` target along a Bezier path.
  *  3. Press the left mouse button down.
- *  4. Walk a fresh Bezier path from `from` to `to`, with the button still
- *     held. This is the actual drag motion the page sees.
- *  5. Release the button at `to`.
+ *  4. Optionally near-miss the drop — independent probability roll, same
+ *     visual-only shape: cursor walks to a near-miss point with the
+ *     button still held, dwells, then continues to the real drop point.
+ *     No mouseup fires at the off-target coordinates. The marginal cost
+ *     is a small extra detour through `dragover` events on neighbors,
+ *     which is already part of normal drag motion.
+ *  5. Walk a fresh Bezier path to `to`, with the button still held. This
+ *     is the actual drag motion the page sees.
+ *  6. Release the button at `to`.
  *
  * Both endpoints accept a CSS selector, a Locator, or a literal `Point` —
  * the last form is essential for canvas/SVG drags where the destination
- * isn't a DOM element. The `to` endpoint does NOT misclick — mouseup is
- * the single commit moment, with no "almost dropped" pattern to model.
+ * isn't a DOM element. The grab and drop endpoints roll for misclick
+ * independently, so a single drag may near-miss either, both, or neither.
  *
  * In `speed: 'instant'`, dispatches a single `mouse.down → move → up`
  * sequence at the resolved endpoints without humanized motion.
@@ -203,11 +209,11 @@ export async function executeDrag(
   // the right shape for cross-viewport drags: a real user scrolls to grab,
   // then scrolls again to drop, rather than dragging through invisible space.
   //
-  // For `from` we also capture the box (if any) so the misclick beat below
-  // can pick a near-miss "outside the box" for element-bound grabs, or
-  // "around the point" for raw-coordinate grabs (canvas/SVG).
+  // For both endpoints we also capture the box (if any) so the misclick
+  // beats below can pick a near-miss "outside the box" for element-bound
+  // targets, or "around the point" for raw-coordinate targets (canvas/SVG).
   const { point: fromPoint, box: fromBox } = await resolveTargetPointAndBox(from, ctx, 'drag');
-  const toPoint = await resolveTargetPoint(to, ctx, 'drag');
+  const { point: toPoint, box: toBox } = await resolveTargetPointAndBox(to, ctx, 'drag');
 
   if (ctx.speed === 'instant') {
     await ctx.page.mouse.move(fromPoint.x, fromPoint.y);
@@ -218,11 +224,8 @@ export async function executeDrag(
     return { from: fromPoint, to: toPoint };
   }
 
-  // 1. Maybe near-miss the grab — same shape as click's misclick beat.
+  // 1. Maybe near-miss the grab. Same shape as click's misclick beat;
   // `from` commits an action (mousedown), so the misclick principle applies.
-  // The `to` endpoint does NOT misclick — there's no "almost commit then
-  // notice" moment for a drop; mouseup is the single commit, and any
-  // wobble before it just reads as drag-motion noise.
   await maybeMisclickBeat(ctx, fromBox, fromPoint);
 
   // 2. Move to the start of the drag.
@@ -241,16 +244,23 @@ export async function executeDrag(
   if (preDragMs > 0) await sleep(preDragMs);
   await ctx.page.mouse.down();
 
-  // 4. Walk to the destination with the button still held. Generate a fresh
-  // humanized path so the drag motion has its own curve + jitter shape.
-  const rawPath = bezierPath(fromPoint, toPoint, ctx.rng, {
-    curvature: ctx.personality.mouse.curvature,
-  });
-  const path = humanizePath(rawPath, ctx.rng);
-  const travelMs = computeTravelTime(path, ctx.personality, ctx.speed, ctx.rng);
-  await walkMouseAlongPath(ctx.page, path, travelMs);
+  // 4. Maybe near-miss the drop. Independent roll from the grab — a drag
+  // may near-miss the grab, the drop, both, or neither. Same visual-only
+  // safety: the cursor wanders near `to` and dwells, but mouseup only
+  // fires once the cursor has walked to the real drop point in step 5.
+  // Dragover events fire on neighbors during the detour, but they were
+  // already firing along the natural drag path — the misclick adds a
+  // small extra loop, which is exactly what an exploratory drop attempt
+  // looks like in real human use.
+  await maybeMisclickBeat(ctx, toBox, toPoint);
 
-  // 5. Release. Post-action dwell so the next action doesn't fire in the
+  // 5. Walk to the destination with the button still held. `walkBezierTo`
+  // generates a fresh humanized path from the cursor's current position
+  // (which may be the misclick point from step 4, or `fromPoint` if no
+  // misclick fired) to `toPoint`.
+  await walkBezierTo(toPoint, ctx);
+
+  // 6. Release. Post-action dwell so the next action doesn't fire in the
   // same frame as the drop.
   await ctx.page.mouse.up();
   ctx.setMousePosition(toPoint);

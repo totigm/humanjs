@@ -40,16 +40,20 @@ export interface MouseProfile {
   readonly overshootProbability: number;
   /**
    * Probability per click-shaped action of producing the visible "near-miss"
-   * cursor wobble (0..1). Applies to `click`, `rightClick`, and the `from`
-   * endpoint of `drag` (where mousedown commits the grab). When it fires,
+   * cursor wobble (0..1). Applies to `click`, `rightClick`, and both
+   * endpoints of `drag` (grab and drop — each rolls independently, so a
+   * single drag may near-miss either, both, or neither). When it fires,
    * the cursor walks to a point just outside the target — outside its
    * bounding box for element-bound targets, or 5–15 px away in a random
    * direction for raw-`Point` targets (canvas/SVG drags) — dwells briefly
    * (the "oh, I missed" beat), then walks to the real point.
    *
-   * **No click or mousedown is dispatched at the off-target coordinates** —
-   * the misclick is purely visual cursor motion, so it never triggers
-   * handlers on ancestors or siblings.
+   * **No click, mousedown, or mouseup is dispatched at the off-target
+   * coordinates** — the misclick is purely visual cursor motion, so it
+   * never triggers handlers on ancestors or siblings. Drag-over events do
+   * fire on whatever the cursor passes during the detour, but `dragover`
+   * is already part of normal drag motion — the misclick just adds a
+   * small extra loop, which reads as exploratory cursor behavior.
    *
    * This is process humanization, not outcome change. `human.click(target)`
    * still lands its click on `target`; `human.drag(from, to)` still
@@ -57,9 +61,8 @@ export interface MouseProfile {
    * the cursor's path (it makes a brief detour) and the action's total
    * duration (slightly longer).
    *
-   * Does NOT apply to: `hover` (positional, doesn't commit), `move`
-   * (explicit-coordinate positioning), or `drag`'s `to` endpoint (mouseup
-   * is the single commit moment — no "almost dropped" pattern to model).
+   * Does NOT apply to: `hover` (positional, doesn't commit) or `move`
+   * (explicit-coordinate positioning).
    *
    * Skipped automatically when the target sits at the viewport edge and
    * the candidate near-miss point would have to land off-screen.
