@@ -174,6 +174,14 @@ export async function executeHover(
 /**
  * Executes a humanized drag from one location to another.
  *
+ *  0. **Curve-aware viewport check** (element×element drags only): the
+ *     drag's main walk uses a Bezier curve whose perpendicular extent
+ *     can reach `distance × curvature`. If that worst-case path would
+ *     extrude past a viewport edge with the mouse button held, Chrome
+ *     engages native edge-scroll-during-drag and walks the page wildly.
+ *     We pre-scroll just enough plus a small margin so the worst-case
+ *     curve fits. Skipped for raw-`Point` endpoints because scrolling
+ *     would shift the element relative to the caller's explicit point.
  *  1. Optionally near-miss the grab — with probability
  *     `personality.mouse.misclickProbability`, the cursor first walks to a
  *     point just outside the `from` target (or near it, for raw-Point
@@ -212,8 +220,10 @@ export async function executeDrag(
   // For both endpoints we also capture the box (if any) so the misclick
   // beats below can pick a near-miss "outside the box" for element-bound
   // targets, or "around the point" for raw-coordinate targets (canvas/SVG).
-  const { point: fromPoint, box: fromBox } = await resolveTargetPointAndBox(from, ctx, 'drag');
-  const { point: toPoint, box: toBox } = await resolveTargetPointAndBox(to, ctx, 'drag');
+  // `let` because the curve-aware viewport check below may scroll the page,
+  // shifting element-bound endpoints in viewport coordinates.
+  let { point: fromPoint, box: fromBox } = await resolveTargetPointAndBox(from, ctx, 'drag');
+  let { point: toPoint, box: toBox } = await resolveTargetPointAndBox(to, ctx, 'drag');
 
   if (ctx.speed === 'instant') {
     await ctx.page.mouse.move(fromPoint.x, fromPoint.y);
@@ -222,6 +232,41 @@ export async function executeDrag(
     await ctx.page.mouse.up();
     ctx.setMousePosition(toPoint);
     return { from: fromPoint, to: toPoint };
+  }
+
+  // 0. Curve-aware viewport headroom. Both endpoints might be individually
+  // in-viewport (so per-endpoint auto-scroll didn't fire), yet the Bezier
+  // curve between them — control points perpendicular-offset by up to
+  // `distance × curvature` — can extrude outside the viewport while the
+  // mouse button is held. When that happens Chrome engages its native
+  // edge-scroll-during-drag behavior and walks the page wildly.
+  //
+  // Pre-scroll just enough plus a small margin so the worst-case curve
+  // bounding box fits. Only applies when both endpoints are element-bound,
+  // so both shift together with the page scroll and the drag's relative
+  // geometry is preserved. For raw `Point` endpoints, scrolling would
+  // shift the element relative to the caller's explicit coordinate — we
+  // leave that case to the caller (see `examples/primitives-demo.ts` for
+  // the explicit-scroll pattern).
+  if (fromBox && toBox) {
+    const scrollDelta = computeCurveScrollDelta(
+      fromPoint,
+      toPoint,
+      ctx.page.viewportSize(),
+      ctx.personality.mouse.curvature,
+    );
+    if (scrollDelta !== 0) {
+      await executeScroll({ by: scrollDelta }, ctx, {});
+      // Both endpoints moved by `scrollDelta` in viewport-y; re-resolve to
+      // pick up the new positions. Raw Points are excluded by the guard
+      // above, so re-resolving is safe (won't shift caller coordinates).
+      const refreshedFrom = await resolveTargetPointAndBox(from, ctx, 'drag');
+      fromPoint = refreshedFrom.point;
+      fromBox = refreshedFrom.box;
+      const refreshedTo = await resolveTargetPointAndBox(to, ctx, 'drag');
+      toPoint = refreshedTo.point;
+      toBox = refreshedTo.box;
+    }
   }
 
   // 1. Maybe near-miss the grab. Same shape as click's misclick beat;
@@ -493,6 +538,60 @@ function isBoxCenterInViewport(
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
   return cx >= 0 && cx <= viewport.width && cy >= 0 && cy <= viewport.height;
+}
+
+/**
+ * Safety margin (in CSS pixels) between the predicted drag-curve bounds
+ * and the viewport edge. Small enough that the pre-scroll stays close to
+ * "the minimum needed," large enough that micro-jitter or rounding doesn't
+ * still push the curve past the edge.
+ */
+const CURVE_VIEWPORT_MARGIN = 20;
+
+/**
+ * Computes how far to scroll the page (positive = down, negative = up) so
+ * the Bezier curve a drag would walk from `from` to `to` fits entirely
+ * inside the viewport. Returns `0` if no scroll is needed.
+ *
+ * The Bezier path (see {@link import('@humanjs/core').bezierPath}) places
+ * two control points perpendicular-offset by up to `distance × curvature`
+ * in either direction. The curve itself stays within that perpendicular
+ * band, so a conservative worst-case bounding box is the from→to line
+ * inflated by `distance × curvature` on each side.
+ *
+ * Scroll just enough to bring whichever side overflows the most into the
+ * viewport, plus a small {@link CURVE_VIEWPORT_MARGIN} so the curve
+ * doesn't graze the edge. We only handle vertical overflow — pages
+ * almost always scroll vertically and the horizontal axis rarely has
+ * room to gain headroom from.
+ *
+ * If both top and bottom overflow (the drag's worst-case bounding box is
+ * taller than the viewport), pick the larger overflow and live with the
+ * partial fix — there's no scroll position that fully contains a curve
+ * bigger than the viewport.
+ */
+function computeCurveScrollDelta(
+  from: Point,
+  to: Point,
+  viewport: { readonly width: number; readonly height: number } | null,
+  curvature: number,
+): number {
+  if (!viewport) return 0;
+
+  const distance = Math.hypot(to.x - from.x, to.y - from.y);
+  const perpendicularExtent = distance * curvature;
+
+  const minY = Math.min(from.y, to.y) - perpendicularExtent;
+  const maxY = Math.max(from.y, to.y) + perpendicularExtent;
+
+  const topOverflow = -minY + CURVE_VIEWPORT_MARGIN;
+  const bottomOverflow = maxY + CURVE_VIEWPORT_MARGIN - viewport.height;
+
+  // Positive return → scroll page DOWN (elements move UP in viewport).
+  // Negative return → scroll page UP (elements move DOWN in viewport).
+  if (bottomOverflow > 0 && bottomOverflow >= topOverflow) return bottomOverflow;
+  if (topOverflow > 0) return -topOverflow;
+  return 0;
 }
 
 /** Type guard for raw `Point` targets — distinguishes them from Locator/string. */

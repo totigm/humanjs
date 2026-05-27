@@ -587,4 +587,106 @@ describe('human.click', () => {
       expect(lastMove[1]).toBe(500);
     });
   });
+
+  describe('drag: curve-aware viewport pre-scroll', () => {
+    // Default mock viewport: 1280×720. A long horizontal drag at y near
+    // the bottom edge produces a Bezier curve whose perpendicular extent
+    // pokes below the viewport — Chrome's native edge-scroll-during-drag
+    // would fire on a real page. The library pre-scrolls just enough to
+    // bring the worst-case curve bounding box back inside.
+
+    it('pre-scrolls when an element×element drag would extrude past the viewport edge', async () => {
+      // Two distinct endpoints near the viewport bottom (centers around
+      // y=615 in a 720-tall viewport): individually in view, but the curve
+      // from (90, 615) → (790, 615) at curvature 0.4 reaches ±280 px
+      // perpendicular → maxY ≈ 895, well past the 720 bottom edge.
+      let scrolled = false;
+      const makeLowLocator = (x: number): MockLocator => {
+        const lowBox: MockBoundingBox = { x, y: 600, width: 100, height: 30 };
+        const liftedBox: MockBoundingBox = { x, y: 200, width: 100, height: 30 };
+        return {
+          boundingBox: vi.fn(() => Promise.resolve(scrolled ? liftedBox : lowBox)),
+          click: vi.fn().mockResolvedValue(undefined),
+          scrollIntoViewIfNeeded: vi.fn().mockResolvedValue(undefined),
+        };
+      };
+      const fromLocator = makeLowLocator(40); // box [40, 600, 100, 30] → center (90, 615)
+      const toLocator = makeLowLocator(740); // box [740, 600, 100, 30] → center (790, 615)
+
+      const wheelCalls: Array<{ dx: number; dy: number }> = [];
+      const page = {
+        goto: vi.fn().mockResolvedValue(null),
+        locator: vi.fn(() => fromLocator), // unused; we pass Locators directly
+        evaluate: vi.fn().mockResolvedValue({ current: 0, viewport: 720, total: 2000 }),
+        mouse: {
+          move: vi.fn().mockResolvedValue(undefined),
+          click: vi.fn().mockResolvedValue(undefined),
+          wheel: vi.fn().mockImplementation((dx: number, dy: number) => {
+            wheelCalls.push({ dx, dy });
+            scrolled = true;
+            return Promise.resolve();
+          }),
+          down: vi.fn().mockResolvedValue(undefined),
+          up: vi.fn().mockResolvedValue(undefined),
+        },
+        viewportSize: () => ({ width: 1280, height: 720 }),
+      } as unknown as Page;
+
+      const human = await createHuman(page, {
+        speed: 'fast',
+        seed: 'curve-aware-drag',
+        personality: { extends: 'careful', mouse: { misclickProbability: 0 } },
+      });
+      // Pass Locators directly — page.locator() in mocks returns one
+      // shared instance so 'source' / 'target' selectors would collapse
+      // to the same box and the drag's effective distance would be ~0.
+      await human.drag(fromLocator as unknown as Locator, toLocator as unknown as Locator);
+
+      // Pre-scroll happened (wheel events were dispatched before the drag).
+      expect(wheelCalls.length).toBeGreaterThan(0);
+      // The page scrolled DOWN (positive dy) — moving elements UP in
+      // viewport space to give the curve room below.
+      const totalScroll = wheelCalls.reduce((sum, w) => sum + w.dy, 0);
+      expect(totalScroll).toBeGreaterThan(0);
+    });
+
+    it('does NOT pre-scroll when one endpoint is a raw Point', async () => {
+      // Raw-Point endpoints would shift relative to element endpoints
+      // under a page scroll, changing the drag's geometry. The library
+      // skips the curve-aware scroll in that case — the caller's
+      // coordinates are honored as-is.
+      const lowBox: MockBoundingBox = { x: 50, y: 600, width: 100, height: 30 };
+      const locator: MockLocator = {
+        boundingBox: vi.fn().mockResolvedValue(lowBox),
+        click: vi.fn().mockResolvedValue(undefined),
+        scrollIntoViewIfNeeded: vi.fn().mockResolvedValue(undefined),
+      };
+      const { page, mouseWheel } = makeMockPage(locator);
+      const human = await createHuman(page, {
+        speed: 'fast',
+        seed: 'curve-aware-raw-point',
+        personality: { extends: 'careful', mouse: { misclickProbability: 0 } },
+      });
+
+      // selector → raw Point. The library defers to the caller.
+      await human.drag('source', { x: 750, y: 615 });
+
+      expect(mouseWheel).not.toHaveBeenCalled();
+    });
+
+    it('does NOT pre-scroll when both endpoints are comfortably mid-viewport', async () => {
+      // Default box at (100, 200, 80, 30): center around y=215, well
+      // inside the 720-tall viewport with plenty of headroom above and
+      // below. No curve-aware scroll needed.
+      const { page, mouseWheel } = makeMockPage();
+      const human = await createHuman(page, {
+        speed: 'fast',
+        seed: 'no-curve-scroll',
+        personality: { extends: 'careful', mouse: { misclickProbability: 0 } },
+      });
+      await human.drag('source', 'target');
+
+      expect(mouseWheel).not.toHaveBeenCalled();
+    });
+  });
 });
