@@ -292,13 +292,48 @@ export async function executeMove(target: MouseTarget, ctx: MouseContext): Promi
  * `executeDrag` and `executeMove` accept raw `Point` inputs too, so they
  * reach the same Bezier walk through `resolveTargetPoint` + `walkBezierTo`
  * instead of going through here.
+ *
+ * For `'click'` actions, this is also where the misclick beat fires: with
+ * probability `personality.mouse.misclickProbability`, the cursor first
+ * walks to a point just outside the target's bounding box, dwells briefly
+ * (the "oh, I missed" beat), then walks to the real click point. No click
+ * is dispatched at the off-target coordinates — the misclick is purely
+ * cursor motion, so we never trigger handlers on ancestors or siblings.
+ * That keeps the visible humanization signal while making the behavior
+ * safe by construction. Hover never misclicks; hovers are about settling
+ * on an element, not committing an action.
  */
 async function moveToTarget(
   target: Locator | string,
   ctx: MouseContext,
   action: 'click' | 'hover',
 ): Promise<Point> {
-  const targetPoint = await resolveLocatorPoint(target, ctx, action);
+  const box = await readBoxWithAutoScroll(target, ctx, action);
+  const targetPoint = pickClickPoint(box, ctx.rng, ctx.personality.mouse.clickSpread);
+
+  if (action === 'click' && ctx.rng.chance(ctx.personality.mouse.misclickProbability)) {
+    const misclickPoint = pickMisclickPoint(box, ctx.rng, ctx.page.viewportSize());
+    // `null` means clamping pulled the candidate back onto the target (target
+    // is at the viewport edge) — skip the misclick this round rather than
+    // produce a meaningless "near-miss" that lands on the target anyway.
+    if (misclickPoint !== null) {
+      await walkBezierTo(misclickPoint, ctx);
+      ctx.setMousePosition(misclickPoint);
+
+      // "Realize the miss" dwell — same shape as the pre-click settle beat.
+      // A real user notices the cursor is wrong before committing the click;
+      // this is the moment between near-miss and correction.
+      const realizeMs = computeDwellTime(
+        ctx.personality.dwell.preClickMs,
+        ctx.personality.dwell.preClickJitter,
+        ctx.personality,
+        ctx.speed,
+        ctx.rng,
+      );
+      if (realizeMs > 0) await sleep(realizeMs);
+    }
+  }
+
   await walkBezierTo(targetPoint, ctx);
   return targetPoint;
 }
@@ -452,6 +487,69 @@ interface BoundingBox {
   readonly y: number;
   readonly width: number;
   readonly height: number;
+}
+
+/** Range, in CSS pixels, that a misclick lands outside the target's bounding box. */
+const MISCLICK_OFFSET_MIN = 5;
+const MISCLICK_OFFSET_MAX = 15;
+
+/**
+ * Picks a point just outside the target's bounding box — the "near-miss"
+ * coordinates the cursor visits before correcting to the real click point.
+ *
+ * Process:
+ *
+ *  1. Pick one of the four edges to miss toward (top/right/bottom/left).
+ *  2. Pick an outward offset (5–15 px) — far enough to read as a miss,
+ *     close enough to read as a correctable wobble.
+ *  3. Pick a position along that edge (biased toward the middle 60%, so we
+ *     don't miss past a corner where the wobble reads as wild).
+ *  4. Clamp to the viewport, since the cursor can't legally land off-screen.
+ *  5. If clamping pulled the point back inside the target's box (target sits
+ *     at the viewport edge), return `null` — the caller skips the misclick
+ *     this round rather than produce a "near-miss" that lands on the target.
+ *
+ * Crucially, this function returns a *coordinate*; the caller never fires a
+ * click event there. The misclick is visible cursor motion only — no risk
+ * of triggering handlers on ancestors / siblings, which is why we don't
+ * need an `elementFromPoint` safety check.
+ */
+function pickMisclickPoint(
+  box: BoundingBox,
+  rng: Rng,
+  viewport: { readonly width: number; readonly height: number } | null,
+): Point | null {
+  const edge = rng.nextInt(0, 4); // 0=top, 1=right, 2=bottom, 3=left
+  const offset = rng.nextFloat(MISCLICK_OFFSET_MIN, MISCLICK_OFFSET_MAX);
+  const along = rng.nextFloat(0.2, 0.8);
+
+  let x: number;
+  let y: number;
+  if (edge === 0) {
+    x = box.x + box.width * along;
+    y = box.y - offset;
+  } else if (edge === 1) {
+    x = box.x + box.width + offset;
+    y = box.y + box.height * along;
+  } else if (edge === 2) {
+    x = box.x + box.width * along;
+    y = box.y + box.height + offset;
+  } else {
+    x = box.x - offset;
+    y = box.y + box.height * along;
+  }
+
+  if (viewport) {
+    x = clamp(x, 0, viewport.width - 1);
+    y = clamp(y, 0, viewport.height - 1);
+  }
+
+  // Clamping pulled the point back inside the box → the misclick is
+  // impossible at the viewport edge; skip it rather than fake one.
+  const insideBox = x >= box.x && x <= box.x + box.width && y >= box.y && y <= box.y + box.height;
+  if (insideBox) return null;
+
+  return { x, y };
 }
 
 /**

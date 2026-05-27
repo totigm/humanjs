@@ -38,7 +38,22 @@ export interface MouseProfile {
   readonly travelTimeJitter: number;
   /** Probability of overshooting a target and correcting (0..1). */
   readonly overshootProbability: number;
-  /** Probability of clicking slightly off-target and correcting (0..1). */
+  /**
+   * Probability per click action of producing the visible "near-miss"
+   * cursor wobble (0..1). When it fires, the cursor walks to a point just
+   * outside the target's bounding box, dwells briefly (the "oh, I missed"
+   * beat), then walks to the real click point. **No click is dispatched
+   * at the off-target coordinates** — the misclick is purely visual cursor
+   * motion, so it never triggers handlers on ancestors or siblings.
+   *
+   * This is process humanization, not outcome change: `human.click(target)`
+   * still lands its click on `target`, with `button` and assertions
+   * unchanged. The only differences are the cursor's path (it makes a
+   * brief detour) and the action's total duration (slightly longer).
+   *
+   * Skipped automatically when the target sits at the viewport edge and
+   * the candidate misclick point would have to land off-screen.
+   */
   readonly misclickProbability: number;
   /**
    * Click-point spread inside the target's bounding box, as a fraction of
