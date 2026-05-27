@@ -644,7 +644,7 @@ async function main() {
     await page.setContent(DEMO_HTML);
     await installMouseHelper(context);
 
-    const human = await createHuman(page, { personality, seed: 'primitives-demo-1' });
+    const human = await createHuman(page, { personality, seed: 'primitives-demo' });
     await human.sleep(800);
 
     // 1. Hover — cursor moves to the "?" icon, tooltip reveals via CSS.
@@ -671,15 +671,12 @@ async function main() {
     console.log('4. drag → card to slot, then slider thumb to point');
     await human.drag('#drag-card', '#slot-to');
     await human.sleep(900);
-    // Center the slider section in the viewport before the drag — without
-    // this, the slider sits near the viewport bottom edge, and the
-    // horizontal Bezier curve from thumb to target can dip below y =
-    // viewportHeight with the mouse held. At that point Chrome engages
-    // its native edge-scroll-during-drag behavior and walks the page all
-    // the way down. Centering the slider gives the curve ~450px of
-    // headroom in both directions.
-    await human.scroll('.slider-row', { block: 'center' });
-    await human.sleep(300);
+    // The slider drag is element → raw-`Point`. The library's per-endpoint
+    // auto-scroll will bring the slider into the viewport center if it's
+    // off-fold, and the raw `Point`'s y will shift with the scroll
+    // delta — preserving the "same height as the thumb" relationship the
+    // caller intended. No explicit pre-scroll needed; this is a regular
+    // canvas/SVG-style drag where the destination is a coordinate.
     const thumbBox = await page.locator('#slider-thumb').boundingBox();
     const trackBox = await page.locator('.slider-track').boundingBox();
     if (thumbBox && trackBox) {

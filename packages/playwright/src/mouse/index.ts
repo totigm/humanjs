@@ -174,6 +174,14 @@ export async function executeHover(
 /**
  * Executes a humanized drag from one location to another.
  *
+ *  0. **Curve-aware viewport check** (element×element drags only): the
+ *     drag's main walk uses a Bezier curve whose perpendicular extent
+ *     can reach `distance × curvature`. If that worst-case path would
+ *     extrude past a viewport edge with the mouse button held, Chrome
+ *     engages native edge-scroll-during-drag and walks the page wildly.
+ *     We pre-scroll just enough plus a small margin so the worst-case
+ *     curve fits. Skipped for raw-`Point` endpoints because scrolling
+ *     would shift the element relative to the caller's explicit point.
  *  1. Optionally near-miss the grab — with probability
  *     `personality.mouse.misclickProbability`, the cursor first walks to a
  *     point just outside the `from` target (or near it, for raw-Point
@@ -209,11 +217,25 @@ export async function executeDrag(
   // the right shape for cross-viewport drags: a real user scrolls to grab,
   // then scrolls again to drop, rather than dragging through invisible space.
   //
-  // For both endpoints we also capture the box (if any) so the misclick
-  // beats below can pick a near-miss "outside the box" for element-bound
-  // targets, or "around the point" for raw-coordinate targets (canvas/SVG).
-  const { point: fromPoint, box: fromBox } = await resolveTargetPointAndBox(from, ctx, 'drag');
-  const { point: toPoint, box: toBox } = await resolveTargetPointAndBox(to, ctx, 'drag');
+  // We bracket the resolves with `scrollY` reads to detect any auto-scroll
+  // that happened for an element-bound endpoint, then shift raw `Point`
+  // endpoints by the same delta. That preserves the *visual relationship*
+  // a raw Point has to the view at the time of call — callers typically
+  // compute raw Points from element positions they see right now, so when
+  // the page scrolls during resolution, the Point should follow. Otherwise
+  // a horizontal slider drag ('#thumb' → { x, y }) silently becomes
+  // diagonal as soon as the thumb auto-scrolls and the raw Point stays put.
+  //
+  // `let` because both endpoints may shift during the curve-aware check
+  // below.
+  const scrollYBeforeResolve = await readScrollY(ctx.page);
+  let { point: fromPoint, box: fromBox } = await resolveTargetPointAndBox(from, ctx, 'drag');
+  let { point: toPoint, box: toBox } = await resolveTargetPointAndBox(to, ctx, 'drag');
+  const resolveScrollDelta = (await readScrollY(ctx.page)) - scrollYBeforeResolve;
+  if (resolveScrollDelta !== 0) {
+    if (isPoint(from)) fromPoint = { x: fromPoint.x, y: fromPoint.y - resolveScrollDelta };
+    if (isPoint(to)) toPoint = { x: toPoint.x, y: toPoint.y - resolveScrollDelta };
+  }
 
   if (ctx.speed === 'instant') {
     await ctx.page.mouse.move(fromPoint.x, fromPoint.y);
@@ -222,6 +244,38 @@ export async function executeDrag(
     await ctx.page.mouse.up();
     ctx.setMousePosition(toPoint);
     return { from: fromPoint, to: toPoint };
+  }
+
+  // 0. Curve-aware viewport headroom. Both endpoints might be individually
+  // in-viewport (so per-endpoint auto-scroll didn't fire), yet the Bezier
+  // curve between them — control points perpendicular-offset by up to
+  // `distance × curvature` — can extrude outside the viewport while the
+  // mouse button is held. When that happens Chrome engages its native
+  // edge-scroll-during-drag behavior and walks the page wildly.
+  //
+  // Pre-scroll just enough plus a small margin so the worst-case curve
+  // fits. Only applies when both endpoints are element-bound: a page
+  // scroll moves both together and preserves their relative geometry.
+  // For mixed endpoints, the resolve-time scroll above already shifted
+  // any raw Point by the auto-scroll delta — if a curve still wouldn't
+  // fit after that, scrolling more would chase its own tail (each scroll
+  // shifts the raw Point but lengthens the drag), so we don't.
+  if (fromBox && toBox) {
+    const scrollDelta = computeCurveScrollDelta(
+      fromPoint,
+      toPoint,
+      ctx.page.viewportSize(),
+      ctx.personality.mouse.curvature,
+    );
+    if (scrollDelta !== 0) {
+      await executeScroll({ by: scrollDelta }, ctx, {});
+      const refreshedFrom = await resolveTargetPointAndBox(from, ctx, 'drag');
+      fromPoint = refreshedFrom.point;
+      fromBox = refreshedFrom.box;
+      const refreshedTo = await resolveTargetPointAndBox(to, ctx, 'drag');
+      toPoint = refreshedTo.point;
+      toBox = refreshedTo.box;
+    }
   }
 
   // 1. Maybe near-miss the grab. Same shape as click's misclick beat;
@@ -493,6 +547,74 @@ function isBoxCenterInViewport(
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
   return cx >= 0 && cx <= viewport.width && cy >= 0 && cy <= viewport.height;
+}
+
+/**
+ * Reads the page's current vertical scroll position. Used in `executeDrag`
+ * to detect auto-scroll that happened during endpoint resolution and
+ * mirror it onto raw `Point` endpoints (preserving the drag's geometry).
+ *
+ * Defensive against test mocks that don't implement `page.evaluate`
+ * (returns `0`, matching "no scroll happened"). Real Playwright `Page`
+ * always has `evaluate`.
+ */
+async function readScrollY(page: Page): Promise<number> {
+  if (typeof page.evaluate !== 'function') return 0;
+  return page.evaluate(() => window.scrollY);
+}
+
+/**
+ * Safety margin (in CSS pixels) between the predicted drag-curve bounds
+ * and the viewport edge. Small enough that the pre-scroll stays close to
+ * "the minimum needed," large enough that micro-jitter or rounding doesn't
+ * still push the curve past the edge.
+ */
+const CURVE_VIEWPORT_MARGIN = 20;
+
+/**
+ * Computes how far to scroll the page (positive = down, negative = up) so
+ * the Bezier curve a drag would walk from `from` to `to` fits entirely
+ * inside the viewport. Returns `0` if no scroll is needed.
+ *
+ * The Bezier path (see {@link import('@humanjs/core').bezierPath}) places
+ * two control points perpendicular-offset by up to `distance × curvature`
+ * in either direction. The curve itself stays within that perpendicular
+ * band, so a conservative worst-case bounding box is the from→to line
+ * inflated by `distance × curvature` on each side.
+ *
+ * Scroll just enough to bring whichever side overflows the most into the
+ * viewport, plus a small {@link CURVE_VIEWPORT_MARGIN} so the curve
+ * doesn't graze the edge. We only handle vertical overflow — pages
+ * almost always scroll vertically and the horizontal axis rarely has
+ * room to gain headroom from.
+ *
+ * If both top and bottom overflow (the drag's worst-case bounding box is
+ * taller than the viewport), pick the larger overflow and live with the
+ * partial fix — there's no scroll position that fully contains a curve
+ * bigger than the viewport.
+ */
+function computeCurveScrollDelta(
+  from: Point,
+  to: Point,
+  viewport: { readonly width: number; readonly height: number } | null,
+  curvature: number,
+): number {
+  if (!viewport) return 0;
+
+  const distance = Math.hypot(to.x - from.x, to.y - from.y);
+  const perpendicularExtent = distance * curvature;
+
+  const minY = Math.min(from.y, to.y) - perpendicularExtent;
+  const maxY = Math.max(from.y, to.y) + perpendicularExtent;
+
+  const topOverflow = -minY + CURVE_VIEWPORT_MARGIN;
+  const bottomOverflow = maxY + CURVE_VIEWPORT_MARGIN - viewport.height;
+
+  // Positive return → scroll page DOWN (elements move UP in viewport).
+  // Negative return → scroll page UP (elements move DOWN in viewport).
+  if (bottomOverflow > 0 && bottomOverflow >= topOverflow) return bottomOverflow;
+  if (topOverflow > 0) return -topOverflow;
+  return 0;
 }
 
 /** Type guard for raw `Point` targets — distinguishes them from Locator/string. */
