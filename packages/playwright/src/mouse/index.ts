@@ -550,6 +550,20 @@ function isBoxCenterInViewport(
 }
 
 /**
+ * Reads the page's current vertical scroll position. Used in `executeDrag`
+ * to detect auto-scroll that happened during endpoint resolution and
+ * mirror it onto raw `Point` endpoints (preserving the drag's geometry).
+ *
+ * Defensive against test mocks that don't implement `page.evaluate`
+ * (returns `0`, matching "no scroll happened"). Real Playwright `Page`
+ * always has `evaluate`.
+ */
+async function readScrollY(page: Page): Promise<number> {
+  if (typeof page.evaluate !== 'function') return 0;
+  return page.evaluate(() => window.scrollY);
+}
+
+/**
  * Safety margin (in CSS pixels) between the predicted drag-curve bounds
  * and the viewport edge. Small enough that the pre-scroll stays close to
  * "the minimum needed," large enough that micro-jitter or rounding doesn't
@@ -579,20 +593,6 @@ const CURVE_VIEWPORT_MARGIN = 20;
  * partial fix — there's no scroll position that fully contains a curve
  * bigger than the viewport.
  */
-/**
- * Reads the page's current vertical scroll position. Used in `executeDrag`
- * to detect auto-scroll that happened during endpoint resolution and
- * mirror it onto raw `Point` endpoints (preserving the drag's geometry).
- *
- * Defensive against test mocks that don't implement `page.evaluate`
- * (returns `0`, matching "no scroll happened"). Real Playwright `Page`
- * always has `evaluate`.
- */
-async function readScrollY(page: Page): Promise<number> {
-  if (typeof page.evaluate !== 'function') return 0;
-  return page.evaluate(() => window.scrollY);
-}
-
 function computeCurveScrollDelta(
   from: Point,
   to: Point,

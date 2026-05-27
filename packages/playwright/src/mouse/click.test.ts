@@ -45,6 +45,12 @@ function makeMockPage(locatorOverride?: MockLocator): {
   const page = {
     goto: vi.fn().mockResolvedValue(null),
     locator: vi.fn(() => locator),
+    // Default `evaluate` returns 0 — enough to satisfy `readScrollY`'s
+    // `window.scrollY` read in tests that don't model scroll state. Tests
+    // that exercise `executeScroll` paths (which evaluates document
+    // geometry instead) construct their own page mock with a richer
+    // `evaluate` stub.
+    evaluate: vi.fn().mockResolvedValue(0),
     mouse: {
       move: mouseMove,
       click: mouseClick,
@@ -686,6 +692,83 @@ describe('human.click', () => {
       await human.drag('source', 'target');
 
       expect(mouseWheel).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('drag: resolve-time raw-Point shift', () => {
+    // The slider case: caller drags an element thumb to a raw `Point`
+    // computed from the thumb's current y. When the library's auto-scroll
+    // pulls the off-viewport thumb into view, the raw Point must shift by
+    // the same delta so the drag's geometric relationship survives the
+    // scroll — otherwise the cursor walks to a now-stale viewport-y and
+    // triggers Chrome's edge-scroll-during-drag.
+
+    it('shifts a raw Point `to` by the resolve-time auto-scroll delta', async () => {
+      // Stateful mock: scrollY starts at 0, increments whenever wheel
+      // fires. The locator returns a box below the fold while scrollY is
+      // 0, then a centered box once any scroll has happened — modeling
+      // `readBoxWithAutoScroll`'s effect on a previously off-viewport
+      // element.
+      let scrollY = 0;
+      const offViewBox: MockBoundingBox = { x: 50, y: 900, width: 100, height: 30 };
+      const inViewBox: MockBoundingBox = { x: 50, y: 350, width: 100, height: 30 };
+      const locator: MockLocator = {
+        boundingBox: vi.fn(() => Promise.resolve(scrollY > 0 ? inViewBox : offViewBox)),
+        click: vi.fn().mockResolvedValue(undefined),
+        scrollIntoViewIfNeeded: vi.fn().mockResolvedValue(undefined),
+      };
+      const moveCalls: Array<{ x: number; y: number }> = [];
+      const page = {
+        goto: vi.fn().mockResolvedValue(null),
+        locator: vi.fn(() => locator),
+        // Dispatch by function source: `executeScroll`'s geometry read
+        // mentions `documentElement` (for `scrollHeight`); all other
+        // `evaluate` calls in this drag path just read `window.scrollY`.
+        evaluate: vi.fn((fn: () => unknown) => {
+          if (fn.toString().includes('documentElement')) {
+            return Promise.resolve({ current: scrollY, viewport: 720, total: 2000 });
+          }
+          return Promise.resolve(scrollY);
+        }),
+        mouse: {
+          move: vi.fn((x: number, y: number) => {
+            moveCalls.push({ x, y });
+            return Promise.resolve();
+          }),
+          click: vi.fn().mockResolvedValue(undefined),
+          wheel: vi.fn((_dx: number, dy: number) => {
+            scrollY += dy;
+            return Promise.resolve();
+          }),
+          down: vi.fn().mockResolvedValue(undefined),
+          up: vi.fn().mockResolvedValue(undefined),
+        },
+        viewportSize: () => ({ width: 1280, height: 720 }),
+      } as unknown as Page;
+
+      const human = await createHuman(page, {
+        speed: 'fast',
+        seed: 'resolve-time-shift',
+        personality: { extends: 'careful', mouse: { misclickProbability: 0 } },
+      });
+
+      // Caller-computed Point at the thumb's *pre-scroll* y — same shape
+      // as `human.drag('#slider-thumb', { x, y: thumb.y + thumb.height/2 })`
+      // in real code.
+      const originalTargetY = 915;
+      await human.drag('source', { x: 800, y: originalTargetY });
+
+      // Auto-scroll fired during the element resolve.
+      expect(scrollY).toBeGreaterThan(0);
+
+      // The final cursor position (last `mouse.move` before `mouse.up`)
+      // sits at `originalTargetY - scrollY`, not at the original Point.
+      // That's the resolve-time shift: the raw `to` followed the page
+      // scroll, keeping the drag horizontal relative to the now-centered
+      // thumb.
+      const finalMove = moveCalls.at(-1);
+      expect(finalMove).toBeDefined();
+      expect(finalMove?.y).toBe(originalTargetY - scrollY);
     });
   });
 });
