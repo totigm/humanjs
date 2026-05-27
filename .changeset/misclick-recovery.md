@@ -7,7 +7,7 @@ Wires up the long-declared `personality.mouse.misclickProbability` knob: actions
 
 The behavior change is in `@humanjs/playwright`. The `@humanjs/core` patch is a JSDoc update on `MouseProfile.misclickProbability` reflecting the now-wired semantics — no API or runtime changes in core.
 
-When the probability fires for `click`, `rightClick`, or either endpoint of `drag` (grab and drop roll independently):
+When the probability fires for `click`, `rightClick`, either endpoint of `drag` (grab and drop roll independently), or the implicit focus-acquiring click inside `type` / `paste`:
 
 1. Cursor walks via Bezier path to a near-miss point — 5–15 px outside an edge of the bounding box (element-bound targets) or 5–15 px from the target coordinate in a random direction (raw-`Point` targets, for canvas/SVG drags).
 2. Brief "oh, I missed" dwell (scaled by personality — same shape as the pre-click settle beat).

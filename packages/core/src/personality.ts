@@ -40,9 +40,11 @@ export interface MouseProfile {
   readonly overshootProbability: number;
   /**
    * Probability per click-shaped action of producing the visible "near-miss"
-   * cursor wobble (0..1). Applies to `click`, `rightClick`, and both
-   * endpoints of `drag` (grab and drop — each rolls independently, so a
-   * single drag may near-miss either, both, or neither). When it fires,
+   * cursor wobble (0..1). Applies to `click`, `rightClick`, both endpoints
+   * of `drag` (grab and drop — each rolls independently, so a single drag
+   * may near-miss either, both, or neither), and the implicit focus-
+   * acquiring click inside `type` / `paste` (the keystrokes themselves are
+   * unaffected). When it fires,
    * the cursor walks to a point just outside the target — outside its
    * bounding box for element-bound targets, or 5–15 px away in a random
    * direction for raw-`Point` targets (canvas/SVG drags) — dwells briefly
