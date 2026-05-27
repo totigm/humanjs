@@ -610,13 +610,15 @@ describe('human.click', () => {
           scrollIntoViewIfNeeded: vi.fn().mockResolvedValue(undefined),
         };
       };
+      // Selector-keyed dispatch lets us pass plain selector strings to
+      // `human.drag` without any `as unknown as Locator` cast.
       const fromLocator = makeLowLocator(40); // box [40, 600, 100, 30] → center (90, 615)
       const toLocator = makeLowLocator(740); // box [740, 600, 100, 30] → center (790, 615)
 
       const wheelCalls: Array<{ dx: number; dy: number }> = [];
       const page = {
         goto: vi.fn().mockResolvedValue(null),
-        locator: vi.fn(() => fromLocator), // unused; we pass Locators directly
+        locator: vi.fn((selector: string) => (selector === 'source' ? fromLocator : toLocator)),
         evaluate: vi.fn().mockResolvedValue({ current: 0, viewport: 720, total: 2000 }),
         mouse: {
           move: vi.fn().mockResolvedValue(undefined),
@@ -637,10 +639,7 @@ describe('human.click', () => {
         seed: 'curve-aware-drag',
         personality: { extends: 'careful', mouse: { misclickProbability: 0 } },
       });
-      // Pass Locators directly — page.locator() in mocks returns one
-      // shared instance so 'source' / 'target' selectors would collapse
-      // to the same box and the drag's effective distance would be ~0.
-      await human.drag(fromLocator as unknown as Locator, toLocator as unknown as Locator);
+      await human.drag('source', 'target');
 
       // Pre-scroll happened (wheel events were dispatched before the drag).
       expect(wheelCalls.length).toBeGreaterThan(0);

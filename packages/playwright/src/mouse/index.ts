@@ -217,13 +217,25 @@ export async function executeDrag(
   // the right shape for cross-viewport drags: a real user scrolls to grab,
   // then scrolls again to drop, rather than dragging through invisible space.
   //
-  // For both endpoints we also capture the box (if any) so the misclick
-  // beats below can pick a near-miss "outside the box" for element-bound
-  // targets, or "around the point" for raw-coordinate targets (canvas/SVG).
-  // `let` because the curve-aware viewport check below may scroll the page,
-  // shifting element-bound endpoints in viewport coordinates.
+  // We bracket the resolves with `scrollY` reads to detect any auto-scroll
+  // that happened for an element-bound endpoint, then shift raw `Point`
+  // endpoints by the same delta. That preserves the *visual relationship*
+  // a raw Point has to the view at the time of call — callers typically
+  // compute raw Points from element positions they see right now, so when
+  // the page scrolls during resolution, the Point should follow. Otherwise
+  // a horizontal slider drag ('#thumb' → { x, y }) silently becomes
+  // diagonal as soon as the thumb auto-scrolls and the raw Point stays put.
+  //
+  // `let` because both endpoints may shift during the curve-aware check
+  // below.
+  const scrollYBeforeResolve = await readScrollY(ctx.page);
   let { point: fromPoint, box: fromBox } = await resolveTargetPointAndBox(from, ctx, 'drag');
   let { point: toPoint, box: toBox } = await resolveTargetPointAndBox(to, ctx, 'drag');
+  const resolveScrollDelta = (await readScrollY(ctx.page)) - scrollYBeforeResolve;
+  if (resolveScrollDelta !== 0) {
+    if (isPoint(from)) fromPoint = { x: fromPoint.x, y: fromPoint.y - resolveScrollDelta };
+    if (isPoint(to)) toPoint = { x: toPoint.x, y: toPoint.y - resolveScrollDelta };
+  }
 
   if (ctx.speed === 'instant') {
     await ctx.page.mouse.move(fromPoint.x, fromPoint.y);
@@ -242,12 +254,12 @@ export async function executeDrag(
   // edge-scroll-during-drag behavior and walks the page wildly.
   //
   // Pre-scroll just enough plus a small margin so the worst-case curve
-  // bounding box fits. Only applies when both endpoints are element-bound,
-  // so both shift together with the page scroll and the drag's relative
-  // geometry is preserved. For raw `Point` endpoints, scrolling would
-  // shift the element relative to the caller's explicit coordinate — we
-  // leave that case to the caller (see `examples/primitives-demo.ts` for
-  // the explicit-scroll pattern).
+  // fits. Only applies when both endpoints are element-bound: a page
+  // scroll moves both together and preserves their relative geometry.
+  // For mixed endpoints, the resolve-time scroll above already shifted
+  // any raw Point by the auto-scroll delta — if a curve still wouldn't
+  // fit after that, scrolling more would chase its own tail (each scroll
+  // shifts the raw Point but lengthens the drag), so we don't.
   if (fromBox && toBox) {
     const scrollDelta = computeCurveScrollDelta(
       fromPoint,
@@ -257,9 +269,6 @@ export async function executeDrag(
     );
     if (scrollDelta !== 0) {
       await executeScroll({ by: scrollDelta }, ctx, {});
-      // Both endpoints moved by `scrollDelta` in viewport-y; re-resolve to
-      // pick up the new positions. Raw Points are excluded by the guard
-      // above, so re-resolving is safe (won't shift caller coordinates).
       const refreshedFrom = await resolveTargetPointAndBox(from, ctx, 'drag');
       fromPoint = refreshedFrom.point;
       fromBox = refreshedFrom.box;
@@ -570,6 +579,20 @@ const CURVE_VIEWPORT_MARGIN = 20;
  * partial fix — there's no scroll position that fully contains a curve
  * bigger than the viewport.
  */
+/**
+ * Reads the page's current vertical scroll position. Used in `executeDrag`
+ * to detect auto-scroll that happened during endpoint resolution and
+ * mirror it onto raw `Point` endpoints (preserving the drag's geometry).
+ *
+ * Defensive against test mocks that don't implement `page.evaluate`
+ * (returns `0`, matching "no scroll happened"). Real Playwright `Page`
+ * always has `evaluate`.
+ */
+async function readScrollY(page: Page): Promise<number> {
+  if (typeof page.evaluate !== 'function') return 0;
+  return page.evaluate(() => window.scrollY);
+}
+
 function computeCurveScrollDelta(
   from: Point,
   to: Point,

@@ -2,31 +2,36 @@
 "@humanjs/playwright": patch
 ---
 
-`drag` now pre-scrolls the page when the Bezier curve between the two endpoints would extrude past a viewport edge — fixing the case where Chrome's native edge-scroll-during-drag behavior walks the page wildly when the cursor approaches a viewport edge with the mouse button held.
+`drag` is more robust against Chrome's native edge-scroll-during-drag behavior, fixing two related cases where the page would scroll wildly mid-drag.
 
-## The problem
+## What's fixed
 
-`human.drag(from, to)` walks a humanized Bezier curve between the endpoints with the button held. The curve's control points are perpendicular-offset by up to `distance × curvature`, so even when both endpoints are individually inside the viewport, the curve between them can pop out — and Chrome interprets that as "user dragging toward the edge, scroll to follow" and walks the page hundreds of pixels.
+**1. Mixed-endpoint drags now stay geometrically consistent across auto-scroll.** When a drag is from an element to a raw `Point` (`human.drag('#slider-thumb', { x, y })`) and the element auto-scrolls into view, the raw `Point` now shifts by the same scroll delta. This preserves the "same visual position" relationship the caller intended — callers usually compute raw Points from element positions they see right now, so when the page scrolls during resolution, the Point should follow. Otherwise a horizontal slider drag silently becomes diagonal as soon as the thumb auto-scrolls and the raw Point stays put — and the cursor walking off-viewport then triggers native edge-scroll.
 
-Symptom: dragging a horizontal slider near the viewport bottom would scroll the whole page to the bottom mid-drag, leaving the user (or test) confused about what just happened.
+**2. Element×element drags pre-scroll when the Bezier curve would extrude.** Both endpoints might be individually in-viewport (so per-endpoint auto-scroll didn't fire), yet the curve between them — control points perpendicular-offset by up to `distance × curvature` — can pop out while the mouse button is held. The library now computes a conservative bounding box for the path (the from→to line inflated by `distance × curvature` on each side) and, if it exceeds the viewport, pre-scrolls just enough plus a 20 px safety margin to bring it back inside.
 
-## The fix
+## How it composes
 
-Before the drag begins, the library computes a conservative bounding box for the path (the from→to line inflated by `distance × curvature` on each side). If that box exceeds the viewport vertically, the library scrolls the page **just enough** to bring it back inside, plus a 20 px safety margin. After the scroll both endpoints are re-resolved (they shifted with the page) and the drag proceeds with normal humanized motion.
+The resolve-time shift runs first (any auto-scroll from `readBoxWithAutoScroll` shifts raw Points by its delta). Then the curve-aware check runs for element×element drags. In practice these two cover the realistic cases:
 
-The scroll itself is humanized (`block: 'center'`-style behavior is not used here — we use the existing humanized scroll-by-delta path), so the page motion looks like a real user shifting the view to make room before the drag.
+| Drag shape | Behavior |
+|---|---|
+| element → element | Resolve-time auto-scroll if either is off-viewport, plus curve-aware pre-scroll if the curve still wouldn't fit |
+| element → raw Point | Resolve-time auto-scroll for the element brings it in view; raw Point shifts by the scroll delta; drag stays geometrically consistent |
+| raw Point → element | Symmetric |
+| raw Point → raw Point | No auto-scroll (caller owns both coordinates) — the curve-aware check doesn't fire either, because any additional scroll would shift both points further and chase its own tail |
 
-## Scope: element × element only
+## Examples
 
-The curve-aware pre-scroll only fires when **both** endpoints are element-bound (`Locator` / selector). For raw-`Point` endpoints (e.g. `human.drag('#thumb', { x: 800, y: 450 })`), the caller specified an explicit viewport coordinate — scrolling the page would shift the element endpoint relative to that coordinate and turn the drag diagonal. The library defers to the caller in that case; the canonical pattern for mixed endpoints is to scroll explicitly before the drag (see `examples/primitives-demo.ts` step 4 for the canvas/SVG-style slider drag).
+**The slider case** (the motivating example): `human.drag('#slider-thumb', { x: 800, y: thumb.y + 11 })` where the thumb is below the viewport now works without an explicit pre-scroll. The thumb auto-scrolls into the viewport center, the raw Point's y shifts by the same delta to stay aligned with the (now-centered) thumb, and the drag walks horizontally as the caller intended.
+
+**Element×element near an edge**: dragging a card from a slot near the viewport bottom to another nearby slot now pre-scrolls before mousedown when the path would dip out of viewport. Previously this triggered edge-scroll mid-drag and walked the page hundreds of pixels.
 
 ## Determinism
 
-The scroll fires deterministically based on the resolved endpoint coordinates, the personality's curvature, and the viewport size — same seed produces the same scroll decision. After the scroll, the endpoint re-resolution consumes additional RNG values (one extra Gaussian per element-bound endpoint), so seeded sessions that previously triggered no scroll and now do will see different downstream cursor coordinates. Action outcomes (mousedown / mouseup positions, target elements) are unchanged.
+The scroll fires deterministically based on resolved endpoint coordinates, personality curvature, and viewport size — same seed produces the same scroll decision. After the scroll, element endpoints are re-resolved (one extra Gaussian per element-bound endpoint) and raw Points are arithmetically adjusted (no extra RNG). Seeded sessions that previously triggered no scroll and now do will see different downstream cursor coordinates; action outcomes (mousedown / mouseup positions, target elements) are unchanged.
 
 ## Skipped automatically
 
-- One or both endpoints is a raw `Point` (deferred to caller, see above).
-- `speed: 'instant'` (the whole humanized drag path is bypassed).
-- The drag's conservative bounding box already fits in the viewport with margin to spare.
-- The path is taller than the viewport (no scroll position can fit it; the library picks the worst overflow and lives with the partial fix).
+- `speed: 'instant'` (whole humanized drag path is bypassed).
+- Both endpoints raw `Point` with curve overflow — there's no scroll position that helps, since shifting both points by the scroll delta just lengthens the drag in the new viewport.
