@@ -1,8 +1,11 @@
 ---
 "@humanjs/playwright": minor
+"@humanjs/core": patch
 ---
 
 Wires up the long-declared `personality.mouse.misclickProbability` knob: actions that commit on a mouse press now occasionally produce a visible "near-miss" wobble before landing on the target.
+
+The behavior change is in `@humanjs/playwright`. The `@humanjs/core` patch is a JSDoc update on `MouseProfile.misclickProbability` reflecting the now-wired semantics — no API or runtime changes in core.
 
 When the probability fires for `click`, `rightClick`, or the `from` endpoint of `drag`:
 
