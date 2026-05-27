@@ -67,6 +67,8 @@ The full `Human` surface, at a glance. Each one fires real DOM events through Pl
 
 Targets accept a CSS selector string or a Playwright `Locator`. `move` and `drag` additionally accept raw `Point` coordinates. Auto-scroll fires for any element-bound primitive when the target is outside the viewport — humanized scroll in normal speed modes, `scrollIntoViewIfNeeded` in `'instant'`.
 
+Near-miss (cursor wobble before committing — see `personality.mouse.misclickProbability`) applies only to the primitives that commit a button event at the resolved coordinates: `click`, `rightClick`, and both `drag` endpoints. `hover`, `move`, `type`, `paste`, `press`, `read`, and `scroll` never misclick, by design — a wobble would trigger handlers on the wrong element for `hover`, and would contradict the explicit-coordinate contract for `move`. The misclick is also skipped when the cursor is already on the target (no approach means no overshoot).
+
 ### Keyboard
 
 ```ts
