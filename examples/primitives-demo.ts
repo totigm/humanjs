@@ -583,14 +583,19 @@ const DEMO_HTML = /* html */ `
       });
       window.addEventListener('mouseup', () => { sliderDragging = false; });
 
-      // --- 6. press --- Mod+S handler flashes the save indicator
+      // --- 6. press --- Mod+S handler flashes the save indicator AND
+      // surfaces the exact chord that fired so a viewer watching the demo
+      // sees "saved ✓ via ⌘S" (Mac) or "saved ✓ via Ctrl+S" (other) —
+      // makes it visually obvious that the cross-platform Mod token
+      // resolved to the right keycode for the platform.
       const saveIndicator = document.getElementById('save-indicator');
       window.addEventListener('keydown', (e) => {
         const isSaveCombo = (e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S');
         if (isSaveCombo) {
           e.preventDefault();
+          const chord = e.metaKey ? '⌘S' : 'Ctrl+S';
           saveIndicator.classList.add('saved');
-          saveIndicator.textContent = 'saved ✓';
+          saveIndicator.textContent = 'saved ✓  via ' + chord;
           setTimeout(() => {
             saveIndicator.classList.remove('saved');
             saveIndicator.textContent = 'unsaved';
@@ -659,11 +664,29 @@ async function main() {
     await human.sleep(1500);
 
     // 4. Drag — card from one slot to another, then a slider drag using a
-    // Point coordinate to demo the Point variant.
+    // Point coordinate to demo the Point variant. The slider's target Y
+    // tracks the thumb's actual position (not a hardcoded coordinate) so
+    // the drag lands on the track instead of floating above it across
+    // different viewport sizes.
     console.log('4. drag → card to slot, then slider thumb to point');
     await human.drag('#drag-card', '#slot-to');
     await human.sleep(900);
-    await human.drag('#slider-thumb', { x: 800, y: 685 });
+    // Center the slider section in the viewport before the drag — without
+    // this, the slider sits near the viewport bottom edge, and the
+    // horizontal Bezier curve from thumb to target can dip below y =
+    // viewportHeight with the mouse held. At that point Chrome engages
+    // its native edge-scroll-during-drag behavior and walks the page all
+    // the way down. Centering the slider gives the curve ~450px of
+    // headroom in both directions.
+    await human.scroll('.slider-row', { block: 'center' });
+    await human.sleep(300);
+    const thumbBox = await page.locator('#slider-thumb').boundingBox();
+    const trackBox = await page.locator('.slider-track').boundingBox();
+    if (thumbBox && trackBox) {
+      const targetX = trackBox.x + trackBox.width * 0.85;
+      const targetY = thumbBox.y + thumbBox.height / 2;
+      await human.drag('#slider-thumb', { x: targetX, y: targetY });
+    }
     await human.sleep(900);
 
     // 5. Type — realistic per-key rhythm into the input. `human.type()` also
