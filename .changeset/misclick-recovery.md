@@ -24,7 +24,8 @@ Drag-over events (`dragover`, `dragenter`, `dragleave`) fire on whatever the cur
 - `human.drag('#card', '#slot')` may near-miss the grab, the drop, both, or neither — each endpoint rolls independently. `mousedown` still fires at the resolved `from`; `mouseup` still fires at the resolved `to`.
 - Raw-`Point` drag endpoints (`human.drag({ x, y }, ...)`) also misclick — the near-miss is picked 5–15 px from the coordinate in a random direction.
 - Action duration is slightly longer when the misclick fires (one extra Bezier walk + a short dwell per fired endpoint).
-- `hover`, `move`, `type`, `paste`, `read`, `scroll`, `press` are unchanged.
+- `hover`, `move`, `read`, `scroll`, `press` are unchanged.
+- `type` and `paste` keep their typing / insertion behavior exactly. Their implicit focus-acquiring click goes through the normal `click` path, so it can now occasionally near-miss like a bare `human.click` does — but the keystrokes themselves and the resolved focus target are unaffected.
 
 This is process humanization: how the click / grab / drop happened differs, not what got clicked or where it landed. Personality controls the *rate* of near-misses (precise: 0.001, careful: 0.01, fast: 0.005, distracted: 0.05); the per-action behavior is the same shape across all personalities. Drag's effective miss rate is ~2× the per-roll value because both endpoints roll independently — realistic, since drag is two cognitive moments (grab and drop).
 
