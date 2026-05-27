@@ -196,7 +196,11 @@ export async function executeDrag(
   // destination is also off-viewport, this triggers a second scroll. That's
   // the right shape for cross-viewport drags: a real user scrolls to grab,
   // then scrolls again to drop, rather than dragging through invisible space.
-  const fromPoint = await resolveTargetPoint(from, ctx, 'drag');
+  //
+  // For `from` we also capture the box (if any) so the misclick beat below
+  // can pick a near-miss "outside the box" for element-bound grabs, or
+  // "around the point" for raw-coordinate grabs (canvas/SVG).
+  const { point: fromPoint, box: fromBox } = await resolveTargetPointAndBox(from, ctx, 'drag');
   const toPoint = await resolveTargetPoint(to, ctx, 'drag');
 
   if (ctx.speed === 'instant') {
@@ -208,11 +212,18 @@ export async function executeDrag(
     return { from: fromPoint, to: toPoint };
   }
 
-  // 1. Move to the start of the drag.
+  // 1. Maybe near-miss the grab — same shape as click's misclick beat.
+  // `from` commits an action (mousedown), so the misclick principle applies.
+  // The `to` endpoint does NOT misclick — there's no "almost commit then
+  // notice" moment for a drop; mouseup is the single commit, and any
+  // wobble before it just reads as drag-motion noise.
+  await maybeMisclickBeat(ctx, fromBox, fromPoint);
+
+  // 2. Move to the start of the drag.
   await walkBezierTo(fromPoint, ctx);
   ctx.setMousePosition(fromPoint);
 
-  // 2. Press down. Beat between settling on the source and starting to drag
+  // 3. Press down. Beat between settling on the source and starting to drag
   // — real users don't grab the same frame they arrive.
   const preDragMs = computeDwellTime(
     ctx.personality.dwell.preClickMs,
@@ -224,7 +235,7 @@ export async function executeDrag(
   if (preDragMs > 0) await sleep(preDragMs);
   await ctx.page.mouse.down();
 
-  // 3. Walk to the destination with the button still held. Generate a fresh
+  // 4. Walk to the destination with the button still held. Generate a fresh
   // humanized path so the drag motion has its own curve + jitter shape.
   const rawPath = bezierPath(fromPoint, toPoint, ctx.rng, {
     curvature: ctx.personality.mouse.curvature,
@@ -233,7 +244,7 @@ export async function executeDrag(
   const travelMs = computeTravelTime(path, ctx.personality, ctx.speed, ctx.rng);
   await walkMouseAlongPath(ctx.page, path, travelMs);
 
-  // 4. Release. Post-action dwell so the next action doesn't fire in the
+  // 5. Release. Post-action dwell so the next action doesn't fire in the
   // same frame as the drop.
   await ctx.page.mouse.up();
   ctx.setMousePosition(toPoint);
@@ -311,28 +322,8 @@ async function moveToTarget(
   const box = await readBoxWithAutoScroll(target, ctx, action);
   const targetPoint = pickClickPoint(box, ctx.rng, ctx.personality.mouse.clickSpread);
 
-  if (action === 'click' && ctx.rng.chance(ctx.personality.mouse.misclickProbability)) {
-    const misclickPoint = pickMisclickPoint(box, ctx.rng, ctx.page.viewportSize());
-    // `null` means clamping pulled the candidate back onto the target (target
-    // is at the viewport edge) — skip the misclick this round rather than
-    // produce a meaningless "near-miss" that lands on the target anyway.
-    if (misclickPoint !== null) {
-      await walkBezierTo(misclickPoint, ctx);
-      ctx.setMousePosition(misclickPoint);
-
-      // "Realize the miss" dwell — same shape as the pre-click settle beat.
-      // A real user notices the cursor is wrong before committing the click;
-      // this is the moment between near-miss and correction.
-      const realizeMs = computeDwellTime(
-        ctx.personality.dwell.preClickMs,
-        ctx.personality.dwell.preClickJitter,
-        ctx.personality,
-        ctx.speed,
-        ctx.rng,
-      );
-      if (realizeMs > 0) await sleep(realizeMs);
-    }
-  }
+  // Click commits an action; hover doesn't. Only click gets the misclick beat.
+  if (action === 'click') await maybeMisclickBeat(ctx, box, targetPoint);
 
   await walkBezierTo(targetPoint, ctx);
   return targetPoint;
@@ -368,6 +359,24 @@ async function resolveTargetPoint(
 ): Promise<Point> {
   if (isPoint(target)) return target;
   return resolveLocatorPoint(target, ctx, action);
+}
+
+/**
+ * Same as {@link resolveTargetPoint} but also returns the bounding box
+ * when the target is element-bound. Raw `Point` targets get `box: null` —
+ * there's no element, just a coordinate. Used by `executeDrag` so the
+ * misclick beat can pick a "near-miss outside the box" for element-bound
+ * grabs and a "near-miss around the point" for raw-coordinate grabs.
+ */
+async function resolveTargetPointAndBox(
+  target: MouseTarget,
+  ctx: MouseContext,
+  action: 'drag',
+): Promise<{ point: Point; box: BoundingBox | null }> {
+  if (isPoint(target)) return { point: target, box: null };
+  const box = await readBoxWithAutoScroll(target, ctx, action);
+  const point = pickClickPoint(box, ctx.rng, ctx.personality.mouse.clickSpread);
+  return { point, box };
 }
 
 /**
@@ -494,6 +503,55 @@ const MISCLICK_OFFSET_MIN = 5;
 const MISCLICK_OFFSET_MAX = 15;
 
 /**
+ * Performs the "near-miss" beat shared by `click` and `drag`'s `from`
+ * endpoint: with probability `personality.mouse.misclickProbability`, walks
+ * the cursor to a point just outside (or near, for raw-Point targets) the
+ * commit point, dwells briefly, then returns. The caller continues from
+ * wherever the cursor lands — usually with its own walk to the real point.
+ *
+ * No click is dispatched at the off-target coordinates. The misclick is
+ * visible cursor motion only.
+ *
+ * Two flavors:
+ *  - `box` non-null: pick a point just outside one of the four edges.
+ *    Used for element-bound targets where "outside the box" has obvious
+ *    geometry.
+ *  - `box` null: pick a point 5–15 px from the target Point in a random
+ *    direction. Used for raw-Point targets (canvas/SVG drags), where there
+ *    is no box but the action still commits at a specific coordinate.
+ *
+ * Skipped (no beat) when the resulting near-miss would have to be clamped
+ * back onto the target — better to commit cleanly than fake a degenerate
+ * "miss" that lands on the target anyway.
+ */
+async function maybeMisclickBeat(
+  ctx: MouseContext,
+  box: BoundingBox | null,
+  targetPoint: Point,
+): Promise<void> {
+  if (!ctx.rng.chance(ctx.personality.mouse.misclickProbability)) return;
+
+  const viewport = ctx.page.viewportSize();
+  const misclickPoint = box
+    ? pickMisclickOutsideBox(box, ctx.rng, viewport)
+    : pickMisclickAroundPoint(targetPoint, ctx.rng, viewport);
+
+  if (misclickPoint === null) return;
+
+  await walkBezierTo(misclickPoint, ctx);
+  ctx.setMousePosition(misclickPoint);
+
+  const realizeMs = computeDwellTime(
+    ctx.personality.dwell.preClickMs,
+    ctx.personality.dwell.preClickJitter,
+    ctx.personality,
+    ctx.speed,
+    ctx.rng,
+  );
+  if (realizeMs > 0) await sleep(realizeMs);
+}
+
+/**
  * Picks a point just outside the target's bounding box — the "near-miss"
  * coordinates the cursor visits before correcting to the real click point.
  *
@@ -508,13 +566,8 @@ const MISCLICK_OFFSET_MAX = 15;
  *  5. If clamping pulled the point back inside the target's box (target sits
  *     at the viewport edge), return `null` — the caller skips the misclick
  *     this round rather than produce a "near-miss" that lands on the target.
- *
- * Crucially, this function returns a *coordinate*; the caller never fires a
- * click event there. The misclick is visible cursor motion only — no risk
- * of triggering handlers on ancestors / siblings, which is why we don't
- * need an `elementFromPoint` safety check.
  */
-function pickMisclickPoint(
+function pickMisclickOutsideBox(
   box: BoundingBox,
   rng: Rng,
   viewport: { readonly width: number; readonly height: number } | null,
@@ -548,6 +601,44 @@ function pickMisclickPoint(
   // impossible at the viewport edge; skip it rather than fake one.
   const insideBox = x >= box.x && x <= box.x + box.width && y >= box.y && y <= box.y + box.height;
   if (insideBox) return null;
+
+  return { x, y };
+}
+
+/**
+ * Picks a point near (but not on) a raw target coordinate — the no-box
+ * analog of {@link pickMisclickOutsideBox}, used for `drag`'s raw-`Point`
+ * `from` endpoint (canvas / SVG / pixel-precise targets).
+ *
+ * Process:
+ *  1. Pick a random direction (angle in radians).
+ *  2. Pick a distance (5–15 px), same range as the box case.
+ *  3. Clamp to the viewport.
+ *  4. If clamping pulled the candidate exactly onto the target (target
+ *     pinned to the viewport corner with no usable direction), return
+ *     `null` so the caller skips the misclick rather than fake one.
+ *
+ * The target is treated as a zero-sized box: any non-zero offset puts the
+ * misclick "outside," which is the right semantic for a pixel-precise
+ * action committing at the exact coordinate.
+ */
+function pickMisclickAroundPoint(
+  target: Point,
+  rng: Rng,
+  viewport: { readonly width: number; readonly height: number } | null,
+): Point | null {
+  const angle = rng.nextFloat(0, Math.PI * 2);
+  const distance = rng.nextFloat(MISCLICK_OFFSET_MIN, MISCLICK_OFFSET_MAX);
+
+  let x = target.x + Math.cos(angle) * distance;
+  let y = target.y + Math.sin(angle) * distance;
+
+  if (viewport) {
+    x = clamp(x, 0, viewport.width - 1);
+    y = clamp(y, 0, viewport.height - 1);
+  }
+
+  if (x === target.x && y === target.y) return null;
 
   return { x, y };
 }

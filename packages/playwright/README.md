@@ -54,9 +54,9 @@ The full `Human` surface, at a glance. Each one fires real DOM events through Pl
 | `goto(url)` | Navigate the page. |
 | `click(target)` | Bezier path → pre-click hover dwell → click. Occasionally near-misses (cursor wobble outside the target, then corrects) per `personality.mouse.misclickProbability`. |
 | `rightClick(target)` | Same as `click` but with `button: 'right'`. Fires `contextmenu`. Same near-miss behavior. |
+| `drag(from, to)` | Two-phase Bezier (to start → mouse down → curve to end → mouse up). Both endpoints accept `Locator \| string \| Point` — `Point` is essential for canvas / SVG / slider drags. Occasionally near-misses the **grab** (same shape as `click` — no near-miss on the drop). |
 | `hover(target)` | Walk to the element and settle. No click. Hover-state UI (tooltips, dropdowns) fires. |
 | `move(target)` | Walk to a `Locator \| string \| Point`. Pure positional motion. No dwell, no element interaction — use this when you want the cursor parked somewhere with no implied click. |
-| `drag(from, to)` | Two-phase Bezier (to start → mouse down → curve to end → mouse up). Both endpoints accept `Locator \| string \| Point` — `Point` is essential for canvas / SVG / slider drags. |
 | `type(target, value)` | Clicks the field for focus, then per-key rhythm with optional typos + Backspace recovery. |
 | `paste(target, value)` | Clicks the field for focus, then `insertText` — instant insertion, no per-character timing. Cmd-V semantic. |
 | `press(key)` | Single key (`'Tab'`) or chord (`'Mod+S'`). See [Keyboard](#keyboard) below. |

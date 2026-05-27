@@ -39,20 +39,30 @@ export interface MouseProfile {
   /** Probability of overshooting a target and correcting (0..1). */
   readonly overshootProbability: number;
   /**
-   * Probability per click action of producing the visible "near-miss"
-   * cursor wobble (0..1). When it fires, the cursor walks to a point just
-   * outside the target's bounding box, dwells briefly (the "oh, I missed"
-   * beat), then walks to the real click point. **No click is dispatched
-   * at the off-target coordinates** — the misclick is purely visual cursor
-   * motion, so it never triggers handlers on ancestors or siblings.
+   * Probability per click-shaped action of producing the visible "near-miss"
+   * cursor wobble (0..1). Applies to `click`, `rightClick`, and the `from`
+   * endpoint of `drag` (where mousedown commits the grab). When it fires,
+   * the cursor walks to a point just outside the target — outside its
+   * bounding box for element-bound targets, or 5–15 px away in a random
+   * direction for raw-`Point` targets (canvas/SVG drags) — dwells briefly
+   * (the "oh, I missed" beat), then walks to the real point.
    *
-   * This is process humanization, not outcome change: `human.click(target)`
-   * still lands its click on `target`, with `button` and assertions
-   * unchanged. The only differences are the cursor's path (it makes a
-   * brief detour) and the action's total duration (slightly longer).
+   * **No click or mousedown is dispatched at the off-target coordinates** —
+   * the misclick is purely visual cursor motion, so it never triggers
+   * handlers on ancestors or siblings.
+   *
+   * This is process humanization, not outcome change. `human.click(target)`
+   * still lands its click on `target`; `human.drag(from, to)` still
+   * mousedowns at `from` and mouseups at `to`. The only differences are
+   * the cursor's path (it makes a brief detour) and the action's total
+   * duration (slightly longer).
+   *
+   * Does NOT apply to: `hover` (positional, doesn't commit), `move`
+   * (explicit-coordinate positioning), or `drag`'s `to` endpoint (mouseup
+   * is the single commit moment — no "almost dropped" pattern to model).
    *
    * Skipped automatically when the target sits at the viewport edge and
-   * the candidate misclick point would have to land off-screen.
+   * the candidate near-miss point would have to land off-screen.
    */
   readonly misclickProbability: number;
   /**

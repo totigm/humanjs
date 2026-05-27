@@ -480,5 +480,62 @@ describe('human.click', () => {
       const on = await hoverMoves(1);
       expect(off).toBe(on);
     });
+
+    it('drag with element-bound `from` fires the misclick beat before grabbing', async () => {
+      // Element-bound `from` (selector / Locator) routes through
+      // `pickMisclickOutsideBox` for the near-miss point. With prob 1, the
+      // detour should produce substantially more moves than the baseline.
+      async function dragMoves(misclickProbability: number) {
+        const { page, mouseMove } = makeMockPage();
+        const human = await createHuman(page, {
+          personality: { extends: 'careful', mouse: { misclickProbability } },
+          speed: 'fast',
+          seed: 'drag-element-misclick',
+        });
+        await human.drag('source', 'target');
+        return mouseMove.mock.calls.length;
+      }
+
+      const off = await dragMoves(0);
+      const on = await dragMoves(1);
+      expect(on).toBeGreaterThan(off * 1.3);
+    });
+
+    it('drag with raw-Point `from` fires the misclick beat around the point', async () => {
+      // Raw-Point `from` (no element) routes through `pickMisclickAroundPoint`.
+      // Same expected outcome: prob 1 produces more moves than prob 0.
+      async function dragMoves(misclickProbability: number) {
+        const { page, mouseMove } = makeMockPage();
+        const human = await createHuman(page, {
+          personality: { extends: 'careful', mouse: { misclickProbability } },
+          speed: 'fast',
+          seed: 'drag-point-misclick',
+        });
+        await human.drag({ x: 400, y: 300 }, { x: 800, y: 500 });
+        return mouseMove.mock.calls.length;
+      }
+
+      const off = await dragMoves(0);
+      const on = await dragMoves(1);
+      expect(on).toBeGreaterThan(off * 1.3);
+    });
+
+    it('drag fires exactly one mousedown and one mouseup at the resolved endpoints', async () => {
+      // No matter whether misclick fires, the drag boundaries (mousedown
+      // at `from`, mouseup at `to`) commit exactly once at the resolved
+      // coordinates — the misclick is visual cursor motion only.
+      const { page } = makeMockPage();
+      const mouseDown = page.mouse.down as ReturnType<typeof vi.fn>;
+      const mouseUp = page.mouse.up as ReturnType<typeof vi.fn>;
+      const human = await createHuman(page, {
+        personality: { extends: 'careful', mouse: { misclickProbability: 1 } },
+        speed: 'fast',
+        seed: 'drag-commits-cleanly',
+      });
+      await human.drag('source', 'target');
+
+      expect(mouseDown).toHaveBeenCalledTimes(1);
+      expect(mouseUp).toHaveBeenCalledTimes(1);
+    });
   });
 });
