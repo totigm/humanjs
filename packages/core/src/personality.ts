@@ -38,7 +38,43 @@ export interface MouseProfile {
   readonly travelTimeJitter: number;
   /** Probability of overshooting a target and correcting (0..1). */
   readonly overshootProbability: number;
-  /** Probability of clicking slightly off-target and correcting (0..1). */
+  /**
+   * Probability per click-shaped action of producing the visible "near-miss"
+   * cursor wobble (0..1). Applies to `click`, `rightClick`, and both
+   * endpoints of `drag` (grab and drop — each rolls independently, so a
+   * single drag may near-miss either, both, or neither). When it fires,
+   * the cursor walks to a point just outside the target — outside its
+   * bounding box for element-bound targets, or 5–15 px away in a random
+   * direction for raw-`Point` targets (canvas/SVG drags) — dwells briefly
+   * (the "oh, I missed" beat), then walks to the real point.
+   *
+   * **No click, mousedown, or mouseup is dispatched at the off-target
+   * coordinates** — the misclick is purely visual cursor motion, so it
+   * never triggers handlers on ancestors or siblings. Drag-over events do
+   * fire on whatever the cursor passes during the detour, but `dragover`
+   * is already part of normal drag motion — the misclick just adds a
+   * small extra loop, which reads as exploratory cursor behavior.
+   *
+   * This is process humanization, not outcome change. `human.click(target)`
+   * still lands its click on `target`; `human.drag(from, to)` still
+   * mousedowns at `from` and mouseups at `to`. The only differences are
+   * the cursor's path (it makes a brief detour) and the action's total
+   * duration (slightly longer).
+   *
+   * Does NOT apply to: `hover` (positional, doesn't commit) or `move`
+   * (explicit-coordinate positioning).
+   *
+   * Skipped automatically in two cases:
+   *
+   *  1. **Cursor already on the target.** A real user doesn't aim away
+   *     from a button they're already hovering. If the cursor sits inside
+   *     the target's bounding box (or within a few pixels of a raw-Point
+   *     target) when the action starts, the near-miss beat is suppressed
+   *     — there's no approach to overshoot.
+   *  2. **Target at the viewport edge** with no room for the candidate
+   *     near-miss off-screen — better to commit cleanly than fake a
+   *     "miss" that clamps back onto the target.
+   */
   readonly misclickProbability: number;
   /**
    * Click-point spread inside the target's bounding box, as a fraction of

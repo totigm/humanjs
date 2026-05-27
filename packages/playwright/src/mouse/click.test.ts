@@ -379,4 +379,212 @@ describe('human.click', () => {
       expect(page.mouse.move).toHaveBeenCalledWith(140, 315);
     });
   });
+
+  describe('misclick + recovery', () => {
+    // Default target box: (100, 200, 80, 30). The misclick beat detours via
+    // a point 5-15px outside the box, then back to a Gaussian point inside.
+    // We can't reliably assert "all moves inside box" — the Bezier path
+    // naturally traverses outside-the-box space on the way in from (0, 0).
+    // Instead, compare move counts between misclick-off and misclick-on runs:
+    // the misclick path adds a whole extra Bezier walk, so move count
+    // roughly doubles. That's the robust signal.
+    const insideBox = (x: number, y: number) => x >= 100 && x <= 180 && y >= 200 && y <= 230;
+
+    async function clickAndCountMoves(misclickProbability: number, seed: string) {
+      const { page, mouseMove, mouseClick } = makeMockPage();
+      const human = await createHuman(page, {
+        personality: { extends: 'careful', mouse: { misclickProbability } },
+        speed: 'fast',
+        seed,
+      });
+      await human.click('button');
+      return {
+        moveCount: mouseMove.mock.calls.length,
+        clickCalls: mouseClick.mock.calls as Array<[number, number, { button?: string }?]>,
+      };
+    }
+
+    it('click lands inside the target whether or not misclick fires', async () => {
+      // Same seed, two settings: prob 0 and prob 1. In both cases the click
+      // must land inside the target — the misclick is visual cursor motion
+      // only, never a real click at off-target coordinates.
+      const off = await clickAndCountMoves(0, 'same-seed');
+      const on = await clickAndCountMoves(1, 'same-seed');
+
+      for (const result of [off, on]) {
+        expect(result.clickCalls).toHaveLength(1);
+        const [x, y] = result.clickCalls[0] as [number, number];
+        expect(insideBox(x, y)).toBe(true);
+      }
+    });
+
+    it('misclick path adds a Bezier detour — more mouse.move calls vs no-misclick', async () => {
+      // Robust signal: misclick on adds a whole extra walk-to-then-back leg,
+      // which produces substantially more mouse.move events than the
+      // straight walk. Avoids brittle assertions on specific coordinates.
+      const off = await clickAndCountMoves(0, 'compare-seed');
+      const on = await clickAndCountMoves(1, 'compare-seed');
+
+      // The detour adds roughly a second Bezier path of moves. Conservative
+      // assertion: at least 50% more moves with misclick enabled.
+      expect(on.moveCount).toBeGreaterThan(off.moveCount * 1.5);
+    });
+
+    it('rightClick triggers misclick the same way (still a click action)', async () => {
+      // Helper local to this test so we capture both the move count and
+      // the right-button click args from each run.
+      async function rightClick(misclickProbability: number, seed: string) {
+        const { page, mouseMove, mouseClick } = makeMockPage();
+        const human = await createHuman(page, {
+          personality: { extends: 'careful', mouse: { misclickProbability } },
+          speed: 'fast',
+          seed,
+        });
+        await human.rightClick('button');
+        return {
+          moveCount: mouseMove.mock.calls.length,
+          clickCalls: mouseClick.mock.calls as Array<[number, number, { button?: string }?]>,
+        };
+      }
+
+      const off = await rightClick(0, 'right-misclick');
+      const on = await rightClick(1, 'right-misclick');
+
+      // Click fires once with button: 'right' inside the target box, regardless of misclick.
+      for (const result of [off, on]) {
+        expect(result.clickCalls).toHaveLength(1);
+        const [x, y, opts] = result.clickCalls[0] as [number, number, { button?: string }];
+        expect(opts?.button).toBe('right');
+        expect(insideBox(x, y)).toBe(true);
+      }
+
+      // Misclick on adds a Bezier detour → substantially more mouse.move events.
+      expect(on.moveCount).toBeGreaterThan(off.moveCount * 1.5);
+    });
+
+    it('hover does NOT misclick — same move count at probability 0 or 1', async () => {
+      // Hover takes a non-misclick code path inside moveToTarget, so the
+      // move count must be identical regardless of misclickProbability.
+      async function hoverMoves(misclickProbability: number) {
+        const { page, mouseMove } = makeMockPage();
+        const human = await createHuman(page, {
+          personality: { extends: 'careful', mouse: { misclickProbability } },
+          speed: 'fast',
+          seed: 'hover-seed',
+        });
+        await human.hover('button');
+        return mouseMove.mock.calls.length;
+      }
+
+      const off = await hoverMoves(0);
+      const on = await hoverMoves(1);
+      expect(off).toBe(on);
+    });
+
+    it('drag with element-bound `from` fires the misclick beat before grabbing', async () => {
+      // Element-bound `from` (selector / Locator) routes through
+      // `pickMisclickOutsideBox` for the near-miss point. With prob 1, the
+      // detour should produce substantially more moves than the baseline.
+      async function dragMoves(misclickProbability: number) {
+        const { page, mouseMove } = makeMockPage();
+        const human = await createHuman(page, {
+          personality: { extends: 'careful', mouse: { misclickProbability } },
+          speed: 'fast',
+          seed: 'drag-element-misclick',
+        });
+        await human.drag('source', 'target');
+        return mouseMove.mock.calls.length;
+      }
+
+      const off = await dragMoves(0);
+      const on = await dragMoves(1);
+      expect(on).toBeGreaterThan(off * 1.3);
+    });
+
+    it('drag with raw-Point `from` fires the misclick beat around the point', async () => {
+      // Raw-Point `from` (no element) routes through `pickMisclickAroundPoint`.
+      // Same expected outcome: prob 1 produces more moves than prob 0.
+      async function dragMoves(misclickProbability: number) {
+        const { page, mouseMove } = makeMockPage();
+        const human = await createHuman(page, {
+          personality: { extends: 'careful', mouse: { misclickProbability } },
+          speed: 'fast',
+          seed: 'drag-point-misclick',
+        });
+        await human.drag({ x: 400, y: 300 }, { x: 800, y: 500 });
+        return mouseMove.mock.calls.length;
+      }
+
+      const off = await dragMoves(0);
+      const on = await dragMoves(1);
+      expect(on).toBeGreaterThan(off * 1.3);
+    });
+
+    it('drag fires exactly one mousedown and one mouseup at the resolved endpoints', async () => {
+      // No matter whether misclick fires, the drag boundaries (mousedown
+      // at `from`, mouseup at `to`) commit exactly once at the resolved
+      // coordinates — the misclick is visual cursor motion only.
+      const { page } = makeMockPage();
+      const mouseDown = page.mouse.down as ReturnType<typeof vi.fn>;
+      const mouseUp = page.mouse.up as ReturnType<typeof vi.fn>;
+      const human = await createHuman(page, {
+        personality: { extends: 'careful', mouse: { misclickProbability: 1 } },
+        speed: 'fast',
+        seed: 'drag-commits-cleanly',
+      });
+      await human.drag('source', 'target');
+
+      expect(mouseDown).toHaveBeenCalledTimes(1);
+      expect(mouseUp).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips the misclick beat when the cursor is already on the target', async () => {
+      // Cursor starts inside the target box (default box is at 100,200,80,30
+      // → center 140,215, well inside). A real user doesn't aim away from
+      // a button they're already hovering, so the misclick beat should be
+      // suppressed in this case — even at probability 1.
+      async function clickMoves(misclickProbability: number) {
+        const { page, mouseMove } = makeMockPage();
+        const human = await createHuman(page, {
+          personality: { extends: 'careful', mouse: { misclickProbability } },
+          speed: 'fast',
+          seed: 'cursor-already-on-target',
+          initialMousePosition: { x: 140, y: 215 },
+        });
+        await human.click('button');
+        return mouseMove.mock.calls.length;
+      }
+
+      const off = await clickMoves(0);
+      const on = await clickMoves(1);
+      // With cursor already inside, prob 1 must NOT add a detour.
+      expect(on).toBe(off);
+    });
+
+    it("drag's `to` misclick keeps the drop coordinates exact", async () => {
+      // With both endpoints rolling for misclick (prob 1 here), the drop
+      // misclick wanders the cursor near `to` and dwells, then walks back
+      // to the real drop coordinates. The contract that mouseup fires at
+      // exactly `to` must still hold — visual-only safety, like the grab
+      // side. Using raw Points so we know the exact resolved drop coords.
+      const { page, mouseMove } = makeMockPage();
+      const mouseUp = page.mouse.up as ReturnType<typeof vi.fn>;
+      const human = await createHuman(page, {
+        personality: { extends: 'careful', mouse: { misclickProbability: 1 } },
+        speed: 'fast',
+        seed: 'drag-to-misclick',
+      });
+      await human.drag({ x: 100, y: 100 }, { x: 500, y: 500 });
+
+      // mouseup called exactly once — the misclick is visual-only.
+      expect(mouseUp).toHaveBeenCalledTimes(1);
+
+      // The last mouse.move before mouseup lands at the exact drop point.
+      // If the to-endpoint misclick leaked into the actual drop coords, the
+      // cursor would end somewhere 5–15 px off and this would fail.
+      const lastMove = mouseMove.mock.calls.at(-1) as [number, number];
+      expect(lastMove[0]).toBe(500);
+      expect(lastMove[1]).toBe(500);
+    });
+  });
 });

@@ -52,11 +52,11 @@ The full `Human` surface, at a glance. Each one fires real DOM events through Pl
 | Primitive | Purpose |
 |---|---|
 | `goto(url)` | Navigate the page. |
-| `click(target)` | Bezier path → pre-click hover dwell → click. |
-| `rightClick(target)` | Same as `click` but with `button: 'right'`. Fires `contextmenu`. |
+| `click(target)` | Bezier path → pre-click hover dwell → click. Occasionally near-misses (cursor wobble outside the target, then corrects) per `personality.mouse.misclickProbability`. |
+| `rightClick(target)` | Same as `click` but with `button: 'right'`. Fires `contextmenu`. Same near-miss behavior. |
+| `drag(from, to)` | Two-phase Bezier (to start → mouse down → curve to end → mouse up). Both endpoints accept `Locator \| string \| Point` — `Point` is essential for canvas / SVG / slider drags. Both endpoints independently near-miss per `misclickProbability` — a drag may wobble on the grab, the drop, both, or neither. |
 | `hover(target)` | Walk to the element and settle. No click. Hover-state UI (tooltips, dropdowns) fires. |
 | `move(target)` | Walk to a `Locator \| string \| Point`. Pure positional motion. No dwell, no element interaction — use this when you want the cursor parked somewhere with no implied click. |
-| `drag(from, to)` | Two-phase Bezier (to start → mouse down → curve to end → mouse up). Both endpoints accept `Locator \| string \| Point` — `Point` is essential for canvas / SVG / slider drags. |
 | `type(target, value)` | Clicks the field for focus, then per-key rhythm with optional typos + Backspace recovery. |
 | `paste(target, value)` | Clicks the field for focus, then `insertText` — instant insertion, no per-character timing. Cmd-V semantic. |
 | `press(key)` | Single key (`'Tab'`) or chord (`'Mod+S'`). See [Keyboard](#keyboard) below. |
@@ -66,6 +66,8 @@ The full `Human` surface, at a glance. Each one fires real DOM events through Pl
 | `record(fn)` | Wrap a block and export as mp4 / gif / JSON. See [Recording](#recording). |
 
 Targets accept a CSS selector string or a Playwright `Locator`. `move` and `drag` additionally accept raw `Point` coordinates. Auto-scroll fires for any element-bound primitive when the target is outside the viewport — humanized scroll in normal speed modes, `scrollIntoViewIfNeeded` in `'instant'`.
+
+Near-miss (cursor wobble before committing — see `personality.mouse.misclickProbability`) applies to the primitives that commit a button event at the resolved coordinates: `click`, `rightClick`, both `drag` endpoints, and the implicit focus-acquiring click inside `type` / `paste` (the keystrokes themselves are unaffected). `hover`, `move`, `press`, `read`, and `scroll` never misclick, by design — a wobble would trigger handlers on the wrong element for `hover`, and would contradict the explicit-coordinate contract for `move`. The misclick is also skipped when the cursor is already on the target (no approach means no overshoot).
 
 ### Keyboard
 
