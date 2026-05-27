@@ -64,8 +64,16 @@ export interface MouseProfile {
    * Does NOT apply to: `hover` (positional, doesn't commit) or `move`
    * (explicit-coordinate positioning).
    *
-   * Skipped automatically when the target sits at the viewport edge and
-   * the candidate near-miss point would have to land off-screen.
+   * Skipped automatically in two cases:
+   *
+   *  1. **Cursor already on the target.** A real user doesn't aim away
+   *     from a button they're already hovering. If the cursor sits inside
+   *     the target's bounding box (or within a few pixels of a raw-Point
+   *     target) when the action starts, the near-miss beat is suppressed
+   *     — there's no approach to overshoot.
+   *  2. **Target at the viewport edge** with no room for the candidate
+   *     near-miss off-screen — better to commit cleanly than fake a
+   *     "miss" that clamps back onto the target.
    */
   readonly misclickProbability: number;
   /**

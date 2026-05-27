@@ -538,6 +538,29 @@ describe('human.click', () => {
       expect(mouseUp).toHaveBeenCalledTimes(1);
     });
 
+    it('skips the misclick beat when the cursor is already on the target', async () => {
+      // Cursor starts inside the target box (default box is at 100,200,80,30
+      // → center 140,215, well inside). A real user doesn't aim away from
+      // a button they're already hovering, so the misclick beat should be
+      // suppressed in this case — even at probability 1.
+      async function clickMoves(misclickProbability: number) {
+        const { page, mouseMove } = makeMockPage();
+        const human = await createHuman(page, {
+          personality: { extends: 'careful', mouse: { misclickProbability } },
+          speed: 'fast',
+          seed: 'cursor-already-on-target',
+          initialMousePosition: { x: 140, y: 215 },
+        });
+        await human.click('button');
+        return mouseMove.mock.calls.length;
+      }
+
+      const off = await clickMoves(0);
+      const on = await clickMoves(1);
+      // With cursor already inside, prob 1 must NOT add a detour.
+      expect(on).toBe(off);
+    });
+
     it("drag's `to` misclick keeps the drop coordinates exact", async () => {
       // With both endpoints rolling for misclick (prob 1 here), the drop
       // misclick wanders the cursor near `to` and dwells, then walks back

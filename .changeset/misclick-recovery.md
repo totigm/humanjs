@@ -51,8 +51,9 @@ Or set it higher than the preset for stronger humanization signal in demos. The 
 
 ## Edge cases
 
-- Targets at the viewport edge: if the candidate misclick point would land off-screen, the misclick is skipped for that action (rather than producing a "near-miss" that gets clamped back onto the target).
-- Determinism: same seed produces the same misclick decisions and same misclick coordinates. Misclick fires/skips deterministically per seed, like every other humanization knob.
+- **Cursor already on the target.** When the action starts with the cursor already inside the target's bounding box (or within a few pixels of a raw-Point target), the near-miss beat is suppressed. A real user doesn't aim away from a button they're already hovering — the misclick is fundamentally an approach pattern, so no approach means no overshoot. The probability roll still happens (so RNG state stays seed-deterministic), but the beat itself is skipped. This catches the case where the user scrolled into the element, where the previous action left the cursor on the target, or any other "already there" scenario.
+- **Targets at the viewport edge:** if the candidate misclick point would land off-screen, the misclick is skipped for that action (rather than producing a "near-miss" that gets clamped back onto the target).
+- **Determinism:** same seed produces the same misclick decisions and same misclick coordinates. Misclick fires/skips deterministically per seed, like every other humanization knob.
 
 ## Note for snapshot-style tests
 

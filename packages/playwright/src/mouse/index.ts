@@ -519,14 +519,14 @@ const MISCLICK_OFFSET_MIN = 5;
 const MISCLICK_OFFSET_MAX = 15;
 
 /**
- * Performs the "near-miss" beat shared by `click` and `drag`'s `from`
- * endpoint: with probability `personality.mouse.misclickProbability`, walks
+ * Performs the "near-miss" beat shared by `click` and both endpoints of
+ * `drag`: with probability `personality.mouse.misclickProbability`, walks
  * the cursor to a point just outside (or near, for raw-Point targets) the
  * commit point, dwells briefly, then returns. The caller continues from
  * wherever the cursor lands — usually with its own walk to the real point.
  *
- * No click is dispatched at the off-target coordinates. The misclick is
- * visible cursor motion only.
+ * No click / mousedown / mouseup is dispatched at the off-target
+ * coordinates. The misclick is visible cursor motion only.
  *
  * Two flavors:
  *  - `box` non-null: pick a point just outside one of the four edges.
@@ -536,9 +536,17 @@ const MISCLICK_OFFSET_MAX = 15;
  *    direction. Used for raw-Point targets (canvas/SVG drags), where there
  *    is no box but the action still commits at a specific coordinate.
  *
- * Skipped (no beat) when the resulting near-miss would have to be clamped
- * back onto the target — better to commit cleanly than fake a degenerate
- * "miss" that lands on the target anyway.
+ * Skipped (no beat) in three cases:
+ *  1. The probability roll comes up under the threshold.
+ *  2. The cursor is already on the target — there's no approach to miss
+ *     when you're already hovering the element. A real user doesn't aim
+ *     away from a button they're already on. The probability roll still
+ *     consumes one RNG value in this case (kept *before* the cursor-on-
+ *     target check) so seeded runs stay deterministic regardless of
+ *     where the cursor happened to start.
+ *  3. The candidate near-miss would have to be clamped back onto the
+ *     target (target pinned at the viewport edge). Better to commit
+ *     cleanly than fake a degenerate "miss" that lands on the target.
  */
 async function maybeMisclickBeat(
   ctx: MouseContext,
@@ -546,6 +554,12 @@ async function maybeMisclickBeat(
   targetPoint: Point,
 ): Promise<void> {
   if (!ctx.rng.chance(ctx.personality.mouse.misclickProbability)) return;
+
+  // Skip when cursor is already on/near the target — no approach to miss.
+  // Important: this check runs AFTER the chance() roll above so the RNG
+  // sequence stays identical regardless of where the cursor happened to
+  // start, preserving seed-level determinism across runs.
+  if (cursorAlreadyOnTarget(ctx.getMousePosition(), box, targetPoint)) return;
 
   const viewport = ctx.page.viewportSize();
   const misclickPoint = box
@@ -565,6 +579,34 @@ async function maybeMisclickBeat(
     ctx.rng,
   );
   if (realizeMs > 0) await sleep(realizeMs);
+}
+
+/**
+ * True when the cursor is already on (or close enough to) the target.
+ * Used by {@link maybeMisclickBeat} to skip the near-miss beat when
+ * there's no approach to overshoot.
+ *
+ * For element-bound targets (`box` non-null): inside the bounding box.
+ * For raw-Point targets (`box` null): within `MISCLICK_OFFSET_MIN` px
+ * of the target coordinate — at that distance any "outside" near-miss
+ * would be barely-outside, defeating the visual signal anyway.
+ */
+function cursorAlreadyOnTarget(
+  current: Point,
+  box: BoundingBox | null,
+  targetPoint: Point,
+): boolean {
+  if (box) {
+    return (
+      current.x >= box.x &&
+      current.x <= box.x + box.width &&
+      current.y >= box.y &&
+      current.y <= box.y + box.height
+    );
+  }
+  const dx = current.x - targetPoint.x;
+  const dy = current.y - targetPoint.y;
+  return Math.hypot(dx, dy) < MISCLICK_OFFSET_MIN;
 }
 
 /**
