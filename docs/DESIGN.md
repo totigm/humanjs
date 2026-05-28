@@ -9,7 +9,7 @@ Modern websites have become hostile to all browser automation, and detection sys
 Five categories of legitimate use where humanization matters:
 
 1. **User-authorized AI agents** running routine tasks on behalf of their owner — booking flights, monitoring listings, filling forms — that get caught by interaction-timing heuristics.
-2. **Agent product vendors** (Stagehand, Browser Use, Operator, Playwright MCP) who don't want their tool banned from the open web because every flow looks robotic.
+2. **Agent product vendors** (Stagehand, Operator, Playwright MCP) who don't want their tool banned from the open web because every flow looks robotic.
 3. **QA tests** where race conditions, debounced inputs, and animation states only manifest at human pace. Robotic test runs hide real bugs by skipping the timing windows where they appear.
 4. **Demo videos and product walkthroughs** that need to look human-paced. Robotic Playwright recordings break the suspension of disbelief in marketing material.
 5. **Tutorial recordings and supervised agent monitoring** — a 50-actions-per-second agent is unwatchable. Humanization makes review sessions legible.
@@ -26,7 +26,7 @@ HumanJS does not compete with ghost-cursor on coordinate math. The math is sound
 - Typing rhythm, reading dwell, scroll behavior — interaction layers ghost-cursor doesn't address
 - Personality system with seedable determinism
 - Session recorder with multi-format export
-- AI agent adapters (Browser Use, Stagehand, Playwright MCP)
+- AI agent adapters (Stagehand, Playwright MCP)
 - Plugin system for third-party extensions
 
 ### Why HumanJS is not framed as "an alternative to ghost-cursor"
@@ -45,7 +45,7 @@ Independent versioning matters: the recorder and the Playwright adapter evolve a
 
 ### Playwright-first
 
-Playwright has passed Puppeteer for testing and is the de facto AI-agent stack — Browser Use, Stagehand, and Playwright MCP all build on it. Building on Playwright first opens the larger audience. Puppeteer is a roadmap adapter, not v1 scope.
+Playwright has passed Puppeteer for testing and is the de facto AI-agent stack — Stagehand and Playwright MCP both build on it. Building on Playwright first opens the larger audience. Puppeteer is a roadmap adapter, not v1 scope.
 
 ### Plugin system from day one
 
@@ -85,18 +85,19 @@ Three modes: `human` (full humanization, default), `fast` (humanized but acceler
 
 Three integration surfaces, each targeting a different audience:
 
-### Adapter packages — `@humanjs/browser-use`, `@humanjs/stagehand`
+### Adapter package — `@humanjs/stagehand`
 
-Thin wrappers around the existing agent libraries. Every action the agent takes routes through HumanJS without the agent author changing their code:
+A thin wrapper around Stagehand. Every action the agent takes routes through HumanJS without the agent author changing their code:
 
 ```ts
-import { BrowserUse } from 'browser-use';
-import { wrap } from '@humanjs/browser-use';
+import { Stagehand } from '@browserbasehq/stagehand';
+import { wrap } from '@humanjs/stagehand';
 
-const agent = wrap(new BrowserUse({ /* ... */ }), { personality: 'careful' });
+const stagehand = wrap(new Stagehand({ /* ... */ }), { personality: 'careful' });
+// act() / agent() / extract() run exactly as before — every browser action humanized.
 ```
 
-Each adapter is small (~100 lines), but makes HumanJS feel native inside the existing agent ecosystem.
+The adapter is small (~100 lines), but makes HumanJS feel native inside the existing agent ecosystem. (Browser Use was evaluated but it's Python-first, so a clean TS adapter isn't viable — the MCP server covers that audience instead.)
 
 ### `@humanjs/mcp` — MCP server
 
@@ -111,7 +112,7 @@ This is more powerful than the adapters because it doesn't require code changes 
 
 ### `@humanjs/skill` — coding-agent skill
 
-A skill for Claude Code, Cursor, and Cline. When a developer uses an AI coding assistant to write Playwright tests, the skill activates and suggests HumanJS APIs. Distribution: skill registries for each ecosystem.
+A skill for Claude Code, Cursor, and Codex. When a developer uses an AI coding assistant to write Playwright tests, the skill activates and suggests HumanJS APIs. Distribution: skill registries for each ecosystem.
 
 ## Recorder and generator
 

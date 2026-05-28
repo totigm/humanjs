@@ -187,7 +187,7 @@ Hero headline: `clamp(2.25rem, 8vw, 5rem)`.
 
 ### Audience card draft
 
-1. **AI agent builders** — "Browser Use, Stagehand, Playwright MCP — without the giveaway robotic clicks."
+1. **AI agent builders** — "Stagehand, Playwright MCP — without the giveaway robotic clicks."
 2. **QA engineers** — "Catch race conditions that only show up at human speed. CI bypass with one flag."
 3. **Demo & tutorial creators** — "Record polished walkthroughs without manual operation."
 
