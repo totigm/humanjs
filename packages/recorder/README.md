@@ -1,5 +1,14 @@
 # @humanjs/recorder
 
+<p>
+  <a href="https://www.npmjs.com/package/@humanjs/recorder"><img alt="npm" src="https://img.shields.io/npm/v/@humanjs/recorder"></a>
+  <a href="https://www.npmjs.com/package/@humanjs/recorder"><img alt="downloads" src="https://img.shields.io/npm/dt/@humanjs/recorder"></a>
+  <a href="https://github.com/totigm/humanjs"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-totigm%2Fhumanjs-181717?logo=github"></a>
+  <a href="https://github.com/totigm/humanjs/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/totigm/humanjs/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/totigm/humanjs/blob/main/LICENSE"><img alt="license" src="https://img.shields.io/npm/l/@humanjs/recorder"></a>
+  <a href="https://humanjs.dev"><img alt="docs" src="https://img.shields.io/badge/docs-humanjs.dev-emerald"></a>
+</p>
+
 One-call session recording for [HumanJS](https://humanjs.dev) — turn a humanized Playwright session into an mp4, an animated GIF, a structured JSON timeline, or any combination.
 
 ## Install

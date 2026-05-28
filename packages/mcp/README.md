@@ -1,5 +1,14 @@
 # @humanjs/mcp
 
+<p>
+  <a href="https://www.npmjs.com/package/@humanjs/mcp"><img alt="npm" src="https://img.shields.io/npm/v/@humanjs/mcp"></a>
+  <a href="https://www.npmjs.com/package/@humanjs/mcp"><img alt="downloads" src="https://img.shields.io/npm/dt/@humanjs/mcp"></a>
+  <a href="https://github.com/totigm/humanjs"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-totigm%2Fhumanjs-181717?logo=github"></a>
+  <a href="https://github.com/totigm/humanjs/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/totigm/humanjs/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/totigm/humanjs/blob/main/LICENSE"><img alt="license" src="https://img.shields.io/npm/l/@humanjs/mcp"></a>
+  <a href="https://humanjs.dev"><img alt="docs" src="https://img.shields.io/badge/docs-humanjs.dev-emerald"></a>
+</p>
+
 Model Context Protocol server for [HumanJS](https://humanjs.dev) — let AI agents drive a Playwright browser with **humanized** motion, typing, and reading dwell.
 
 It's Playwright-MCP-but-humanized: the same stdio protocol every desktop AI client speaks, except every action moves like a person and the cursor is visible — so live demos and recordings look real, not robotic.

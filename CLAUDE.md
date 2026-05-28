@@ -202,6 +202,17 @@ Skip MCP exposure for:
 
 If you ship a primitive in `@humanjs/playwright` without the matching MCP tool, open a follow-up issue immediately so the gap doesn't get forgotten.
 
+## Adding a new package
+
+When scaffolding a new `@humanjs/*` package, mirror an existing one (`packages/recorder` is a good template) and follow these — each bit us at least once:
+
+- Start `package.json` at `"version": "0.0.0"` and set `"publishConfig": { "access": "public" }`. The first changeset (`minor`) publishes it as `0.1.0`.
+- Copy the sibling's `tsconfig.json` + `tsup.config.ts` and the standard `package.json` shape (`exports`/`main`/`module`/`types`, `files: ["dist", "README.md", "LICENSE"]`, `engines`, the build/test/typecheck/lint scripts).
+- Open the README with the badge row (npm version · downloads · GitHub repo · CI · license · docs) — copy from any package README and swap the name.
+- Add a changeset describing the initial release.
+- **Library packages** declare runtime deps as `peerDependencies` (the host app provides them). A **runnable/bin package** (`npx`-launched, like `@humanjs/mcp`) needs them as regular `dependencies` instead — there's no host app to supply a peer.
+- Update the Packages table above, and apply the "consider the MCP surface" rule.
+
 ## Conventions
 
 - TypeScript strict. No `any` without an inline comment justifying it.

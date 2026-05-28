@@ -11,8 +11,10 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@humanjs/playwright"><img alt="npm" src="https://img.shields.io/npm/v/@humanjs/playwright"></a>
+  <a href="https://github.com/totigm/humanjs/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/totigm/humanjs/actions/workflows/ci.yml/badge.svg"></a>
   <a href="#license"><img alt="license" src="https://img.shields.io/npm/l/@humanjs/playwright"></a>
   <a href="https://humanjs.dev"><img alt="docs" src="https://img.shields.io/badge/docs-humanjs.dev-emerald"></a>
+  <a href="https://github.com/totigm/humanjs/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/totigm/humanjs?style=flat"></a>
 </p>
 
 ---

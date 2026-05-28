@@ -1,5 +1,14 @@
 # @humanjs/playwright
 
+<p>
+  <a href="https://www.npmjs.com/package/@humanjs/playwright"><img alt="npm" src="https://img.shields.io/npm/v/@humanjs/playwright"></a>
+  <a href="https://www.npmjs.com/package/@humanjs/playwright"><img alt="downloads" src="https://img.shields.io/npm/dt/@humanjs/playwright"></a>
+  <a href="https://github.com/totigm/humanjs"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-totigm%2Fhumanjs-181717?logo=github"></a>
+  <a href="https://github.com/totigm/humanjs/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/totigm/humanjs/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/totigm/humanjs/blob/main/LICENSE"><img alt="license" src="https://img.shields.io/npm/l/@humanjs/playwright"></a>
+  <a href="https://humanjs.dev"><img alt="docs" src="https://img.shields.io/badge/docs-humanjs.dev-emerald"></a>
+</p>
+
 Humanize Playwright sessions for AI agents, QA tests, and demos. Drop-in adapter for an existing Playwright `Page`.
 
 ## Install
