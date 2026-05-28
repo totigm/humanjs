@@ -20,7 +20,7 @@ export function registerRecordingTools(server: McpServer, { sessions, env }: Too
     {
       title: 'Start recording',
       description:
-        'Begins recording the session. Every humanized action until human_stop_recording is captured (frames + action timeline). The visible cursor is in the video. One recording per session at a time.',
+        'Begins recording the session. Every humanized action until human_stop_recording is captured (frames + action timeline). The visible cursor is in the video. One recording per session at a time. For a natural-looking take, explore the flow first to find correct selectors, then record one clean back-to-back run — keep selector-guessing out of the recording.',
       inputSchema: {
         name: z
           .string()
@@ -50,7 +50,7 @@ export function registerRecordingTools(server: McpServer, { sessions, env }: Too
     {
       title: 'Stop recording and save',
       description:
-        'Stops the active recording and writes it to one or more files in HUMANJS_OUTPUT_DIR. Each filename\'s extension picks its format: .mp4/.webm = video, .gif = animated gif, .json = action timeline. Pass several to export the same recording multiple ways, e.g. ["demo.mp4", "demo.json"] for video + timeline. Path components are rejected for safety.',
+        'Stops the active recording and writes it to one or more files in HUMANJS_OUTPUT_DIR. Each filename\'s extension picks its format: .mp4/.webm = video, .gif = animated gif, .json = action timeline. Pass several to export the same recording multiple ways, e.g. ["demo.mp4", "demo.json"] for video + timeline. Path components are rejected for safety. If the final action navigated, call human_wait_for_load first — otherwise the video cuts off before the destination page renders.',
       inputSchema: {
         filenames: z
           .array(z.string())

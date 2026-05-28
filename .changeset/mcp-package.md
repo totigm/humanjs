@@ -22,10 +22,13 @@ Configure it in your MCP client:
 
 Requires Node ≥ 20. The `playwright` npm package is bundled, and the Chromium browser binary downloads automatically on first launch if it's missing (~150MB, one time) — so `npx -y @humanjs/mcp` works with zero manual setup. Set `HUMANJS_AUTO_INSTALL=false` to opt out and install manually with `npx playwright install chromium`.
 
-## Tools (27)
+The server also ships **built-in agent guidance** (MCP `instructions`): explore selectors first then record one clean run, settle debounced/dynamic UI before targeting elements, and wait for navigation before stopping a recording — so natural-looking recordings don't need the user to spell out the workflow.
+
+## Tools (29)
 
 - **Primitives** — `human_goto`, `human_click`, `human_rightClick`, `human_hover`, `human_move`, `human_drag`, `human_type`, `human_paste`, `human_press`, `human_scroll`, `human_read`. Click / rightClick / move / drag accept a selector **or** raw x/y coordinates (the fallback for icon-only buttons, canvas, SVG you can see in a screenshot).
 - **Inspection** — `human_screenshot` (returns the image to view, optionally saves it), `human_page_text`, `human_get_text`, `human_get_attribute`, `human_get_html`. Enough to act + observe with one server; no Playwright MCP needed alongside.
+- **Waiting** — `human_wait` (fixed pause for debounce/animation), `human_wait_for_load` (navigation/network settle).
 - **Recording** — `human_start_recording` / `human_stop_recording`. Capture the session and export to one or more of mp4 / webm / gif / JSON timeline in a single stop (e.g. video + timeline from one recording); the visible cursor is in the video.
 - **Sessions** — `human_create_session` (optional personality + speed + viewport), `human_close_session`, `human_list_sessions`. The default session is implicit; these are only for parallel browsers.
 - **Config** — `human_set_personality` (switch preset or blend at runtime), `human_set_speed` (humanization pace), `human_set_viewport` (resize the live viewport).

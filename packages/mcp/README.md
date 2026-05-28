@@ -114,6 +114,13 @@ Click / rightClick / move / drag take a **selector or raw x/y coordinates** — 
 | `human_get_attribute` | An element's attribute (`aria-label`, `href`, …) |
 | `human_get_html` | An element's `outerHTML` — discover the real selector of a control |
 
+**Waiting** — settle the page between actions:
+
+| Tool | What it does |
+|---|---|
+| `human_wait` | Pause N ms — for debounced search, animations, list reflows that fire no network event |
+| `human_wait_for_load` | Wait for navigation / network to settle (e.g. before stopping a recording after a click that navigates) |
+
 **Recording** — capture the session:
 
 | Tool | What it does |
@@ -204,6 +211,16 @@ You can also toggle persistence from chat: `human_enable_persistence` (then `hum
 Persistent and CDP modes drive a **single shared browser**, so named/parallel sessions (`human_create_session`) aren't available in those modes — which is exactly what you want when the point is one logged-in browser.
 
 > Library users (`@humanjs/playwright` directly) get all of this by creating the page themselves — see that package's "Using your own browser or a persistent profile" section.
+
+## Recordings & dynamic UI
+
+The server ships **built-in guidance** (sent to the agent on connect via MCP `instructions`), so you don't have to spell out the workflow each time. The agent is told to:
+
+- **Explore first, then record one clean run.** Discover correct selectors in an un-recorded pass, then `human_start_recording` → run the steps back-to-back → `human_stop_recording`. Selector-guessing kept out of the take is what makes a recording look natural — the motion is already humanized, so don't reach for `fast`/`instant` to "fix" the feel.
+- **Settle dynamic UI.** After a debounced search/filter the list reflows and elements move; the agent waits (`human_wait` / `human_wait_for_load`) and uses specific selectors before targeting a result, so a click doesn't land on a stale position as the layout shifts.
+- **Wait for navigation before stopping.** A click resolves when dispatched, not when the page loads — so the agent calls `human_wait_for_load` before `human_stop_recording`, otherwise the video cuts off before the destination renders.
+
+You can still steer it, but a bare "record me buying a ticket on X" should produce a clean take without the play-by-play.
 
 ## Security
 
