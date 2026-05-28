@@ -15,10 +15,6 @@
   <a href="https://humanjs.dev"><img alt="docs" src="https://img.shields.io/badge/docs-humanjs.dev-emerald"></a>
 </p>
 
-<p align="center">
-  <a href="https://humanjs.dev/demo">▶ Watch the 30-second demo</a>
-</p>
-
 ---
 
 ## Why
@@ -119,11 +115,12 @@ const stagehand = wrap(new Stagehand({ /* ... */ }), { personality: 'fast' });
 ```
 
 ```bash
-# Playwright MCP
-npx @humanjs/mcp
+# MCP server — drive a humanized browser from Claude Code, Claude Desktop,
+# Cursor, Codex, Cline, and any other MCP client. Register it in one command:
+claude mcp add humanjs -- npx -y @humanjs/mcp
 ```
 
-Every action goes through HumanJS without changing your agent code.
+Every action goes through HumanJS without changing your agent code. See [`@humanjs/mcp`](./packages/mcp/README.md) for the full tool catalog and per-client config.
 
 ## Recorder
 
