@@ -26,28 +26,47 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { readEnv } from './env';
+import { SessionManager } from './session';
+import { registerInspectionTools } from './tools/inspection';
+import { registerPrimitiveTools } from './tools/primitives';
 
 const SERVER_NAME = 'humanjs-mcp';
 const SERVER_VERSION = '0.1.0';
 
 async function main(): Promise<void> {
+  const env = readEnv();
+  const sessions = new SessionManager(env);
+
   const server = new McpServer({
     name: SERVER_NAME,
     version: SERVER_VERSION,
   });
 
-  // Tools wire in below once the session manager and tool modules land.
-  // The empty server still completes the MCP handshake so clients can
-  // verify connectivity end-to-end before the surface is filled.
+  registerPrimitiveTools(server, sessions);
+  registerInspectionTools(server, sessions);
+
+  // Shutdown: when the MCP client disconnects (stdio EOF) or the process
+  // gets a signal, tear down browsers cleanly so we don't leak chrome
+  // processes on the user's machine.
+  const shutdown = async (): Promise<void> => {
+    try {
+      await sessions.closeAll();
+    } finally {
+      process.exit(0);
+    }
+  };
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
 
 main().catch((error) => {
-  // MCP servers communicate over stdout — never log there. stderr is
-  // the only safe channel for diagnostics; clients surface it as
-  // server-side errors.
+  // MCP servers communicate over stdout — never log there. stderr is the
+  // only safe channel for diagnostics; clients surface it as server-side
+  // errors.
   console.error('[humanjs-mcp] fatal:', error);
   process.exit(1);
 });
