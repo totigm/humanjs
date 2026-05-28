@@ -35,6 +35,7 @@ export interface SessionInfo {
 /** Options accepted by {@link SessionManager.create}. */
 export interface CreateSessionOptions {
   readonly personality?: PresetName;
+  readonly viewport?: { readonly width: number; readonly height: number };
 }
 
 /** Options accepted by {@link SessionManager.startRecording}. */
@@ -111,7 +112,9 @@ export class SessionManager {
     }
 
     const browser = await this.ensureBrowser();
-    const context = await browser.newContext();
+    const context = await browser.newContext({
+      viewport: options.viewport ?? this.env.viewport,
+    });
     // Install the visible cursor overlay on the context (before any page
     // exists) so every page — including ones opened later by navigation —
     // renders the humanized cursor. This is the point of the MCP server:

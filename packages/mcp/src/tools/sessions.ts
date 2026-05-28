@@ -24,10 +24,26 @@ export function registerSessionTools(server: McpServer, { sessions }: ToolContex
       inputSchema: {
         id: z.string().describe('Unique session ID, e.g. "buyer", "seller".'),
         personality: personalityArg,
+        width: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe('Viewport width in CSS px. Defaults to HUMANJS_VIEWPORT. Requires height.'),
+        height: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe('Viewport height in CSS px. Requires width.'),
       },
     },
-    async ({ id, personality }) => {
-      const session = await sessions.create(id, { personality });
+    async ({ id, personality, width, height }) => {
+      if ((width === undefined) !== (height === undefined)) {
+        throw new Error('Provide both width and height, or neither.');
+      }
+      const viewport = width !== undefined && height !== undefined ? { width, height } : undefined;
+      const session = await sessions.create(id, { personality, viewport });
       return {
         content: [
           {

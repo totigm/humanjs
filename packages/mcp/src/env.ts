@@ -30,6 +30,14 @@ export interface McpEnv {
    * accept a basename only — they never honor absolute paths.
    */
   readonly outputDir: string;
+  /**
+   * Default viewport for new sessions. Per-session overrides (via
+   * `human_create_session`) and runtime resizes (via `human_set_viewport`)
+   * take precedence. Defaults to 1440×900 — a comfortable desktop size
+   * that fits any screen in headed mode; bump to `1920x1080` for crisper
+   * recordings.
+   */
+  readonly viewport: { readonly width: number; readonly height: number };
 }
 
 /**
@@ -42,6 +50,7 @@ export function readEnv(): McpEnv {
     personality: parsePersonality(process.env.HUMANJS_PERSONALITY),
     headless: parseBool(process.env.HUMANJS_HEADLESS, false),
     outputDir: process.env.HUMANJS_OUTPUT_DIR ?? process.cwd(),
+    viewport: parseViewport(process.env.HUMANJS_VIEWPORT),
   };
 }
 
@@ -60,4 +69,15 @@ function parseBool(raw: string | undefined, fallback: boolean): boolean {
   if (lower === 'true' || lower === '1' || lower === 'yes') return true;
   if (lower === 'false' || lower === '0' || lower === 'no') return false;
   throw new Error(`Expected a boolean ("true"/"false"), got "${raw}".`);
+}
+
+function parseViewport(raw: string | undefined): { width: number; height: number } {
+  if (!raw) return { width: 1440, height: 900 };
+  const match = /^\s*(\d+)\s*[x×]\s*(\d+)\s*$/i.exec(raw);
+  if (!match) {
+    throw new Error(
+      `HUMANJS_VIEWPORT="${raw}" is invalid. Expected "WIDTHxHEIGHT", e.g. "1920x1080".`,
+    );
+  }
+  return { width: Number(match[1]), height: Number(match[2]) };
 }

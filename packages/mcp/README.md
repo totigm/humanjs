@@ -37,6 +37,7 @@ The first browser action launches a visible Chromium window with the humanized c
 | `HUMANJS_PERSONALITY` | `careful` \| `fast` \| `distracted` \| `precise` | `careful` | Default personality for every session. |
 | `HUMANJS_HEADLESS` | `true` \| `false` | `false` | Headless browser. Default is visible — the point of the MCP. |
 | `HUMANJS_OUTPUT_DIR` | path | server's CWD | Where screenshots and recordings are written. |
+| `HUMANJS_VIEWPORT` | `WIDTHxHEIGHT` | `1440x900` | Default viewport for new sessions. Bump to `1920x1080` for crisper recordings. |
 
 ## Tools
 
@@ -79,7 +80,7 @@ Click / rightClick / move / drag take a **selector or raw x/y coordinates** — 
 
 | Tool | What it does |
 |---|---|
-| `human_create_session` | Open a new isolated session |
+| `human_create_session` | Open a new isolated session (optional `personality`, `width`/`height`) |
 | `human_close_session` | Close a session |
 | `human_list_sessions` | List open sessions |
 
@@ -88,6 +89,7 @@ Click / rightClick / move / drag take a **selector or raw x/y coordinates** — 
 | Tool | What it does |
 |---|---|
 | `human_set_personality` | Switch preset or blend two presets at runtime |
+| `human_set_viewport` | Resize the viewport at runtime (bigger/crisper recording, responsive testing) |
 
 ## Personalities
 

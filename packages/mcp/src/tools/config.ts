@@ -1,7 +1,8 @@
 /**
- * Config tools — runtime tweaks to how a session behaves. Currently just
- * personality; the env var sets the default, this changes it mid-session
- * ("now drive this form like a distracted user").
+ * Config tools — runtime tweaks to how a session behaves: personality
+ * (env var sets the default, this changes it mid-session) and viewport
+ * size (resize the live page for a bigger/crisper recording or to test
+ * responsive layouts).
  */
 
 import { blend } from '@humanjs/core';
@@ -54,6 +55,25 @@ export function registerConfigTools(server: McpServer, { sessions }: ToolContext
       return {
         content: [{ type: 'text', text: `set "${info.id}" personality to ${label}` }],
       };
+    },
+  );
+
+  server.registerTool(
+    'human_set_viewport',
+    {
+      title: 'Resize the viewport',
+      description:
+        "Resizes a session's browser viewport at runtime. Use for a bigger/crisper recording or to test responsive layouts. The default size for new sessions is set by HUMANJS_VIEWPORT (default 1440×900).",
+      inputSchema: {
+        width: z.number().int().positive().describe('Viewport width in CSS px.'),
+        height: z.number().int().positive().describe('Viewport height in CSS px.'),
+        session: z.string().optional().describe('Session ID. Omit for the default session.'),
+      },
+    },
+    async ({ width, height, session }) => {
+      const { human } = await sessions.get(session);
+      await human.setViewportSize({ width, height });
+      return { content: [{ type: 'text', text: `viewport set to ${width}×${height}` }] };
     },
   );
 }
