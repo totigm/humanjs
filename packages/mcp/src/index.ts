@@ -29,8 +29,10 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import type { ToolContext } from './context';
 import { readEnv } from './env';
 import { SessionManager } from './session';
+import { registerConfigTools } from './tools/config';
 import { registerInspectionTools } from './tools/inspection';
 import { registerPrimitiveTools } from './tools/primitives';
+import { registerSessionTools } from './tools/sessions';
 
 const SERVER_NAME = 'humanjs-mcp';
 const SERVER_VERSION = '0.1.0';
@@ -47,6 +49,8 @@ async function main(): Promise<void> {
 
   registerPrimitiveTools(server, ctx);
   registerInspectionTools(server, ctx);
+  registerSessionTools(server, ctx);
+  registerConfigTools(server, ctx);
 
   // Shutdown: when the MCP client disconnects (stdio EOF) or the process
   // gets a signal, tear down browsers cleanly so we don't leak chrome

@@ -4,8 +4,12 @@
  * single MCP server covers the common "act + observe" loop without
  * needing to layer Playwright MCP alongside.
  *
- * Pass A scope: screenshot. Remaining (page_text, get_attribute,
- * get_text, get_html) land in Pass B.
+ * Deliberately no arbitrary-`evaluate` tool — that's a prompt-injection
+ * cliff (a malicious page could trick the agent into running JS that
+ * exfiltrates data). These read-only tools cover the legitimate need:
+ * see the page text, discover an element's real selector / attributes,
+ * grab a region's HTML. The internal `locator.evaluate` calls below run
+ * fixed functions, never AI-supplied code.
  */
 
 import { writeFile } from 'node:fs/promises';
@@ -63,6 +67,80 @@ export function registerInspectionTools(server: McpServer, ctx: ToolContext): vo
       }
 
       return { content };
+    },
+  );
+
+  server.registerTool(
+    'human_page_text',
+    {
+      title: 'Get visible page text',
+      description:
+        "Returns the page's visible text (document.body.innerText). The fastest way to understand what's on screen without parsing HTML — prefer this over human_get_html unless you need element structure or attributes.",
+      inputSchema: { session: sessionArg },
+    },
+    async ({ session }) => {
+      const { human } = await ctx.sessions.get(session);
+      const text = await human.pageText();
+      return { content: [{ type: 'text', text }] };
+    },
+  );
+
+  server.registerTool(
+    'human_get_text',
+    {
+      title: "Get an element's text",
+      description:
+        'Returns the visible innerText of the first element matching `selector`. Use to read a specific label, price, status, or message.',
+      inputSchema: {
+        selector: z.string().describe('Selector of the element to read.'),
+        session: sessionArg,
+      },
+    },
+    async ({ selector, session }) => {
+      const { page } = await ctx.sessions.get(session);
+      const text = await page.locator(selector).innerText();
+      return { content: [{ type: 'text', text }] };
+    },
+  );
+
+  server.registerTool(
+    'human_get_attribute',
+    {
+      title: "Get an element's attribute",
+      description:
+        "Returns the value of an attribute on the first element matching `selector` (or reports it is absent). Handy for reading aria-label, data-*, href, value, disabled state, etc. — often how you confirm an icon-only button's purpose.",
+      inputSchema: {
+        selector: z.string().describe('Selector of the element.'),
+        attribute: z.string().describe('Attribute name, e.g. "aria-label", "href", "data-state".'),
+        session: sessionArg,
+      },
+    },
+    async ({ selector, attribute, session }) => {
+      const { page } = await ctx.sessions.get(session);
+      const value = await page.locator(selector).getAttribute(attribute);
+      const text =
+        value === null ? `${selector} has no attribute "${attribute}"` : `${attribute}="${value}"`;
+      return { content: [{ type: 'text', text }] };
+    },
+  );
+
+  server.registerTool(
+    'human_get_html',
+    {
+      title: "Get an element's HTML",
+      description:
+        'Returns the outerHTML of the first element matching `selector` — the element plus its children, including its own attributes (class, aria-label, etc.). The go-to tool for discovering the real selector of a control with no obvious text. Target a specific region; full-page HTML is large.',
+      inputSchema: {
+        selector: z.string().describe('Selector of the region to dump. Target narrowly.'),
+        session: sessionArg,
+      },
+    },
+    async ({ selector, session }) => {
+      const { page } = await ctx.sessions.get(session);
+      // Fixed function, not AI-supplied — outerHTML isn't a Playwright
+      // locator method, so we read it via a constrained evaluate.
+      const html = await page.locator(selector).evaluate((el) => el.outerHTML);
+      return { content: [{ type: 'text', text: html }] };
     },
   );
 }

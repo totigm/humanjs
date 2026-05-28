@@ -109,7 +109,10 @@ export class SessionManager {
    * to a new personality. Browser context, page, cookies, and scroll
    * position are preserved — only the humanization profile changes.
    */
-  async setPersonality(id: string, personality: PersonalityConfig): Promise<SessionInfo> {
+  async setPersonality(
+    id: string = DEFAULT_SESSION_ID,
+    personality: PersonalityConfig,
+  ): Promise<SessionInfo> {
     const session = await this.get(id);
     session.human = await createHuman(session.page, { personality });
     // `personality` on InternalSession tracks the *preset name* for the
