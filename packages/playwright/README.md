@@ -364,6 +364,39 @@ await rec.toTimeline('session.json');   // works
 
 Every recording is a regular plugin action — `beforeAction` and `afterAction` observe `{ type: 'record' }` exactly like `'click'` or `'scroll'`.
 
+## Using your own browser or a persistent profile
+
+`createHuman(page)` wraps **any** Playwright `Page` — so reusing a saved login, your installed Chrome, or an already-running browser is just a matter of how you create that page. HumanJS adds nothing special here; these are standard Playwright entry points, collected so you don't have to hunt for them.
+
+**Persistent profile** — keep cookies, local storage, and logins across runs. The first run signs in; later runs are already authenticated:
+
+```ts
+import { chromium, createHuman } from '@humanjs/playwright';
+
+const context = await chromium.launchPersistentContext('./.humanjs-profile', {
+  headless: false,
+  channel: 'chrome', // optional: use installed Google Chrome instead of bundled Chromium
+});
+const page = context.pages()[0] ?? (await context.newPage());
+
+const human = await createHuman(page, { personality: 'careful' });
+// …drive the page; state persists in ./.humanjs-profile for next time
+```
+
+**Attach to an already-running browser** — drive a Chrome you started yourself, with all its existing tabs, extensions, and sessions. Launch Chrome with a debugging port first (`chrome --remote-debugging-port=9222`), then:
+
+```ts
+import { chromium, createHuman } from '@humanjs/playwright';
+
+const browser = await chromium.connectOverCDP('http://localhost:9222');
+const context = browser.contexts()[0];
+const page = context.pages()[0] ?? (await context.newPage());
+
+const human = await createHuman(page, { personality: 'careful' });
+```
+
+> **Heads up:** a persistent profile or a connected real browser carries whatever you're signed into. Driving it means the automation can act with those sessions' privileges — keep that in mind for anything sensitive, and be wary of pages that try to manipulate an agent into actions while logged in.
+
 ## License
 
 MIT

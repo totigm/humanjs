@@ -190,6 +190,18 @@ Wording rules:
 
 Check before commit: `grep -rn "v0\.\|@humanjs/.*@0\." apps/web/components apps/web/app README.md packages/*/README.md` — should return only the just-bumped current values, no older references.
 
+## Adding new features — consider the MCP surface
+
+When adding a new public-API primitive or behavior to `@humanjs/playwright` or `@humanjs/core`, evaluate whether it should also be exposed as an `@humanjs/mcp` tool. The MCP tool surface should mirror the library's user-facing primitives so AI agents get parity with library users — otherwise we ship a half-feature split between the two adapters.
+
+Skip MCP exposure for:
+
+- Internal plugin hooks and observability machinery (not useful to an AI).
+- Anything whose public-API shape requires composing async callbacks (those need to be reshaped into start/stop tool pairs, not 1:1 tools — `record()` is the canonical example).
+- Features that require a security-cliff capability the MCP surface deliberately doesn't expose (e.g., arbitrary JS execution — see `@humanjs/mcp` README for the inspection-tool alternatives).
+
+If you ship a primitive in `@humanjs/playwright` without the matching MCP tool, open a follow-up issue immediately so the gap doesn't get forgotten.
+
 ## Conventions
 
 - TypeScript strict. No `any` without an inline comment justifying it.

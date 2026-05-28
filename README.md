@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./.github/banner.png" alt="HumanJS — humanize your browser automation" width="640">
+  <img src="./.github/banner.jpg" alt="HumanJS — humanize your browser automation" width="640">
 </p>
 
 <h1 align="center">HumanJS</h1>
@@ -13,10 +13,6 @@
   <a href="https://www.npmjs.com/package/@humanjs/playwright"><img alt="npm" src="https://img.shields.io/npm/v/@humanjs/playwright"></a>
   <a href="#license"><img alt="license" src="https://img.shields.io/npm/l/@humanjs/playwright"></a>
   <a href="https://humanjs.dev"><img alt="docs" src="https://img.shields.io/badge/docs-humanjs.dev-emerald"></a>
-</p>
-
-<p align="center">
-  <a href="https://humanjs.dev/demo">▶ Watch the 30-second demo</a>
 </p>
 
 ---
@@ -119,11 +115,16 @@ const stagehand = wrap(new Stagehand({ /* ... */ }), { personality: 'fast' });
 ```
 
 ```bash
-# Playwright MCP
-npx @humanjs/mcp
+# MCP server — drive a humanized browser from Claude Code, Claude Desktop,
+# Cursor, Codex, Cline, and any other MCP client. Register it in one command:
+claude mcp add humanjs -- npx -y @humanjs/mcp
 ```
 
-Every action goes through HumanJS without changing your agent code.
+…or one-click for Cursor:
+
+[![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=humanjs&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBodW1hbmpzL21jcCJdfQ==)
+
+Every action goes through HumanJS without changing your agent code. See [`@humanjs/mcp`](./packages/mcp/README.md) for the full tool catalog and per-client config.
 
 ## Recorder
 

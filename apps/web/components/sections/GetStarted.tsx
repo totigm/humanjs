@@ -26,6 +26,8 @@ await human.click('button[type=submit]');
 
 await browser.close();`;
 
+const mcpCommand = 'claude mcp add humanjs -- npx -y @humanjs/mcp';
+
 export function GetStarted() {
   return (
     <Section id="install" density="loose">
@@ -72,6 +74,32 @@ export function GetStarted() {
           </ScrollReveal>
 
           <ScrollReveal delay={0.25}>
+            <div>
+              <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
+                <span className="text-accent">03</span>
+                <span aria-hidden className="mx-2 text-muted/40">
+                  /
+                </span>
+                Or drive it from an AI agent
+              </p>
+              <CodeBlock
+                code={mcpCommand}
+                accent="cool"
+                label="MCP — Claude Code, Cursor, Codex…"
+              />
+              <div className="mt-3">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  href="https://cursor.com/install-mcp?name=humanjs&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBodW1hbmpzL21jcCJdfQ=="
+                >
+                  Add to Cursor
+                </Button>
+              </div>
+            </div>
+          </ScrollReveal>
+
+          <ScrollReveal delay={0.35}>
             <div className="flex flex-col items-center justify-center gap-3 pt-4 sm:flex-row">
               <Button size="lg" href="https://github.com/totigm/humanjs">
                 <GithubMark size={16} />

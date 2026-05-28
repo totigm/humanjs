@@ -58,32 +58,45 @@ export interface ClickOptions {
 /**
  * Executes a humanized click on a target.
  *
+ * `target` accepts a selector, a `Locator`, or a raw `Point`. The `Point`
+ * form is the Computer-Use-style fallback: when an AI agent can *see* a
+ * control in a screenshot but has no clean selector for it (icon-only
+ * buttons, canvas, SVG), it can click the visible coordinates directly.
+ * Coordinate clicks skip auto-scroll and box-relative aim — the caller
+ * owns the exact point.
+ *
  * Steps:
  *  1. Resolve the target's bounding box (or accept a raw `Point`).
  *  2. Pick a click point inside it — Gaussian-centered so we never click
- *     dead-center, which is itself a bot signal.
+ *     dead-center, which is itself a bot signal. (Raw `Point` is used as-is.)
  *  3. Generate a Bezier path from the current mouse position to the target.
  *  4. Apply velocity profile + micro-jitter via `humanizePath`.
  *  5. Walk the mouse along the path with timing scaled by personality + speed.
  *  6. Hover dwell — a real user briefly settles on the target before clicking.
  *  7. Click at the target coordinates with the configured button.
  *
- * In `speed: 'instant'`, all humanization is bypassed and Playwright's
- * native `locator.click()` is used directly.
+ * In `speed: 'instant'`, all humanization is bypassed: element targets use
+ * Playwright's native `locator.click()`; raw `Point` targets dispatch a
+ * single `mouse.click()` at the coordinates.
  */
 export async function executeClick(
-  target: Locator | string,
+  target: MouseTarget,
   ctx: MouseContext,
   options: ClickOptions = {},
 ): Promise<ClickResult> {
   const button = options.button ?? 'left';
-  const locator = typeof target === 'string' ? ctx.page.locator(target) : target;
 
   if (ctx.speed === 'instant') {
+    if (isPoint(target)) {
+      await ctx.page.mouse.click(target.x, target.y, { button });
+      ctx.setMousePosition(target);
+      return { target };
+    }
     // Playwright's `locator.click()` auto-scrolls the element into view as
     // part of its actionability checks, so we don't need a manual scroll
     // here. Read the box BEFORE the click — the click may navigate away or
     // remove the element, after which `boundingBox()` returns null.
+    const locator = typeof target === 'string' ? ctx.page.locator(target) : target;
     const box = await locator.boundingBox();
     await locator.click({ button });
     const center = box
@@ -93,7 +106,13 @@ export async function executeClick(
     return { target: center };
   }
 
-  const targetPoint = await moveToTarget(target, ctx, 'click');
+  // Resolve to a point (+ box for element targets, null for raw Points).
+  // Same path drag's grab endpoint uses, so the misclick beat picks a
+  // "near-miss outside the box" for elements and "around the point" for
+  // raw coordinates.
+  const { point: targetPoint, box } = await resolveTargetPointAndBox(target, ctx, 'click');
+  await maybeMisclickBeat(ctx, box, targetPoint);
+  await walkBezierTo(targetPoint, ctx);
 
   // Hover dwell — a real user briefly settles on the target before clicking.
   const preClickMs = computeDwellTime(
@@ -154,7 +173,7 @@ export async function executeHover(
     return { target: center };
   }
 
-  const targetPoint = await moveToTarget(target, ctx, 'hover');
+  const targetPoint = await moveToTarget(target, ctx);
 
   // Use the pre-click dwell as the "settle on the hover target" beat —
   // same shape as click's hover-before-click motion.
@@ -365,36 +384,18 @@ export async function executeMove(target: MouseTarget, ctx: MouseContext): Promi
 }
 
 /**
- * Shared core for any action that moves the cursor to an element-resolved
- * target: resolve the bounding box, pick a Gaussian point inside, generate
- * the Bezier path, walk it. Returns the chosen target point.
+ * Resolves an element-bound hover target, picks a Gaussian point inside its
+ * box, walks the Bezier path to it, and returns the chosen point. Hover
+ * never misclicks — hovers are about settling on an element, not committing
+ * an action — so unlike click there's no near-miss beat here.
  *
- * Used by `executeClick` and `executeHover` for their element-bound paths.
- * `executeDrag` and `executeMove` accept raw `Point` inputs too, so they
- * reach the same Bezier walk through `resolveTargetPoint` + `walkBezierTo`
- * instead of going through here.
- *
- * For `'click'` actions, this is also where the misclick beat fires: with
- * probability `personality.mouse.misclickProbability`, the cursor first
- * walks to a point just outside the target's bounding box, dwells briefly
- * (the "oh, I missed" beat), then walks to the real click point. No click
- * is dispatched at the off-target coordinates — the misclick is purely
- * cursor motion, so we never trigger handlers on ancestors or siblings.
- * That keeps the visible humanization signal while making the behavior
- * safe by construction. Hover never misclicks; hovers are about settling
- * on an element, not committing an action.
+ * `executeClick` resolves through `resolveTargetPointAndBox` instead (so it
+ * can also accept raw `Point` targets); `executeDrag` and `executeMove`
+ * reach the Bezier walk through `resolveTargetPoint` directly.
  */
-async function moveToTarget(
-  target: Locator | string,
-  ctx: MouseContext,
-  action: 'click' | 'hover',
-): Promise<Point> {
-  const box = await readBoxWithAutoScroll(target, ctx, action);
+async function moveToTarget(target: Locator | string, ctx: MouseContext): Promise<Point> {
+  const box = await readBoxWithAutoScroll(target, ctx, 'hover');
   const targetPoint = pickClickPoint(box, ctx.rng, ctx.personality.mouse.clickSpread);
-
-  // Click commits an action; hover doesn't. Only click gets the misclick beat.
-  if (action === 'click') await maybeMisclickBeat(ctx, box, targetPoint);
-
   await walkBezierTo(targetPoint, ctx);
   return targetPoint;
 }
@@ -441,7 +442,7 @@ async function resolveTargetPoint(
 async function resolveTargetPointAndBox(
   target: MouseTarget,
   ctx: MouseContext,
-  action: 'drag',
+  action: 'drag' | 'click',
 ): Promise<{ point: Point; box: BoundingBox | null }> {
   if (isPoint(target)) return { point: target, box: null };
   const box = await readBoxWithAutoScroll(target, ctx, action);

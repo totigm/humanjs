@@ -58,6 +58,21 @@
     overflow-x: clip;
   }
 
+  /*
+   * Code/pre render character-exact: setting font-feature-settings here
+   * REPLACES the inherited sans stylistic sets (ss01/cv11 from body) and
+   * disables ligatures + contextual alternates, so command examples like
+   * `claude mcp add humanjs -- npx …` show every space and hyphen literally
+   * (Geist Mono's contextual shaping otherwise tightens " -- " until the
+   * leading space looks gone).
+   */
+  code,
+  pre {
+    font-feature-settings:
+      "liga" 0,
+      "calt" 0;
+  }
+
   ::selection {
     background: var(--color-accent);
     color: var(--color-ink);

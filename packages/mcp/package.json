@@ -1,0 +1,75 @@
+{
+  "name": "@humanjs/mcp",
+  "version": "0.0.0",
+  "description": "Model Context Protocol server for HumanJS — drive a Playwright browser with humanized motion from Claude Desktop, Claude Code, Cursor, Codex, and any other MCP client.",
+  "keywords": [
+    "humanjs",
+    "playwright",
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "cursor",
+    "codex",
+    "ai-agent",
+    "browser-automation",
+    "humanize"
+  ],
+  "author": "Gonzalo Muñoz <toti@eventurex.com.ar>",
+  "license": "MIT",
+  "homepage": "https://humanjs.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/totigm/humanjs.git",
+    "directory": "packages/mcp"
+  },
+  "bugs": "https://github.com/totigm/humanjs/issues",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "humanjs-mcp": "./dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "@humanjs/core": "workspace:*",
+    "@humanjs/playwright": "workspace:*",
+    "@humanjs/recorder": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "playwright": "^1.60.0",
+    "zod": "^3.23.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
