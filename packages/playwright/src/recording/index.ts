@@ -4,6 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, extname } from 'node:path';
 import ffmpegStatic from 'ffmpeg-static';
 import type { CaptureResult } from './capture';
+import { generateHumanJS, generatePlaywrightTest } from './codegen';
 
 // Safety net for captured-frame temp dirs: every live Recording registers
 // its dir here, and a single lazy `process.on('exit')` handler sweeps
@@ -170,6 +171,12 @@ export interface TimelineEvent {
   readonly durationMs: number;
   /** Error message, present only if the action threw. */
   readonly error?: string;
+  /**
+   * For `type` / `paste`: the actual text written, captured when
+   * `captureInputs` is on (the default). Omitted when capture is off or the
+   * target is a password field (always masked). Flows into exported code.
+   */
+  readonly inputValue?: string;
 }
 
 /** Structured action timeline of a recording. */
@@ -436,6 +443,38 @@ export class Recording {
   async toTimeline(outputPath: string): Promise<string> {
     await mkdir(dirname(outputPath), { recursive: true });
     await writeFile(outputPath, `${JSON.stringify(this.timeline, null, 2)}\n`, 'utf8');
+    return outputPath;
+  }
+
+  /**
+   * Generates a standalone, runnable HumanJS script from the timeline and
+   * writes it to `outputPath`. String selectors round-trip verbatim; typed
+   * values are included when `captureInputs` was on (passwords masked).
+   *
+   * Independent of frame capture — works on timeline-only recordings and is
+   * unaffected by `dispose()`.
+   *
+   * @returns the resolved output path.
+   */
+  async toHumanJS(outputPath: string): Promise<string> {
+    await mkdir(dirname(outputPath), { recursive: true });
+    await writeFile(outputPath, generateHumanJS(this.timeline), 'utf8');
+    return outputPath;
+  }
+
+  /**
+   * Generates a `@playwright/test` spec from the timeline — a humanized test
+   * (uses `createHuman` + `human.*`), not raw Playwright — and writes it to
+   * `outputPath`.
+   *
+   * Independent of frame capture — works on timeline-only recordings and is
+   * unaffected by `dispose()`.
+   *
+   * @returns the resolved output path.
+   */
+  async toPlaywright(outputPath: string): Promise<string> {
+    await mkdir(dirname(outputPath), { recursive: true });
+    await writeFile(outputPath, generatePlaywrightTest(this.timeline), 'utf8');
     return outputPath;
   }
 

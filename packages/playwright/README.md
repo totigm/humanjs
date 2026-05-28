@@ -341,7 +341,28 @@ await rec.toTimeline('session.json');   // → JSON on disk
 const timeline = rec.timeline;          // → in-memory object
 ```
 
-The shape (`Timeline` with `personality`, `seed`, `speed`, `durationMs`, and an `events` array of `{ type, params, tMs, durationMs }`) is intended for observability pipelines, replay infrastructure, analytics, and debugger UIs. `toTimeline()` doesn't touch the browser context — call it before or after `toVideo()`, multiple times, in any order.
+The shape (`Timeline` with `personality`, `seed`, `speed`, `durationMs`, and an `events` array of `{ type, params, tMs, durationMs }`, plus `inputValue` on captured `type`/`paste` events) is intended for observability pipelines, replay infrastructure, analytics, and debugger UIs. `toTimeline()` doesn't touch the browser context — call it before or after `toVideo()`, multiple times, in any order.
+
+**Code export** — turn the same recording into runnable code:
+
+```ts
+await rec.toHumanJS('session.ts');         // standalone HumanJS script
+await rec.toPlaywright('session.spec.ts'); // @playwright/test spec (humanized)
+```
+
+`toHumanJS()` emits a standalone script (`createHuman` + `human.*`); `toPlaywright()` emits a `@playwright/test` spec that drives the page through HumanJS, so the generated test runs humanized too. String selectors round-trip verbatim. Both work on timeline-only recordings and are unaffected by `dispose()`.
+
+`toPlaywright()` also derives the assertions it safely can from the recording — a `read` implies its target was visible (`toBeVisible`), a captured input implies its value (`toHaveValue`) — and leaves a `TODO` for outcome assertions (URL changed, text appeared) that can't be inferred from actions alone. It never fabricates assertions that might fail on a correct run.
+
+By default the actual typed/pasted text is captured into the timeline (and the exported code). Values typed into `input[type="password"]` are always masked; set `captureInputs: false` to record none — exports then emit empty-string placeholders:
+
+```ts
+await human.record({ captureInputs: false }, fn);
+```
+
+> Captured input values land in the timeline JSON and any exported code — treat those artifacts with the same care as the values themselves.
+
+Two limits, by design: a target passed as a `Locator` or a raw `point(x, y)` doesn't round-trip to a clean selector (points are emitted verbatim with a flag comment — locator/point → selector synthesis is a planned follow-up), and reads driven by word-count or raw text emit a note instead of code.
 
 **Quality presets** trade off file size, encoding time, and visual fidelity. Defaults to `'high'`:
 

@@ -53,6 +53,14 @@ export interface RecordOptions extends CreateHumanOptions {
    * - `'lossless'`: 1080p, CRF 12, preset veryslow, tune animation
    */
   readonly quality?: RecordingQuality;
+  /**
+   * Capture actual typed/pasted text into the timeline, so `toHumanJS()` /
+   * `toPlaywright()` exports include the values. Defaults to `true`; password
+   * fields are always masked. Set `false` to record no input values (exports
+   * emit empty-string placeholders). See `@humanjs/playwright`'s
+   * `HumanRecordOptions.captureInputs`.
+   */
+  readonly captureInputs?: boolean;
   /** Optional URL to navigate to before the callback runs. */
   readonly url?: string;
   /**
@@ -171,6 +179,7 @@ export async function record(
   const {
     output,
     quality,
+    captureInputs,
     url,
     viewport,
     headless,
@@ -206,8 +215,9 @@ export async function record(
 
     // Capture runs only when the caller asked for an output file — saves
     // the screenshot + disk-write overhead for timeline-only recordings.
-    const recording = await human.record({ video: wantsCapture, quality: resolvedQuality }, () =>
-      fn(human, page),
+    const recording = await human.record(
+      { video: wantsCapture, quality: resolvedQuality, captureInputs },
+      () => fn(human, page),
     );
 
     if (wantsCapture && output) {
