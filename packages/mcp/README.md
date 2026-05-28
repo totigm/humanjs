@@ -217,7 +217,6 @@ The server ships **built-in guidance** (sent to the agent on connect via MCP `in
 
 - **Explore first, then record one clean run.** Discover correct selectors in an un-recorded pass, then `human_start_recording` → run the steps back-to-back → `human_stop_recording`. Selector-guessing kept out of the take is what makes a recording look natural — the motion is already humanized, so don't reach for `fast`/`instant` to "fix" the feel.
 - **Settle dynamic UI.** After a debounced search/filter the list reflows and elements move; the agent waits (`human_wait`) and uses specific selectors before targeting a result, so a click doesn't land on a stale position as the layout shifts.
-- **Confirm navigation before stopping.** A click resolves when dispatched, not when the page loads — so the agent confirms the destination rendered (`human_screenshot`) before `human_stop_recording`, otherwise the video cuts off before the destination renders.
 
 You can still steer it, but a bare "record me buying a ticket on X" should produce a clean take without the play-by-play.
 
