@@ -84,7 +84,7 @@ await record(
     url: 'https://example.com',  // optional — navigate before the callback
     personality: 'careful',      // any PersonalityConfig
     seed: 'session-42',          // deterministic when set
-    viewport: { width: 1920, height: 1080 },
+    viewport: { width: 1920, height: 1080 }, // ephemeral/persistent only — CDP uses the real window
     headless: false,             // defaults false so you can watch the recording
     cursor: true,                // auto-install visible cursor overlay (default true)
     userDataDir: './.profile',   // persistent profile — stay logged in across runs
@@ -127,6 +127,8 @@ await record({ output: 'flow.mp4', cdpUrl: 'http://localhost:9222' }, async (hum
 - **`channel`** (`'chrome'` / `'msedge'`) swaps the binary but, on its own, still uses a fresh profile — pair it with `userDataDir` or `cdpUrl` for real logins.
 
 > You can't attach to your everyday Chrome — it only exposes a CDP port when launched with `--remote-debugging-port`, and Chrome refuses that on the default profile. Use a dedicated `--user-data-dir` (you sign in once there), or `userDataDir` to let HumanJS manage one.
+
+> **Recording resolution in CDP mode:** the attached browser's real window size wins — `viewport` is intentionally not applied. HumanJS is borrowing a window it doesn't own, and forcing a size would only *emulate* one (letterboxing the capture so the frames don't match what you see). Need a specific resolution? Launch the browser with `--window-size=1920,1080` to size the real window, or use the default/persistent modes where HumanJS owns the window and `viewport` applies directly.
 
 ## Quality presets
 

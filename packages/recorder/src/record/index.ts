@@ -55,7 +55,11 @@ export interface RecordOptions extends CreateHumanOptions {
   readonly quality?: RecordingQuality;
   /** Optional URL to navigate to before the callback runs. */
   readonly url?: string;
-  /** Viewport dimensions. Overrides the quality preset's viewport. */
+  /**
+   * Viewport dimensions. Overrides the quality preset's viewport. Applies to
+   * the default and persistent (`userDataDir`) modes; ignored when attaching
+   * over `cdpUrl`, where the real browser window's size wins (see `cdpUrl`).
+   */
   readonly viewport?: { readonly width: number; readonly height: number };
   /** Run headless. Defaults to `false` so users can watch the recording happen. */
   readonly headless?: boolean;
@@ -76,8 +80,13 @@ export interface RecordOptions extends CreateHumanOptions {
    * `"http://localhost:9222"`). Reuses that browser's existing context — your
    * real logins, tabs, extensions. Start the browser yourself with
    * `--remote-debugging-port`. HumanJS never closes a browser it attached to;
-   * it only borrows it. Takes precedence over `userDataDir`; `launch` /
-   * `headless` / `channel` / `viewport` are ignored in this mode.
+   * it only borrows it. Takes precedence over `userDataDir`.
+   *
+   * `launch` / `headless` / `channel` / `viewport` don't apply here — you're
+   * borrowing a window HumanJS doesn't own, so the browser's real window size
+   * wins. Forcing a `viewport` would only *emulate* one and letterbox the
+   * capture. For a fixed recording resolution, launch the browser yourself
+   * with `--window-size=1920,1080`, or use the default / persistent modes.
    */
   readonly cdpUrl?: string;
   /**
