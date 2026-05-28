@@ -124,6 +124,18 @@ Four presets, each a different blend of speed, mouse curvature, typo rate, and r
 
 Set the default with `HUMANJS_PERSONALITY`, override per session at creation, or change mid-session with `human_set_personality` ("now fill this form like a distracted user").
 
+## Speed
+
+How fast each action *executes* — orthogonal to personality:
+
+- `human` (default) — full realistic pace. Best for polished demo recordings.
+- `fast` — same humanized motion (Bezier paths, dwell, typing rhythm) at a brisk pace. A good fit when an agent is getting work done and you still want it to look human.
+- `instant` — bypasses humanization entirely (straight Playwright, no visible motion). Maximum throughput when realism doesn't matter.
+
+Set the default with `HUMANJS_SPEED`, override per session at creation (`human_create_session`), or change mid-session with `human_set_speed`.
+
+> **Speed does not change the wait *between* actions.** That gap is the MCP client running one model inference per tool call — inherent to agentic tool use and outside this server's control. Speed only affects how long an action takes to run once it starts. To reduce between-action waiting, make fewer tool calls.
+
 ## Security
 
 - **No arbitrary-JS `evaluate` tool.** Executing page-supplied JavaScript is a prompt-injection cliff — a malicious page could trick the agent into running code that exfiltrates data. The read-only inspection tools cover the legitimate "what's on the page" need.
