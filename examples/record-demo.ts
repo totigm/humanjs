@@ -226,6 +226,12 @@ async function main() {
   // showcases all three outputs from a single recorded session.
   await rec.toTimeline(timelineOutput);
 
+  const humanjsOutput = `recordings/humanjs-${personality}.ts`;
+  await rec.toHumanJS(humanjsOutput);
+
+  const playwrightOutput = `recordings/humanjs-${personality}.spec.ts`;
+  await rec.toPlaywright(playwrightOutput);
+
   // No explicit cleanup needed — a sweep-on-exit handler clears the
   // captured-frames temp dir when this script ends. Call `await rec.dispose()`
   // (or use `await using rec = await record(...)`) only if you want
