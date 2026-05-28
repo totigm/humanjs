@@ -64,22 +64,19 @@ export interface McpEnv {
    */
   readonly autoInstall: boolean;
   /**
-   * How the browser is obtained. Resolved from the browser-mode env vars:
+   * How the browser is obtained, resolved from the browser-mode env vars.
+   * A discriminated union so each variant carries exactly the data it needs
+   * (no optional-everywhere / casts at the use sites):
    *
-   * - `'cdp'` — attach to an already-running browser over CDP
-   *   (`HUMANJS_CDP_URL`). Uses its existing context (your real logins,
-   *   tabs, extensions). Single-session; never closed on shutdown.
-   * - `'persistent'` — launch with a persistent profile dir
+   * - `cdp` — attach to an already-running browser over CDP (`HUMANJS_CDP_URL`).
+   *   Uses its existing context. Single-session; never closed on shutdown.
+   * - `persistent` — launch with a persistent profile dir
    *   (`HUMANJS_USER_DATA_DIR`, or an auto dir when `HUMANJS_PERSIST=true`)
    *   so logins survive across runs. Single-session.
-   * - `'ephemeral'` (default) — a fresh throwaway profile each run, with
+   * - `ephemeral` (default) — a fresh throwaway profile each run, with
    *   isolated multi-session support.
    */
-  readonly browserMode: 'cdp' | 'persistent' | 'ephemeral';
-  /** Resolved persistent profile dir (only set when `browserMode === 'persistent'`). */
-  readonly userDataDir: string | undefined;
-  /** CDP endpoint to attach to (only set when `browserMode === 'cdp'`). */
-  readonly cdpUrl: string | undefined;
+  readonly browser: BrowserConfig;
   /**
    * Playwright browser channel — e.g. `'chrome'`, `'msedge'`. Launches that
    * installed browser's binary instead of bundled Chromium. NOTE: this alone
@@ -89,17 +86,18 @@ export interface McpEnv {
   readonly channel: string | undefined;
 }
 
+/** How the browser is obtained — see {@link McpEnv.browser}. */
+export type BrowserConfig =
+  | { readonly mode: 'ephemeral' }
+  | { readonly mode: 'persistent'; readonly userDataDir: string }
+  | { readonly mode: 'cdp'; readonly cdpUrl: string };
+
 /**
  * Reads environment variables once and freezes the result. Call from the
  * bin entry before constructing the server so any parse errors surface
  * immediately (and on stderr, where MCP clients can show them).
  */
 export function readEnv(): McpEnv {
-  const cdpUrl = process.env.HUMANJS_CDP_URL?.trim() || undefined;
-  const explicitDir = process.env.HUMANJS_USER_DATA_DIR?.trim() || undefined;
-  const persist = parseBool(process.env.HUMANJS_PERSIST, false);
-  const { browserMode, userDataDir } = resolveBrowserMode(cdpUrl, explicitDir, persist);
-
   return {
     personality: parsePersonality(process.env.HUMANJS_PERSONALITY),
     speed: parseSpeed(process.env.HUMANJS_SPEED),
@@ -107,9 +105,7 @@ export function readEnv(): McpEnv {
     outputDir: process.env.HUMANJS_OUTPUT_DIR ?? process.cwd(),
     viewport: parseViewport(process.env.HUMANJS_VIEWPORT),
     autoInstall: parseBool(process.env.HUMANJS_AUTO_INSTALL, true),
-    browserMode,
-    userDataDir,
-    cdpUrl,
+    browser: resolveBrowserConfig(),
     channel: process.env.HUMANJS_CHANNEL?.trim() || undefined,
   };
 }
@@ -118,19 +114,19 @@ export function readEnv(): McpEnv {
 export const DEFAULT_PERSIST_DIR = join(homedir(), '.humanjs', 'profile');
 
 /**
- * Resolves the browser-mode precedence: CDP wins (you explicitly pointed at a
- * running browser), then a persistent profile (explicit dir or the
+ * Resolves the browser-config precedence: CDP wins (you explicitly pointed at
+ * a running browser), then a persistent profile (explicit dir or the
  * `HUMANJS_PERSIST` auto-dir), else ephemeral.
  */
-function resolveBrowserMode(
-  cdpUrl: string | undefined,
-  explicitDir: string | undefined,
-  persist: boolean,
-): { browserMode: McpEnv['browserMode']; userDataDir: string | undefined } {
-  if (cdpUrl) return { browserMode: 'cdp', userDataDir: undefined };
-  if (explicitDir) return { browserMode: 'persistent', userDataDir: explicitDir };
-  if (persist) return { browserMode: 'persistent', userDataDir: DEFAULT_PERSIST_DIR };
-  return { browserMode: 'ephemeral', userDataDir: undefined };
+function resolveBrowserConfig(): BrowserConfig {
+  const cdpUrl = process.env.HUMANJS_CDP_URL?.trim() || undefined;
+  if (cdpUrl) return { mode: 'cdp', cdpUrl };
+  const explicitDir = process.env.HUMANJS_USER_DATA_DIR?.trim() || undefined;
+  if (explicitDir) return { mode: 'persistent', userDataDir: explicitDir };
+  if (parseBool(process.env.HUMANJS_PERSIST, false)) {
+    return { mode: 'persistent', userDataDir: DEFAULT_PERSIST_DIR };
+  }
+  return { mode: 'ephemeral' };
 }
 
 function parsePersonality(raw: string | undefined): PresetName {

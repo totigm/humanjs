@@ -25,7 +25,7 @@ import {
   type Speed,
 } from '@humanjs/playwright';
 import { type Browser, type BrowserContext, chromium, type Page } from 'playwright';
-import { DEFAULT_PERSIST_DIR, type McpEnv } from './env';
+import { type BrowserConfig, DEFAULT_PERSIST_DIR, type McpEnv } from './env';
 
 export const DEFAULT_SESSION_ID = 'default';
 
@@ -61,6 +61,8 @@ export interface StartRecordingOptions {
 interface RecordingState {
   readonly name: string;
   readonly startedAt: number;
+  /** Whether video frames are being captured (false = timeline-only). */
+  readonly video: boolean;
   readonly stop: () => void;
   readonly done: Promise<Recording>;
 }
@@ -112,12 +114,12 @@ export class SessionManager {
     this.env = env;
   }
 
-  /** Effective browser mode, honoring the runtime persistence override. */
-  private effectiveMode(): { mode: BrowserMode; userDataDir: string | undefined } {
+  /** Effective browser config, honoring the runtime persistence override. */
+  private effectiveConfig(): BrowserConfig {
     if (this.persistOverride) {
       return { mode: 'persistent', userDataDir: this.persistOverride.userDataDir };
     }
-    return { mode: this.env.browserMode, userDataDir: this.env.userDataDir };
+    return this.env.browser;
   }
 
   /**
@@ -148,15 +150,15 @@ export class SessionManager {
       );
     }
 
-    const { mode } = this.effectiveMode();
-    if (mode !== 'ephemeral' && id !== DEFAULT_SESSION_ID) {
+    const config = this.effectiveConfig();
+    if (config.mode !== 'ephemeral' && id !== DEFAULT_SESSION_ID) {
       throw new Error(
-        `In ${mode} mode HumanJS drives a single shared browser, so named/parallel sessions aren't available. Omit the session argument to use the default session.`,
+        `In ${config.mode} mode HumanJS drives a single shared browser, so named/parallel sessions aren't available. Omit the session argument to use the default session.`,
       );
     }
 
     const viewport = options.viewport ?? this.env.viewport;
-    const { context, page } = await this.acquireContext(mode, viewport);
+    const { context, page } = await this.acquireContext(config, viewport);
     const personality = options.personality ?? this.env.personality;
     const speed = options.speed ?? this.env.speed;
     const human = await createHuman(page, { personality, speed });
@@ -168,7 +170,7 @@ export class SessionManager {
       human,
       personality,
       speed,
-      mode,
+      mode: config.mode,
       recording: null,
       createdAt: Date.now(),
     };
@@ -187,19 +189,18 @@ export class SessionManager {
    * The visible cursor overlay is installed on the context in every mode.
    */
   private async acquireContext(
-    mode: BrowserMode,
+    config: BrowserConfig,
     viewport: { width: number; height: number },
   ): Promise<{ context: BrowserContext; page: Page }> {
-    if (mode === 'cdp') {
-      const browser = await this.ensureCdpBrowser();
+    if (config.mode === 'cdp') {
+      const browser = await this.ensureCdpBrowser(config.cdpUrl);
       const context = browser.contexts()[0] ?? (await browser.newContext());
       await installMouseHelper(context);
       const page = context.pages()[0] ?? (await context.newPage());
       return { context, page };
     }
-    if (mode === 'persistent') {
-      const { userDataDir } = this.effectiveMode();
-      const context = await this.ensurePersistentContext(userDataDir as string, viewport);
+    if (config.mode === 'persistent') {
+      const context = await this.ensurePersistentContext(config.userDataDir, viewport);
       const page = context.pages()[0] ?? (await context.newPage());
       return { context, page };
     }
@@ -228,11 +229,15 @@ export class SessionManager {
     const signal = new Promise<void>((resolve) => {
       stop = resolve;
     });
-    const done = session.human.record(
-      { video: options.video ?? true, quality: options.quality ?? 'high' },
-      () => signal,
-    );
-    session.recording = { name: options.name ?? 'recording', startedAt: Date.now(), stop, done };
+    const video = options.video ?? true;
+    const done = session.human.record({ video, quality: options.quality ?? 'high' }, () => signal);
+    session.recording = {
+      name: options.name ?? 'recording',
+      startedAt: Date.now(),
+      video,
+      stop,
+      done,
+    };
   }
 
   /**
@@ -316,11 +321,14 @@ export class SessionManager {
       try {
         rec.stop();
         const recording = await rec.done;
-        // Sanitize the AI-supplied recording name to a basename so a
-        // traversal name (e.g. "../../x") can't write outside outputDir —
-        // same basename-only policy resolveOutputPath enforces elsewhere.
-        const safeName = basename(`${rec.name}-${rec.startedAt}.mp4`);
-        await recording.toVideo(join(this.env.outputDir, safeName));
+        // Save video when frames were captured, else the JSON timeline —
+        // toVideo() would throw on a timeline-only recording, losing it.
+        // basename() keeps the AI-supplied name from escaping outputDir,
+        // matching the policy resolveOutputPath enforces elsewhere.
+        const ext = rec.video ? '.mp4' : '.json';
+        const path = join(this.env.outputDir, basename(`${rec.name}-${rec.startedAt}${ext}`));
+        if (rec.video) await recording.toVideo(path);
+        else await recording.toTimeline(path);
       } catch {
         // Nothing more we can do during teardown; don't block the close.
       }
@@ -377,12 +385,12 @@ export class SessionManager {
 
   /** Read-only snapshot of the browser configuration (backs `human_browser_info`). */
   browserInfo(): BrowserInfo {
-    const { mode, userDataDir } = this.effectiveMode();
+    const config = this.effectiveConfig();
     const running = this.browserRunning();
     return {
-      mode,
-      userDataDir: userDataDir ?? null,
-      cdpUrl: this.env.cdpUrl ?? null,
+      mode: config.mode,
+      userDataDir: config.mode === 'persistent' ? config.userDataDir : null,
+      cdpUrl: config.mode === 'cdp' ? config.cdpUrl : null,
       channel: this.env.channel ?? null,
       // A toggle is "pending restart" only when a browser is already up:
       // before any browser exists, the new mode just applies on next start.
@@ -403,9 +411,8 @@ export class SessionManager {
     return this.browser;
   }
 
-  private async ensureCdpBrowser(): Promise<Browser> {
+  private async ensureCdpBrowser(url: string): Promise<Browser> {
     if (this.browser) return this.browser;
-    const url = this.env.cdpUrl as string;
     try {
       this.browser = await chromium.connectOverCDP(url);
     } catch (error) {
