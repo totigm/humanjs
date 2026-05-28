@@ -1,0 +1,53 @@
+/**
+ * @humanjs/mcp — Model Context Protocol server for HumanJS.
+ *
+ * Exposes humanized browser automation primitives as MCP tools so AI
+ * agents (Claude Desktop, Claude Code, Cursor, Codex, Cline, …) can drive
+ * a Playwright browser with realistic motion, typing, reading dwell, and
+ * everything else `@humanjs/playwright` provides.
+ *
+ * The bin entry (`humanjs-mcp` after install) speaks stdio MCP — the
+ * lingua franca every desktop AI client supports.
+ *
+ * Configuration (e.g. in `~/.claude.json`, `.mcp.json`, `.cursor/mcp.json`):
+ *
+ * ```jsonc
+ * {
+ *   "mcpServers": {
+ *     "humanjs": {
+ *       "command": "npx",
+ *       "args": ["-y", "@humanjs/mcp"],
+ *       "env": { "HUMANJS_PERSONALITY": "careful" }
+ *     }
+ *   }
+ *  }
+ * ```
+ */
+
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+
+const SERVER_NAME = 'humanjs-mcp';
+const SERVER_VERSION = '0.1.0';
+
+async function main(): Promise<void> {
+  const server = new McpServer({
+    name: SERVER_NAME,
+    version: SERVER_VERSION,
+  });
+
+  // Tools wire in below once the session manager and tool modules land.
+  // The empty server still completes the MCP handshake so clients can
+  // verify connectivity end-to-end before the surface is filled.
+
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
+
+main().catch((error) => {
+  // MCP servers communicate over stdout — never log there. stderr is
+  // the only safe channel for diagnostics; clients surface it as
+  // server-side errors.
+  console.error('[humanjs-mcp] fatal:', error);
+  process.exit(1);
+});
