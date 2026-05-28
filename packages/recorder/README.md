@@ -87,6 +87,9 @@ await record(
     viewport: { width: 1920, height: 1080 },
     headless: false,             // defaults false so you can watch the recording
     cursor: true,                // auto-install visible cursor overlay (default true)
+    userDataDir: './.profile',   // persistent profile — stay logged in across runs
+    cdpUrl: 'http://localhost:9222', // OR attach to a browser you launched (precedence)
+    channel: 'chrome',           // launch installed Chrome instead of bundled Chromium
     launch: { args: ['--no-sandbox'] },  // forwarded to chromium.launch()
     context: { locale: 'en-US' },         // forwarded to browser.newContext()
   },
@@ -101,6 +104,29 @@ await record(
 ```
 
 **No-video mode**: omit `output` entirely (or call `record(fn)` with no options). No screenshot polling, no temp files, no encoding overhead. The structured timeline is still captured.
+
+## Recording a logged-in flow
+
+By default each `record()` call uses a fresh, signed-out browser. Two ways to record something behind a login:
+
+```ts
+// Persistent profile — sign in once (in a headed run), reuse it forever
+await record({ output: 'dashboard.mp4', userDataDir: './.humanjs-profile' }, async (human) => {
+  await human.goto('https://app.example.com/dashboard');
+});
+
+// Or attach to a browser you already launched (real logins/tabs)
+//   chrome --remote-debugging-port=9222 --user-data-dir="$HOME/.humanjs-chrome"
+await record({ output: 'flow.mp4', cdpUrl: 'http://localhost:9222' }, async (human) => {
+  await human.goto('https://app.example.com/dashboard');
+});
+```
+
+- **`userDataDir`** keeps cookies/logins across runs (a dedicated profile, starts empty).
+- **`cdpUrl`** records a browser you launched yourself — its existing session. HumanJS **never closes** a browser it attached to; it only borrows it. Takes precedence over `userDataDir`.
+- **`channel`** (`'chrome'` / `'msedge'`) swaps the binary but, on its own, still uses a fresh profile — pair it with `userDataDir` or `cdpUrl` for real logins.
+
+> You can't attach to your everyday Chrome — it only exposes a CDP port when launched with `--remote-debugging-port`, and Chrome refuses that on the default profile. Use a dedicated `--user-data-dir` (you sign in once there), or `userDataDir` to let HumanJS manage one.
 
 ## Quality presets
 

@@ -1,5 +1,6 @@
 import { extname } from 'node:path';
 import {
+  type BrowserContext,
   type BrowserContextOptions,
   type CreateHumanOptions,
   chromium,
@@ -63,6 +64,31 @@ export interface RecordOptions extends CreateHumanOptions {
   /** Forwarded to `browser.newContext()` (alongside `viewport`). */
   readonly context?: BrowserContextOptions;
   /**
+   * Record in a **persistent profile** at this directory so logins and
+   * cookies survive across runs — sign in once (in a headed run), and later
+   * recordings start authenticated. Uses `launchPersistentContext` under the
+   * hood (a single context); `headless`, `launch`, `channel`, and `viewport`
+   * still apply. Starts empty the first time.
+   */
+  readonly userDataDir?: string;
+  /**
+   * Record by **attaching to a browser you already launched** over CDP (e.g.
+   * `"http://localhost:9222"`). Reuses that browser's existing context — your
+   * real logins, tabs, extensions. Start the browser yourself with
+   * `--remote-debugging-port`. HumanJS never closes a browser it attached to;
+   * it only borrows it. Takes precedence over `userDataDir`; `launch` /
+   * `headless` / `channel` / `viewport` are ignored in this mode.
+   */
+  readonly cdpUrl?: string;
+  /**
+   * Playwright browser channel — e.g. `'chrome'`, `'msedge'`. Launches that
+   * installed browser's binary instead of bundled Chromium (applies to the
+   * default and `userDataDir` modes). NOTE: a channel alone does NOT reuse
+   * your existing profile — pair it with `userDataDir` (persistent) or
+   * `cdpUrl` (attach) for real logins.
+   */
+  readonly channel?: string;
+  /**
    * Install the HumanJS visible cursor overlay so recorded videos show
    * mouse motion — Playwright's synthetic mouse doesn't render a cursor
    * by itself, so without this the recording would look like text and
@@ -85,9 +111,14 @@ export interface RecordOptions extends CreateHumanOptions {
 export type RecordCallback = (human: Human, page: Page) => Promise<void>;
 
 /**
- * One-call session recording. Launches a browser, opens a page, creates a
- * humanized session, runs `fn`, and returns a {@link Recording} you can
- * export to video, JSON timeline, or read in-memory.
+ * One-call session recording. Launches (or attaches to) a browser, opens a
+ * page, creates a humanized session, runs `fn`, and returns a
+ * {@link Recording} you can export to video, JSON timeline, or read in-memory.
+ *
+ * Browser source (default → ephemeral fresh profile):
+ * - `userDataDir` — a persistent profile that keeps logins across runs.
+ * - `cdpUrl` — attach to a browser you launched yourself (real logins/tabs);
+ *   never closed on finish, only released.
  *
  * If `options.output` is set, the output file is written to that path before
  * `record()` resolves — extension dispatches to `toVideo` (`.mp4` / `.webm`)
@@ -108,11 +139,10 @@ export type RecordCallback = (human: Human, page: Page) => Promise<void>;
  *
  * @example
  * ```ts
- * // Timeline only, no video overhead
- * const rec = await record(async (human) => {
- *   await human.click('#login');
+ * // Stay signed in across runs (persistent profile)
+ * await record({ output: 'dashboard.mp4', userDataDir: './.humanjs-profile' }, async (human) => {
+ *   await human.goto('https://app.example.com/dashboard');
  * });
- * await rec.toTimeline('demo.json');
  * ```
  *
  * For multi-page flows or recording a slice of a larger session, use
@@ -136,62 +166,130 @@ export async function record(
     viewport,
     headless,
     launch,
-    context,
+    context: contextOptions,
+    userDataDir,
+    cdpUrl,
+    channel,
     cursor,
     ...createHumanOptions
   } = options;
 
   const resolvedQuality: RecordingQuality = quality ?? 'high';
   const browserPreset = QUALITY_BROWSER_PRESETS[resolvedQuality];
-  const resolvedViewport = viewport ?? context?.viewport ?? browserPreset.viewport;
+  const resolvedViewport = viewport ?? contextOptions?.viewport ?? browserPreset.viewport;
   const wantsCapture = output !== undefined;
 
-  const browser = await chromium.launch({
-    ...launch,
+  const { page, dispose } = await acquireRecordingContext({
+    cdpUrl,
+    userDataDir,
+    channel,
     headless: headless ?? false,
+    viewport: resolvedViewport,
+    launch,
+    context: contextOptions,
+    cursor,
   });
+
   try {
-    const browserContext = await browser.newContext({
-      ...context,
-      viewport: resolvedViewport,
-    });
-    try {
-      // Install the visible-cursor overlay before any page is created so
-      // the addInitScript runs on the initial page render — and on any
-      // page.setContent() inside the callback too.
-      if (cursor !== false) {
-        const cursorOptions = typeof cursor === 'object' ? cursor : undefined;
-        await installMouseHelper(browserContext, cursorOptions);
+    if (url) await page.goto(url);
+
+    const human = await createHuman(page, createHumanOptions);
+
+    // Capture runs only when the caller asked for an output file — saves
+    // the screenshot + disk-write overhead for timeline-only recordings.
+    const recording = await human.record({ video: wantsCapture, quality: resolvedQuality }, () =>
+      fn(human, page),
+    );
+
+    if (wantsCapture && output) {
+      // Dispatch by extension: .gif goes through the GIF exporter (which
+      // ignores `quality` — GIF doesn't have a CRF concept), everything
+      // else flows into the mp4/webm encoder with the chosen preset.
+      const ext = extname(output).toLowerCase();
+      if (ext === '.gif') {
+        await recording.toGif(output);
+      } else {
+        await recording.toVideo(output, { quality: resolvedQuality });
       }
-
-      const page = await browserContext.newPage();
-      if (url) await page.goto(url);
-
-      const human = await createHuman(page, createHumanOptions);
-
-      // Capture runs only when the caller asked for an output file — saves
-      // the screenshot + disk-write overhead for timeline-only recordings.
-      const recording = await human.record({ video: wantsCapture, quality: resolvedQuality }, () =>
-        fn(human, page),
-      );
-
-      if (wantsCapture && output) {
-        // Dispatch by extension: .gif goes through the GIF exporter (which
-        // ignores `quality` — GIF doesn't have a CRF concept), everything
-        // else flows into the mp4/webm encoder with the chosen preset.
-        const ext = extname(output).toLowerCase();
-        if (ext === '.gif') {
-          await recording.toGif(output);
-        } else {
-          await recording.toVideo(output, { quality: resolvedQuality });
-        }
-      }
-
-      return recording;
-    } finally {
-      await browserContext.close().catch(() => undefined);
     }
+
+    return recording;
   } finally {
-    await browser.close();
+    await dispose();
   }
+}
+
+/** Internal options for {@link acquireRecordingContext}. */
+interface AcquireOptions {
+  readonly cdpUrl?: string;
+  readonly userDataDir?: string;
+  readonly channel?: string;
+  readonly headless: boolean;
+  readonly viewport: { readonly width: number; readonly height: number };
+  readonly launch?: LaunchOptions;
+  readonly context?: BrowserContextOptions;
+  readonly cursor?: boolean | InstallMouseHelperOptions;
+}
+
+/**
+ * Resolves the browser source — CDP attach > persistent profile > ephemeral
+ * — and returns the page to drive plus a `dispose` that tears down only what
+ * we created. A CDP-attached browser is borrowed: `dispose` leaves it (and
+ * its context) untouched so we never close the caller's real browser.
+ */
+async function acquireRecordingContext(
+  opts: AcquireOptions,
+): Promise<{ page: Page; dispose: () => Promise<void> }> {
+  const cursorOptions = typeof opts.cursor === 'object' ? opts.cursor : undefined;
+  const installCursor = async (ctx: BrowserContext): Promise<void> => {
+    if (opts.cursor !== false) await installMouseHelper(ctx, cursorOptions);
+  };
+
+  // Attach to a browser the caller launched. Reuse its existing context so we
+  // record their real session; only make a fresh one if there's none. Never
+  // close it on dispose — it's borrowed.
+  if (opts.cdpUrl) {
+    const browser = await chromium.connectOverCDP(opts.cdpUrl);
+    const context = browser.contexts()[0] ?? (await browser.newContext({ ...opts.context }));
+    await installCursor(context);
+    const page = context.pages()[0] ?? (await context.newPage());
+    return { page, dispose: async () => undefined };
+  }
+
+  // Persistent profile — the context owns its browser, so closing it on
+  // dispose tears everything down.
+  if (opts.userDataDir) {
+    const context = await chromium.launchPersistentContext(opts.userDataDir, {
+      ...opts.launch,
+      ...opts.context,
+      channel: opts.channel ?? opts.launch?.channel,
+      headless: opts.headless,
+      viewport: opts.viewport,
+    });
+    await installCursor(context);
+    const page = context.pages()[0] ?? (await context.newPage());
+    return {
+      page,
+      dispose: async () => {
+        await context.close().catch(() => undefined);
+      },
+    };
+  }
+
+  // Ephemeral (default) — a fresh throwaway browser + context.
+  const browser = await chromium.launch({
+    ...opts.launch,
+    channel: opts.channel ?? opts.launch?.channel,
+    headless: opts.headless,
+  });
+  const context = await browser.newContext({ ...opts.context, viewport: opts.viewport });
+  await installCursor(context);
+  const page = await context.newPage();
+  return {
+    page,
+    dispose: async () => {
+      await context.close().catch(() => undefined);
+      await browser.close().catch(() => undefined);
+    },
+  };
 }
