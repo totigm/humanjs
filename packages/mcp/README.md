@@ -114,12 +114,6 @@ Click / rightClick / move / drag take a **selector or raw x/y coordinates** — 
 | `human_get_attribute` | An element's attribute (`aria-label`, `href`, …) |
 | `human_get_html` | An element's `outerHTML` — discover the real selector of a control |
 
-**Waiting** — settle the page between actions:
-
-| Tool | What it does |
-|---|---|
-| `human_wait` | Pause N ms — for debounced search, animations, list reflows that fire no network event |
-
 **Recording** — capture the session:
 
 | Tool | What it does |
@@ -216,7 +210,7 @@ Persistent and CDP modes drive a **single shared browser**, so named/parallel se
 The server ships **built-in guidance** (sent to the agent on connect via MCP `instructions`), so you don't have to spell out the workflow each time. The agent is told to:
 
 - **Explore first, then record one clean run.** Discover correct selectors in an un-recorded pass, then `human_start_recording` → run the steps back-to-back → `human_stop_recording`. Selector-guessing kept out of the take is what makes a recording look natural — the motion is already humanized, so don't reach for `fast`/`instant` to "fix" the feel.
-- **Settle dynamic UI.** After a debounced search/filter the list reflows and elements move; the agent waits (`human_wait`) and uses specific selectors before targeting a result, so a click doesn't land on a stale position as the layout shifts.
+- **Use specific selectors on dynamic lists.** After a debounced search/filter the list reflows; the agent uses role/aria-label selectors (not text) so it targets the right element rather than a stale one.
 
 You can still steer it, but a bare "record me buying a ticket on X" should produce a clean take without the play-by-play.
 

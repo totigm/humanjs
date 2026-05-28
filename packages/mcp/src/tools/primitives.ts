@@ -152,7 +152,7 @@ export function registerPrimitiveTools(server: McpServer, { sessions }: ToolCont
     {
       title: 'Type text (humanized)',
       description:
-        'Clicks the element to focus it, then types with humanized per-key rhythm. The current personality controls speed, typo probability, and corrections (HUMANJS_PERSONALITY / human_set_personality). If this types into a search/filter, the results re-render (often debounced) — call human_wait before targeting a result, and use a specific selector (the list shifts as it filters).',
+        'Clicks the element to focus it, then types with humanized per-key rhythm. The current personality controls speed, typo probability, and corrections (HUMANJS_PERSONALITY / human_set_personality). If this types into a search/filter, the results re-render (often debounced) — use a specific selector for the result, as the list shifts as it filters.',
       inputSchema: {
         selector: z.string().describe('Selector of the input/textarea/contenteditable.'),
         value: z.string().describe('Text to type. May contain newlines.'),

@@ -35,7 +35,6 @@ import { registerInspectionTools } from './tools/inspection';
 import { registerPrimitiveTools } from './tools/primitives';
 import { registerRecordingTools } from './tools/recording';
 import { registerSessionTools } from './tools/sessions';
-import { registerWaitTools } from './tools/wait';
 
 const SERVER_NAME = 'humanjs-mcp';
 const SERVER_VERSION = '0.1.0';
@@ -54,7 +53,6 @@ Recording a flow (the natural-looking way):
 You don't need the user to ask for an exploration pass; do it whenever the selectors aren't already known.
 
 Handling dynamic UI (do this even outside recordings):
-- After typing into a search/filter — especially debounced — the list re-renders and elements MOVE. Call human_wait (e.g. 400ms) before targeting a result. The cursor travels over a short window; if the layout shifts mid-travel the click lands on a stale spot.
 - Prefer specific selectors (role, aria-label) over text. The same visible text often matches several cards before filtering, or the wrong one after. If a click reports multiple matches, narrow the selector.
 
 Browser state: by default each run is a fresh, signed-out browser. If a flow needs a login, tell the user to enable persistence (human_enable_persistence or HUMANJS_PERSIST) or CDP attach — see human_browser_info.`;
@@ -71,7 +69,6 @@ async function main(): Promise<void> {
 
   registerPrimitiveTools(server, ctx);
   registerInspectionTools(server, ctx);
-  registerWaitTools(server, ctx);
   registerRecordingTools(server, ctx);
   registerSessionTools(server, ctx);
   registerConfigTools(server, ctx);
