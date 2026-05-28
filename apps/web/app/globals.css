@@ -68,7 +68,9 @@
    */
   code,
   pre {
-    font-feature-settings: "liga" 0, "calt" 0;
+    font-feature-settings:
+      "liga" 0,
+      "calt" 0;
   }
 
   ::selection {
