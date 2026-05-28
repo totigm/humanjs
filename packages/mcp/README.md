@@ -212,7 +212,7 @@ The server ships **built-in guidance** (sent to the agent on connect via MCP `in
 - **Explore first, then record one clean run — as a single batch.** Discover correct selectors in an un-recorded pass, then dispatch the whole run (`human_start_recording` → every action → `human_stop_recording`) in one turn. This is what makes recordings smooth: emitting the tool calls together means they fire back-to-back, whereas a step-by-step loop puts a multi-second model-inference pause between each action — dead air in the video. The motion is already humanized, so don't reach for `fast`/`instant` to "fix" the feel.
 - **Use specific selectors on dynamic lists.** After a debounced search/filter the list reflows; the agent uses role/aria-label selectors (not text) so it targets the right element rather than a stale one.
 
-You can still steer it, but a bare "record me buying a ticket on X" should produce a clean take without the play-by-play.
+**Exploration is on by default for recordings.** When you ask for a recording, the agent first runs an un-recorded pass to discover the right selectors, then records the clean batched run — you don't have to ask for it. A bare "record me buying a ticket on X" should produce a clean take without the play-by-play. To skip exploration (e.g. it's a simple flow, or you've already given the exact selectors), just tell the agent not to explore.
 
 ## Security
 
