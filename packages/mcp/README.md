@@ -95,7 +95,7 @@ Click / rightClick / move / drag take a **selector or raw x/y coordinates** — 
 | Tool | What it does |
 |---|---|
 | `human_start_recording` | Begin capturing (frames + action timeline) |
-| `human_stop_recording` | Finalize and write `.mp4` / `.webm` / `.gif` / `.json` |
+| `human_stop_recording` | Finalize and write one or more files — `.mp4` / `.webm` / `.gif` / `.json` (e.g. video + timeline from one recording) |
 
 **Sessions** — only needed for parallel browsers; the default session is implicit:
 

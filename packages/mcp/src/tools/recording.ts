@@ -50,31 +50,47 @@ export function registerRecordingTools(server: McpServer, { sessions, env }: Too
     {
       title: 'Stop recording and save',
       description:
-        'Stops the active recording and writes it to HUMANJS_OUTPUT_DIR. The filename extension picks the format: .mp4/.webm = video, .gif = animated gif, .json = action timeline. Path components are rejected for safety.',
+        'Stops the active recording and writes it to one or more files in HUMANJS_OUTPUT_DIR. Each filename\'s extension picks its format: .mp4/.webm = video, .gif = animated gif, .json = action timeline. Pass several to export the same recording multiple ways, e.g. ["demo.mp4", "demo.json"] for video + timeline. Path components are rejected for safety.',
       inputSchema: {
-        filename: z
-          .string()
-          .describe('Output filename, e.g. "demo.mp4", "demo.gif", or "demo.json".'),
+        filenames: z
+          .array(z.string())
+          .min(1)
+          .describe(
+            'One or more output filenames. The recording is saved to each, format chosen by extension. e.g. ["demo.mp4"] or ["demo.mp4", "demo.gif", "demo.json"].',
+          ),
         session: z.string().optional().describe('Session ID. Omit for the default session.'),
       },
     },
-    async ({ filename, session }) => {
-      const recording = await sessions.stopRecording(session);
-      const path = resolveOutputPath(env.outputDir, filename);
-      const ext = extname(filename).toLowerCase();
-
-      let saved: string;
-      if (ext === '.gif') {
-        saved = await recording.toGif(path);
-      } else if (ext === '.json') {
-        saved = await recording.toTimeline(path);
-      } else if (ext === '.mp4' || ext === '.webm') {
-        saved = await recording.toVideo(path);
-      } else {
-        throw new Error(`Unsupported output extension "${ext}". Use .mp4, .webm, .gif, or .json.`);
+    async ({ filenames, session }) => {
+      // Resolve + validate every path/format BEFORE stopping, so a bad
+      // filename doesn't leave the recording stopped-but-unsaved.
+      const targets = filenames.map((filename) => ({
+        path: resolveOutputPath(env.outputDir, filename),
+        ext: extname(filename).toLowerCase(),
+      }));
+      for (const { ext } of targets) {
+        if (ext !== '.mp4' && ext !== '.webm' && ext !== '.gif' && ext !== '.json') {
+          throw new Error(
+            `Unsupported output extension "${ext}". Use .mp4, .webm, .gif, or .json.`,
+          );
+        }
       }
 
-      return { content: [{ type: 'text', text: `saved recording to ${saved}` }] };
+      const recording = await sessions.stopRecording(session);
+      try {
+        const saved: string[] = [];
+        for (const { path, ext } of targets) {
+          // Video/gif read the captured frames; timeline reads in-memory
+          // events. All are repeatable and interleavable until dispose().
+          if (ext === '.gif') saved.push(await recording.toGif(path));
+          else if (ext === '.json') saved.push(await recording.toTimeline(path));
+          else saved.push(await recording.toVideo(path));
+        }
+        return { content: [{ type: 'text', text: `saved recording to:\n${saved.join('\n')}` }] };
+      } finally {
+        // Free the captured-frames temp dir now that all exports are done.
+        await recording.dispose();
+      }
     },
   );
 }
