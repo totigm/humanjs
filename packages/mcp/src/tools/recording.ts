@@ -50,7 +50,7 @@ export function registerRecordingTools(server: McpServer, { sessions, env }: Too
     {
       title: 'Stop recording and save',
       description:
-        'Stops the active recording and writes it to one or more files in HUMANJS_OUTPUT_DIR. Each filename\'s extension picks its format: .mp4/.webm = video, .gif = animated gif, .json = action timeline. Pass several to export the same recording multiple ways, e.g. ["demo.mp4", "demo.json"] for video + timeline. Path components are rejected for safety. If the final action navigated, call human_wait_for_load first — otherwise the video cuts off before the destination page renders.',
+        'Stops the active recording and writes it to one or more files in HUMANJS_OUTPUT_DIR. Each filename\'s extension picks its format: .mp4/.webm = video, .gif = animated gif, .json = action timeline. Pass several to export the same recording multiple ways, e.g. ["demo.mp4", "demo.json"] for video + timeline. Path components are rejected for safety. If the final action navigated, confirm the destination rendered (e.g. human_screenshot) before stopping — a click resolves on dispatch, not after navigation, so stopping too early cuts the video short.',
       inputSchema: {
         filenames: z
           .array(z.string())
