@@ -22,7 +22,7 @@ Configure it in your MCP client:
 
 Requires Node ≥ 20. The `playwright` npm package is bundled, and the Chromium browser binary downloads automatically on first launch if it's missing (~150MB, one time) — so `npx -y @humanjs/mcp` works with zero manual setup. Set `HUMANJS_AUTO_INSTALL=false` to opt out and install manually with `npx playwright install chromium`.
 
-The server also ships **built-in agent guidance** (MCP `instructions`): explore selectors first then record one clean run, and prefer specific role/aria-label selectors on dynamic lists — so natural-looking recordings don't need the user to spell out the workflow.
+The server also ships **built-in agent guidance** (MCP `instructions`): explore selectors first, then dispatch a known run as a single batch of tool calls in one turn (so actions fire back-to-back instead of with a model-inference pause — slow in general, dead air in a recording), and prefer specific role/aria-label selectors on dynamic lists — so natural-looking recordings don't need the user to spell out the workflow.
 
 ## Tools (27)
 

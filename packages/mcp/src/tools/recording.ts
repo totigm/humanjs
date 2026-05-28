@@ -20,7 +20,7 @@ export function registerRecordingTools(server: McpServer, { sessions, env }: Too
     {
       title: 'Start recording',
       description:
-        'Begins recording the session. Every humanized action until human_stop_recording is captured (frames + action timeline). The visible cursor is in the video. One recording per session at a time. For a natural-looking take, explore the flow first to find correct selectors, then record one clean back-to-back run — keep selector-guessing out of the recording.',
+        'Begins recording the session. Every humanized action until human_stop_recording is captured (frames + action timeline). The visible cursor is in the video. One recording per session at a time. For a natural-looking take: explore the flow first to find correct selectors, then dispatch the whole run — start_recording + every action + stop_recording — in a SINGLE turn (one batch of tool calls), so there are no model-thinking pauses between actions to leave dead air in the video.',
       inputSchema: {
         name: z
           .string()

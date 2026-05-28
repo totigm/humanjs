@@ -209,7 +209,7 @@ Persistent and CDP modes drive a **single shared browser**, so named/parallel se
 
 The server ships **built-in guidance** (sent to the agent on connect via MCP `instructions`), so you don't have to spell out the workflow each time. The agent is told to:
 
-- **Explore first, then record one clean run.** Discover correct selectors in an un-recorded pass, then `human_start_recording` → run the steps back-to-back → `human_stop_recording`. Selector-guessing kept out of the take is what makes a recording look natural — the motion is already humanized, so don't reach for `fast`/`instant` to "fix" the feel.
+- **Explore first, then record one clean run — as a single batch.** Discover correct selectors in an un-recorded pass, then dispatch the whole run (`human_start_recording` → every action → `human_stop_recording`) in one turn. This is what makes recordings smooth: emitting the tool calls together means they fire back-to-back, whereas a step-by-step loop puts a multi-second model-inference pause between each action — dead air in the video. The motion is already humanized, so don't reach for `fast`/`instant` to "fix" the feel.
 - **Use specific selectors on dynamic lists.** After a debounced search/filter the list reflows; the agent uses role/aria-label selectors (not text) so it targets the right element rather than a stale one.
 
 You can still steer it, but a bare "record me buying a ticket on X" should produce a clean take without the play-by-play.

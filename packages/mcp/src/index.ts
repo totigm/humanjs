@@ -47,13 +47,13 @@ const SERVER_VERSION = '0.1.0';
  */
 const SERVER_INSTRUCTIONS = `HumanJS drives a real browser with humanized motion, typing, and reading dwell. Motion is already realistic at the default speed — do NOT switch to 'fast'/'instant' or change personality to make a flow "look natural"; it already does.
 
-Recording a flow (the natural-looking way):
-1. EXPLORE FIRST. Navigate the flow once to discover correct, unambiguous selectors (use human_screenshot / human_get_html / human_get_attribute). Don't record this pass.
-2. THEN RECORD ONE CLEAN RUN. human_start_recording, perform the discovered steps back-to-back, human_stop_recording. A recording that includes selector-guessing or fumbles looks robotic — keep that out of the take.
-You don't need the user to ask for an exploration pass; do it whenever the selectors aren't already known.
+DISPATCH KNOWN STEPS TOGETHER. When you already know the full sequence (a recording, or any flow you've mapped out), emit ALL the tool calls in a SINGLE turn, back-to-back, WITHOUT pausing to reason between them. This matters a lot: each model turn between actions is a multi-second gap, which is slow in general and shows up as dead air in a recording. The humanized motion paces the actions on its own — don't add thinking gaps on top. Only go one tool at a time when a step genuinely needs the previous step's result (exploring, or reacting to something you can't predict).
 
-Handling dynamic UI (do this even outside recordings):
-- Prefer specific selectors (role, aria-label) over text. The same visible text often matches several cards before filtering, or the wrong one after. If a click reports multiple matches, narrow the selector.
+Recording a flow (the natural-looking way):
+1. EXPLORE FIRST (un-recorded). Navigate the flow once to discover correct, unambiguous selectors (human_screenshot / human_get_html / human_get_attribute). Do this whenever the selectors aren't already known — no need for the user to ask.
+2. THEN RECORD ONE CLEAN RUN AS A SINGLE BATCH: human_start_recording + every action + human_stop_recording, all emitted in one turn. Keep selector-guessing and fumbles out of the take.
+
+Dynamic UI: prefer specific selectors (role, aria-label) over text — the same visible text often matches several cards before a filter, or the wrong one after. If a click reports multiple matches, narrow the selector.
 
 Browser state: by default each run is a fresh, signed-out browser. If a flow needs a login, tell the user to enable persistence (human_enable_persistence or HUMANJS_PERSIST) or CDP attach — see human_browser_info.`;
 
