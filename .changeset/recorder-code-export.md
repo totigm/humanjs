@@ -1,6 +1,7 @@
 ---
 "@humanjs/playwright": minor
 "@humanjs/recorder": minor
+"@humanjs/mcp": minor
 ---
 
 Recorder code export — turn a recorded session into runnable code.
@@ -9,6 +10,8 @@ Recorder code export — turn a recorded session into runnable code.
 - **`Recording.toPlaywright(path)`** — writes a `@playwright/test` spec that drives the page through HumanJS, so the generated test runs humanized too.
 
 Both are available on the `Recording` returned by `human.record()` and by `@humanjs/recorder`'s `record()`. String selectors round-trip verbatim; raw `point(x, y)` targets are emitted with a flag comment (locator/point → selector synthesis is a planned follow-up).
+
+`@humanjs/mcp`'s `human_stop_recording` now accepts these formats too — a `.ts` filename writes a HumanJS script, `.spec.ts` / `.test.ts` writes a Playwright test — so an AI agent can record a flow and emit a ready-to-commit test directly.
 
 - **`captureInputs`** (new `human.record()` / `record()` option, default `true`) — records the actual typed/pasted text into the timeline so it flows into exported code. Values typed into `input[type="password"]` are always masked; set `captureInputs: false` to record none. Captured values land in the timeline JSON and exported code — treat those artifacts accordingly.
 - `TimelineEvent` gains an optional `inputValue` field carrying the captured text for `type`/`paste`.

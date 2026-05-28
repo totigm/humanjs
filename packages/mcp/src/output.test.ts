@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { resolveOutputPath } from './output';
+import { resolveOutputPath, resolveRecordingFormat } from './output';
 
 describe('resolveOutputPath', () => {
   const OUT = '/out/dir';
@@ -25,5 +25,31 @@ describe('resolveOutputPath', () => {
 
   it('rejects an empty name', () => {
     expect(() => resolveOutputPath(OUT, '')).toThrow(/path components/i);
+  });
+});
+
+describe('resolveRecordingFormat', () => {
+  it('maps media + timeline extensions', () => {
+    expect(resolveRecordingFormat('demo.mp4')).toBe('video');
+    expect(resolveRecordingFormat('demo.webm')).toBe('video');
+    expect(resolveRecordingFormat('demo.gif')).toBe('gif');
+    expect(resolveRecordingFormat('demo.json')).toBe('timeline');
+  });
+
+  it('distinguishes HumanJS scripts from Playwright specs by suffix', () => {
+    expect(resolveRecordingFormat('session.ts')).toBe('humanjs');
+    expect(resolveRecordingFormat('checkout.spec.ts')).toBe('playwright');
+    expect(resolveRecordingFormat('checkout.test.ts')).toBe('playwright');
+  });
+
+  it('is case-insensitive', () => {
+    expect(resolveRecordingFormat('DEMO.MP4')).toBe('video');
+    expect(resolveRecordingFormat('Checkout.Spec.TS')).toBe('playwright');
+  });
+
+  it('returns null for unsupported extensions', () => {
+    expect(resolveRecordingFormat('demo.txt')).toBeNull();
+    expect(resolveRecordingFormat('demo')).toBeNull();
+    expect(resolveRecordingFormat('demo.tsx')).toBeNull();
   });
 });

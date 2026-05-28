@@ -8,11 +8,10 @@
  * and pick the output format from the filename extension.
  */
 
-import { extname } from 'node:path';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { ToolContext } from '../context';
-import { resolveOutputPath } from '../output';
+import { resolveOutputPath, resolveRecordingFormat } from '../output';
 
 export function registerRecordingTools(server: McpServer, { sessions, env }: ToolContext): void {
   server.registerTool(
@@ -50,13 +49,13 @@ export function registerRecordingTools(server: McpServer, { sessions, env }: Too
     {
       title: 'Stop recording and save',
       description:
-        'Stops the active recording and writes it to one or more files in HUMANJS_OUTPUT_DIR. Each filename\'s extension picks its format: .mp4/.webm = video, .gif = animated gif, .json = action timeline. Pass several to export the same recording multiple ways, e.g. ["demo.mp4", "demo.json"] for video + timeline. Path components are rejected for safety.',
+        'Stops the active recording and writes it to one or more files in HUMANJS_OUTPUT_DIR. Each filename\'s extension picks its format: .mp4/.webm = video, .gif = animated gif, .json = action timeline, .ts = runnable HumanJS script, .spec.ts/.test.ts = @playwright/test spec (humanized, with derived assertions). Pass several to export the same recording multiple ways, e.g. ["demo.mp4", "checkout.spec.ts"] for a video plus a ready-to-commit test. Path components are rejected for safety.',
       inputSchema: {
         filenames: z
           .array(z.string())
           .min(1)
           .describe(
-            'One or more output filenames. The recording is saved to each, format chosen by extension. e.g. ["demo.mp4"] or ["demo.mp4", "demo.gif", "demo.json"].',
+            'One or more output filenames. The recording is saved to each, format chosen by extension. e.g. ["demo.mp4"], ["checkout.spec.ts"], or ["demo.mp4", "demo.json", "demo.ts"].',
           ),
         session: z.string().optional().describe('Session ID. Omit for the default session.'),
       },
@@ -64,26 +63,26 @@ export function registerRecordingTools(server: McpServer, { sessions, env }: Too
     async ({ filenames, session }) => {
       // Resolve + validate every path/format BEFORE stopping, so a bad
       // filename doesn't leave the recording stopped-but-unsaved.
-      const targets = filenames.map((filename) => ({
-        path: resolveOutputPath(env.outputDir, filename),
-        ext: extname(filename).toLowerCase(),
-      }));
-      for (const { ext } of targets) {
-        if (ext !== '.mp4' && ext !== '.webm' && ext !== '.gif' && ext !== '.json') {
+      const targets = filenames.map((filename) => {
+        const format = resolveRecordingFormat(filename);
+        if (format === null) {
           throw new Error(
-            `Unsupported output extension "${ext}". Use .mp4, .webm, .gif, or .json.`,
+            `Unsupported output extension for "${filename}". Use .mp4/.webm (video), .gif, .json (timeline), .ts (HumanJS script), or .spec.ts/.test.ts (Playwright test).`,
           );
         }
-      }
+        return { path: resolveOutputPath(env.outputDir, filename), format };
+      });
 
       const recording = await sessions.stopRecording(session);
       try {
         const saved: string[] = [];
-        for (const { path, ext } of targets) {
-          // Video/gif read the captured frames; timeline reads in-memory
-          // events. All are repeatable and interleavable until dispose().
-          if (ext === '.gif') saved.push(await recording.toGif(path));
-          else if (ext === '.json') saved.push(await recording.toTimeline(path));
+        for (const { path, format } of targets) {
+          // Video/gif read the captured frames; timeline + code export read
+          // in-memory events. All are repeatable until dispose().
+          if (format === 'gif') saved.push(await recording.toGif(path));
+          else if (format === 'timeline') saved.push(await recording.toTimeline(path));
+          else if (format === 'humanjs') saved.push(await recording.toHumanJS(path));
+          else if (format === 'playwright') saved.push(await recording.toPlaywright(path));
           else saved.push(await recording.toVideo(path));
         }
         return { content: [{ type: 'text', text: `saved recording to:\n${saved.join('\n')}` }] };
