@@ -35,6 +35,7 @@ The first browser action launches a visible Chromium window with the humanized c
 | Variable | Values | Default | Purpose |
 |---|---|---|---|
 | `HUMANJS_PERSONALITY` | `careful` \| `fast` \| `distracted` \| `precise` | `careful` | Default personality for every session. |
+| `HUMANJS_SPEED` | `human` \| `fast` \| `instant` | `human` | Humanization pace. `human` = full realistic motion; `fast` = humanized but quick; `instant` = no humanized motion. Changes how long each action *executes*, not the wait between actions. |
 | `HUMANJS_HEADLESS` | `true` \| `false` | `false` | Headless browser. Default is visible — the point of the MCP. |
 | `HUMANJS_OUTPUT_DIR` | path | server's CWD | Where screenshots and recordings are written. |
 | `HUMANJS_VIEWPORT` | `WIDTHxHEIGHT` | `1440x900` | Default viewport for new sessions. Bump to `1920x1080` for crisper recordings. |
@@ -100,7 +101,7 @@ Click / rightClick / move / drag take a **selector or raw x/y coordinates** — 
 
 | Tool | What it does |
 |---|---|
-| `human_create_session` | Open a new isolated session (optional `personality`, `width`/`height`) |
+| `human_create_session` | Open a new isolated session (optional `personality`, `speed`, `width`/`height`) |
 | `human_close_session` | Close a session |
 | `human_list_sessions` | List open sessions |
 
@@ -109,6 +110,7 @@ Click / rightClick / move / drag take a **selector or raw x/y coordinates** — 
 | Tool | What it does |
 |---|---|
 | `human_set_personality` | Switch preset or blend two presets at runtime |
+| `human_set_speed` | Switch humanization pace at runtime (`human` / `fast` / `instant`) |
 | `human_set_viewport` | Resize the viewport at runtime (bigger/crisper recording, responsive testing) |
 
 ## Personalities

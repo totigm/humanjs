@@ -1,8 +1,8 @@
 /**
  * Config tools — runtime tweaks to how a session behaves: personality
- * (env var sets the default, this changes it mid-session) and viewport
- * size (resize the live page for a bigger/crisper recording or to test
- * responsive layouts).
+ * (env var sets the default, this changes it mid-session), humanization
+ * speed, and viewport size (resize the live page for a bigger/crisper
+ * recording or to test responsive layouts).
  */
 
 import { blend } from '@humanjs/core';
@@ -55,6 +55,23 @@ export function registerConfigTools(server: McpServer, { sessions }: ToolContext
       return {
         content: [{ type: 'text', text: `set "${info.id}" personality to ${label}` }],
       };
+    },
+  );
+
+  server.registerTool(
+    'human_set_speed',
+    {
+      title: 'Set humanization speed',
+      description:
+        'Changes a session\'s humanization pace at runtime. "human" = full realistic motion (best for recordings); "fast" = humanized but quicker; "instant" = no humanized motion (straight Playwright). Note: this changes how long each action takes to execute, not the wait between actions. Cannot change while recording.',
+      inputSchema: {
+        speed: z.enum(['human', 'fast', 'instant']).describe('The pace to switch to.'),
+        session: z.string().optional().describe('Session ID. Omit for the default session.'),
+      },
+    },
+    async ({ speed, session }) => {
+      const info = await sessions.setSpeed(session, speed);
+      return { content: [{ type: 'text', text: `set "${info.id}" speed to ${speed}` }] };
     },
   );
 

@@ -14,6 +14,13 @@ const personalityArg = z
   .optional()
   .describe('Personality preset for this session. Defaults to HUMANJS_PERSONALITY.');
 
+const speedArg = z
+  .enum(['human', 'fast', 'instant'])
+  .optional()
+  .describe(
+    'Humanization pace. "human" (default) = full realistic motion; "fast" = humanized but quick; "instant" = no humanized motion. Defaults to HUMANJS_SPEED.',
+  );
+
 export function registerSessionTools(server: McpServer, { sessions }: ToolContext): void {
   server.registerTool(
     'human_create_session',
@@ -24,6 +31,7 @@ export function registerSessionTools(server: McpServer, { sessions }: ToolContex
       inputSchema: {
         id: z.string().describe('Unique session ID, e.g. "buyer", "seller".'),
         personality: personalityArg,
+        speed: speedArg,
         width: z
           .number()
           .int()
@@ -38,17 +46,17 @@ export function registerSessionTools(server: McpServer, { sessions }: ToolContex
           .describe('Viewport height in CSS px. Requires width.'),
       },
     },
-    async ({ id, personality, width, height }) => {
+    async ({ id, personality, speed, width, height }) => {
       if ((width === undefined) !== (height === undefined)) {
         throw new Error('Provide both width and height, or neither.');
       }
       const viewport = width !== undefined && height !== undefined ? { width, height } : undefined;
-      const session = await sessions.create(id, { personality, viewport });
+      const session = await sessions.create(id, { personality, speed, viewport });
       return {
         content: [
           {
             type: 'text',
-            text: `created session "${session.id}" (personality: ${session.personality})`,
+            text: `created session "${session.id}" (personality: ${session.personality}, speed: ${session.speed})`,
           },
         ],
       };
@@ -84,7 +92,9 @@ export function registerSessionTools(server: McpServer, { sessions }: ToolContex
       const text =
         list.length === 0
           ? 'no open sessions (the default session is created on first action)'
-          : list.map((s) => `${s.id} (personality: ${s.personality})`).join('\n');
+          : list
+              .map((s) => `${s.id} (personality: ${s.personality}, speed: ${s.speed})`)
+              .join('\n');
       return { content: [{ type: 'text', text }] };
     },
   );

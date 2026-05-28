@@ -19,6 +19,7 @@ import {
   installMouseHelper,
   type Recording,
   type RecordingQuality,
+  type Speed,
 } from '@humanjs/playwright';
 import { type Browser, type BrowserContext, chromium, type Page } from 'playwright';
 import type { McpEnv } from './env';
@@ -29,12 +30,14 @@ export const DEFAULT_SESSION_ID = 'default';
 export interface SessionInfo {
   readonly id: string;
   readonly personality: PresetName;
+  readonly speed: Speed;
   readonly createdAt: number;
 }
 
 /** Options accepted by {@link SessionManager.create}. */
 export interface CreateSessionOptions {
   readonly personality?: PresetName;
+  readonly speed?: Speed;
   readonly viewport?: { readonly width: number; readonly height: number };
 }
 
@@ -65,6 +68,7 @@ interface InternalSession {
   readonly page: Page;
   human: Human;
   personality: PresetName;
+  speed: Speed;
   recording: RecordingState | null;
   readonly createdAt: number;
 }
@@ -122,7 +126,8 @@ export class SessionManager {
     await installMouseHelper(context);
     const page = await context.newPage();
     const personality = options.personality ?? this.env.personality;
-    const human = await createHuman(page, { personality });
+    const speed = options.speed ?? this.env.speed;
+    const human = await createHuman(page, { personality, speed });
 
     const session: InternalSession = {
       id,
@@ -130,6 +135,7 @@ export class SessionManager {
       page,
       human,
       personality,
+      speed,
       recording: null,
       createdAt: Date.now(),
     };
@@ -177,7 +183,10 @@ export class SessionManager {
     rec.stop();
     const recording = await rec.done;
     session.recording = null;
-    session.human = await createHuman(session.page, { personality: session.personality });
+    session.human = await createHuman(session.page, {
+      personality: session.personality,
+      speed: session.speed,
+    });
     return recording;
   }
 
@@ -191,13 +200,30 @@ export class SessionManager {
     personality: PersonalityConfig,
   ): Promise<SessionInfo> {
     const session = await this.get(id);
-    session.human = await createHuman(session.page, { personality });
+    assertNotRecording(session, 'change personality');
+    session.human = await createHuman(session.page, { personality, speed: session.speed });
     // `personality` on InternalSession tracks the *preset name* for the
     // SessionInfo view. When a non-preset PersonalityConfig is passed
     // (a custom blend), we lose the preset name — that's intentional;
     // the public info downgrades to whatever name the resolved
     // personality carries.
     session.personality = (session.human.personality.name ?? 'careful') as PresetName;
+    return toSessionInfo(session);
+  }
+
+  /**
+   * Changes the humanization pace for a session at runtime. Recreates the
+   * `Human` (speed is fixed at creation); browser context, page, cookies,
+   * and scroll position are preserved.
+   */
+  async setSpeed(id: string = DEFAULT_SESSION_ID, speed: Speed): Promise<SessionInfo> {
+    const session = await this.get(id);
+    assertNotRecording(session, 'change speed');
+    session.speed = speed;
+    session.human = await createHuman(session.page, {
+      personality: session.personality,
+      speed,
+    });
     return toSessionInfo(session);
   }
 
@@ -256,6 +282,21 @@ function toSessionInfo(session: InternalSession): SessionInfo {
   return {
     id: session.id,
     personality: session.personality,
+    speed: session.speed,
     createdAt: session.createdAt,
   };
+}
+
+/**
+ * Guards operations that recreate the `Human` (personality / speed changes)
+ * against an in-flight recording — the recording holds the *old* `Human`'s
+ * `record()` call open, so swapping in a new instance would silently stop
+ * capturing subsequent actions.
+ */
+function assertNotRecording(session: InternalSession, action: string): void {
+  if (session.recording) {
+    throw new Error(
+      `Cannot ${action} while session "${session.id}" is recording. Stop the recording first with human_stop_recording.`,
+    );
+  }
 }

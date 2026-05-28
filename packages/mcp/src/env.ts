@@ -6,8 +6,10 @@
  */
 
 import type { PresetName } from '@humanjs/core';
+import type { Speed } from '@humanjs/playwright';
 
 const VALID_PRESETS: readonly PresetName[] = ['careful', 'fast', 'distracted', 'precise'] as const;
+const VALID_SPEEDS: readonly Speed[] = ['human', 'fast', 'instant'] as const;
 
 export interface McpEnv {
   /**
@@ -16,6 +18,18 @@ export interface McpEnv {
    * (via `human_set_personality`) take precedence.
    */
   readonly personality: PresetName;
+  /**
+   * Humanization pace for new sessions. Per-session overrides (via
+   * `human_create_session({ speed })`) and runtime changes (via
+   * `human_set_speed`) take precedence. Defaults to `'human'` — the full
+   * realistic pace. `'fast'` keeps humanized motion but quicker; `'instant'`
+   * bypasses humanization entirely (straight Playwright, no visible motion).
+   *
+   * Note: speed changes how long each action takes to *execute* — it does
+   * not affect the wait *between* actions, which is the MCP client's
+   * per-call model inference, outside this server's control.
+   */
+  readonly speed: Speed;
   /**
    * Whether the browser launches in headless mode. Defaults to `false`
    * (visible window) because the MCP audience — Claude Desktop, Cursor,
@@ -48,6 +62,7 @@ export interface McpEnv {
 export function readEnv(): McpEnv {
   return {
     personality: parsePersonality(process.env.HUMANJS_PERSONALITY),
+    speed: parseSpeed(process.env.HUMANJS_SPEED),
     headless: parseBool(process.env.HUMANJS_HEADLESS, false),
     outputDir: process.env.HUMANJS_OUTPUT_DIR ?? process.cwd(),
     viewport: parseViewport(process.env.HUMANJS_VIEWPORT),
@@ -60,6 +75,15 @@ function parsePersonality(raw: string | undefined): PresetName {
   if (VALID_PRESETS.includes(lower)) return lower;
   throw new Error(
     `HUMANJS_PERSONALITY="${raw}" is not a known preset. Expected one of: ${VALID_PRESETS.join(', ')}.`,
+  );
+}
+
+function parseSpeed(raw: string | undefined): Speed {
+  if (!raw) return 'human';
+  const lower = raw.toLowerCase() as Speed;
+  if (VALID_SPEEDS.includes(lower)) return lower;
+  throw new Error(
+    `HUMANJS_SPEED="${raw}" is not valid. Expected one of: ${VALID_SPEEDS.join(', ')}.`,
   );
 }
 
