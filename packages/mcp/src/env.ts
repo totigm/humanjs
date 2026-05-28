@@ -52,6 +52,15 @@ export interface McpEnv {
    * recordings.
    */
   readonly viewport: { readonly width: number; readonly height: number };
+  /**
+   * Whether to auto-download the Chromium browser binary on first launch if
+   * it's missing (the binary can't ship via npm). Defaults to `true` so
+   * `npx -y @humanjs/mcp` works with zero manual setup. Set
+   * `HUMANJS_AUTO_INSTALL=false` in locked-down environments where the
+   * server shouldn't trigger a download — the first action then errors with
+   * the manual `npx playwright install chromium` instruction instead.
+   */
+  readonly autoInstall: boolean;
 }
 
 /**
@@ -66,6 +75,7 @@ export function readEnv(): McpEnv {
     headless: parseBool(process.env.HUMANJS_HEADLESS, false),
     outputDir: process.env.HUMANJS_OUTPUT_DIR ?? process.cwd(),
     viewport: parseViewport(process.env.HUMANJS_VIEWPORT),
+    autoInstall: parseBool(process.env.HUMANJS_AUTO_INSTALL, true),
   };
 }
 

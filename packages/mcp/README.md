@@ -8,15 +8,7 @@ It's Playwright-MCP-but-humanized: the same stdio protocol every desktop AI clie
 
 ## Quick start
 
-**1. Install the Chromium browser** (one time). The npm package ships the code, not the browser binary, so download it once with Playwright's installer:
-
-```bash
-npx playwright install chromium
-```
-
-If you skip this, the first action fails with a clear message telling you to run it.
-
-**2. Add it to your MCP client config.** The server runs over stdio via `npx`, so there's nothing else to install globally.
+Add it to your MCP client config. The server runs over stdio via `npx`, so there's nothing to install globally.
 
 **Claude Desktop** (`claude_desktop_config.json`), **Claude Code** (`~/.claude.json` or project `.mcp.json`), **Cursor** (`.cursor/mcp.json`), **Codex**, **Cline**, etc. all use the same shape:
 
@@ -32,13 +24,13 @@ If you skip this, the first action fails with a clear message telling you to run
 }
 ```
 
-**3. Restart the client**, then ask it to do something in a browser:
+Restart the client, then ask it to do something in a browser:
 
 > "Use HumanJS to open example.com, search for 'docs', and screenshot the result."
 
 The first browser action launches a visible Chromium window with the humanized cursor overlay.
 
-> **Requirements:** Node ≥ 20. The `playwright` npm package is bundled as a dependency — you only need the one-time browser download above.
+> **Requirements:** Node ≥ 20. The `playwright` npm package is bundled as a dependency, and the **Chromium browser binary downloads automatically** on first launch if it's missing (~150MB, one time). To disable that auto-download in locked-down environments, set `HUMANJS_AUTO_INSTALL=false` and install manually with `npx playwright install chromium`.
 
 ## Environment variables
 
@@ -49,6 +41,7 @@ The first browser action launches a visible Chromium window with the humanized c
 | `HUMANJS_HEADLESS` | `true` \| `false` | `false` | Headless browser. Default is visible — the point of the MCP. |
 | `HUMANJS_OUTPUT_DIR` | path | server's CWD | Where screenshots and recordings are written. |
 | `HUMANJS_VIEWPORT` | `WIDTHxHEIGHT` | `1440x900` | Default viewport for new sessions. Bump to `1920x1080` for crisper recordings. |
+| `HUMANJS_AUTO_INSTALL` | `true` \| `false` | `true` | Auto-download the Chromium binary on first launch if missing. Set `false` to require a manual `npx playwright install chromium`. |
 
 All of these go in the `env` block of the client config from [Quick start](#quick-start) — for example, a bigger default viewport and headless mode:
 

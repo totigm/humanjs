@@ -11,7 +11,10 @@
  * their tool args. Explicit sessions land via `human_create_session`.
  */
 
-import { join } from 'node:path';
+import { spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
 import type { PersonalityConfig, PresetName } from '@humanjs/core';
 import {
   createHuman,
@@ -277,19 +280,70 @@ export class SessionManager {
       this.browser = await chromium.launch({ headless: this.env.headless });
     } catch (error) {
       // The most common first-run failure: the npm package is installed but
-      // the Chromium binary hasn't been downloaded. Playwright's own error
-      // says so, but surface a crisp, actionable message for the AI client.
+      // the Chromium binary hasn't been downloaded (binaries can't ship via
+      // npm). Auto-install it once and retry, so `npx -y @humanjs/mcp` works
+      // with zero manual setup — unless the operator opted out.
       const message = error instanceof Error ? error.message : String(error);
-      if (/executable doesn't exist|playwright install/i.test(message)) {
+      const isMissingBrowser = /executable doesn't exist|playwright install/i.test(message);
+      if (!isMissingBrowser) throw error;
+
+      if (!this.env.autoInstall) {
         throw new Error(
-          "Chromium isn't installed. Run `npx playwright install chromium` once, then retry. " +
-            `(Original error: ${message})`,
+          "Chromium isn't installed and HUMANJS_AUTO_INSTALL is off. Run " +
+            '`npx playwright install chromium` once, then retry.',
         );
       }
-      throw error;
+
+      await installChromium();
+      // Retry once. If it still fails, surface a clear manual instruction.
+      try {
+        this.browser = await chromium.launch({ headless: this.env.headless });
+      } catch (retryError) {
+        const retryMessage = retryError instanceof Error ? retryError.message : String(retryError);
+        throw new Error(
+          'Auto-install of Chromium ran but the browser still failed to launch. ' +
+            'Try `npx playwright install chromium` manually. ' +
+            `(Original error: ${retryMessage})`,
+        );
+      }
     }
     return this.browser;
   }
+}
+
+/**
+ * Downloads the Chromium browser binary via Playwright's own CLI. Resolves
+ * the CLI from the bundled `playwright` dependency (not a global `npx`, so
+ * the version matches) and runs `<cli> install chromium`.
+ *
+ * Child stdout/stderr are both routed to *our* stderr (fd 2) — never stdout,
+ * which is reserved for the MCP JSON-RPC stream and would be corrupted by
+ * the installer's progress output.
+ */
+async function installChromium(): Promise<void> {
+  process.stderr.write(
+    '[humanjs-mcp] Chromium not found — installing once (~150MB, may take a minute)…\n',
+  );
+  const require = createRequire(import.meta.url);
+  const pkgPath = require.resolve('playwright/package.json');
+  const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as { bin?: { playwright?: string } };
+  const binRel = pkg.bin?.playwright;
+  if (!binRel) {
+    throw new Error("Could not locate Playwright's CLI to install Chromium.");
+  }
+  const cli = join(dirname(pkgPath), binRel);
+
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(process.execPath, [cli, 'install', 'chromium'], {
+      stdio: ['ignore', 2, 2],
+    });
+    child.on('error', reject);
+    child.on('exit', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`playwright install exited with code ${code}.`));
+    });
+  });
+  process.stderr.write('[humanjs-mcp] Chromium installed.\n');
 }
 
 function toSessionInfo(session: InternalSession): SessionInfo {

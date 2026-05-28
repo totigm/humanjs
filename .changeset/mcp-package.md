@@ -20,7 +20,7 @@ Configure it in your MCP client:
 }
 ```
 
-Requires Node ≥ 20 and a one-time Chromium download (`npx playwright install chromium`) — the `playwright` npm package is bundled, but browser binaries can't ship via npm. The first action surfaces a clear message if the browser is missing.
+Requires Node ≥ 20. The `playwright` npm package is bundled, and the Chromium browser binary downloads automatically on first launch if it's missing (~150MB, one time) — so `npx -y @humanjs/mcp` works with zero manual setup. Set `HUMANJS_AUTO_INSTALL=false` to opt out and install manually with `npx playwright install chromium`.
 
 ## Tools (24)
 
