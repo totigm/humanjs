@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./.github/banner.png" alt="HumanJS — humanize your browser automation" width="640">
+  <img src="./.github/banner.jpg" alt="HumanJS — humanize your browser automation" width="640">
 </p>
 
 <h1 align="center">HumanJS</h1>
@@ -119,6 +119,10 @@ const stagehand = wrap(new Stagehand({ /* ... */ }), { personality: 'fast' });
 # Cursor, Codex, Cline, and any other MCP client. Register it in one command:
 claude mcp add humanjs -- npx -y @humanjs/mcp
 ```
+
+…or one-click for Cursor:
+
+[![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=humanjs&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBodW1hbmpzL21jcCJdfQ==)
 
 Every action goes through HumanJS without changing your agent code. See [`@humanjs/mcp`](./packages/mcp/README.md) for the full tool catalog and per-client config.
 

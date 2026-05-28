@@ -87,6 +87,18 @@ export function GetStarted() {
                 accent="cool"
                 label="MCP — Claude Code, Cursor, Codex…"
               />
+              <a
+                href="https://cursor.com/install-mcp?name=humanjs&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBodW1hbmpzL21jcCJdfQ=="
+                className="mt-3 inline-block outline-none focus-visible:ring-2 focus-visible:ring-accent-cool"
+                aria-label="Add the HumanJS MCP server to Cursor"
+              >
+                {/* biome-ignore lint/performance/noImgElement: external Cursor badge SVG — next/image would need remote-pattern + dangerouslyAllowSVG config for a tiny static badge. */}
+                <img
+                  src="https://cursor.com/deeplink/mcp-install-dark.svg"
+                  alt="Add humanjs MCP server to Cursor"
+                  height={32}
+                />
+              </a>
             </div>
           </ScrollReveal>
 
