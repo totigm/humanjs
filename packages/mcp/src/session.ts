@@ -14,7 +14,7 @@
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import type { PersonalityConfig, PresetName } from '@humanjs/core';
 import {
   createHuman,
@@ -316,7 +316,11 @@ export class SessionManager {
       try {
         rec.stop();
         const recording = await rec.done;
-        await recording.toVideo(join(this.env.outputDir, `${rec.name}-${rec.startedAt}.mp4`));
+        // Sanitize the AI-supplied recording name to a basename so a
+        // traversal name (e.g. "../../x") can't write outside outputDir —
+        // same basename-only policy resolveOutputPath enforces elsewhere.
+        const safeName = basename(`${rec.name}-${rec.startedAt}.mp4`);
+        await recording.toVideo(join(this.env.outputDir, safeName));
       } catch {
         // Nothing more we can do during teardown; don't block the close.
       }
