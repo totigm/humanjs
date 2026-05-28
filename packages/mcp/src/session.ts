@@ -273,7 +273,21 @@ export class SessionManager {
 
   private async ensureBrowser(): Promise<Browser> {
     if (this.browser) return this.browser;
-    this.browser = await chromium.launch({ headless: this.env.headless });
+    try {
+      this.browser = await chromium.launch({ headless: this.env.headless });
+    } catch (error) {
+      // The most common first-run failure: the npm package is installed but
+      // the Chromium binary hasn't been downloaded. Playwright's own error
+      // says so, but surface a crisp, actionable message for the AI client.
+      const message = error instanceof Error ? error.message : String(error);
+      if (/executable doesn't exist|playwright install/i.test(message)) {
+        throw new Error(
+          "Chromium isn't installed. Run `npx playwright install chromium` once, then retry. " +
+            `(Original error: ${message})`,
+        );
+      }
+      throw error;
+    }
     return this.browser;
   }
 }

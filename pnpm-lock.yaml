@@ -125,13 +125,12 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@3.25.76)
-      zod:
-        specifier: ^3.23.0
-        version: 3.25.76
-    devDependencies:
       playwright:
         specifier: ^1.60.0
         version: 1.60.0
+      zod:
+        specifier: ^3.23.0
+        version: 3.25.76
 
   packages/playwright:
     dependencies:

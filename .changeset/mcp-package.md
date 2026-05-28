@@ -20,6 +20,8 @@ Configure it in your MCP client:
 }
 ```
 
+Requires Node ≥ 20 and a one-time Chromium download (`npx playwright install chromium`) — the `playwright` npm package is bundled, but browser binaries can't ship via npm. The first action surfaces a clear message if the browser is missing.
+
 ## Tools (24)
 
 - **Primitives** — `human_goto`, `human_click`, `human_rightClick`, `human_hover`, `human_move`, `human_drag`, `human_type`, `human_paste`, `human_press`, `human_scroll`, `human_read`. Click / rightClick / move / drag accept a selector **or** raw x/y coordinates (the fallback for icon-only buttons, canvas, SVG you can see in a screenshot).

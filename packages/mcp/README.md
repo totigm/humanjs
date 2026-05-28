@@ -8,7 +8,15 @@ It's Playwright-MCP-but-humanized: the same stdio protocol every desktop AI clie
 
 ## Quick start
 
-Add it to your MCP client config. The server runs over stdio via `npx`, so there's nothing to install globally.
+**1. Install the Chromium browser** (one time). The npm package ships the code, not the browser binary, so download it once with Playwright's installer:
+
+```bash
+npx playwright install chromium
+```
+
+If you skip this, the first action fails with a clear message telling you to run it.
+
+**2. Add it to your MCP client config.** The server runs over stdio via `npx`, so there's nothing else to install globally.
 
 **Claude Desktop** (`claude_desktop_config.json`), **Claude Code** (`~/.claude.json` or project `.mcp.json`), **Cursor** (`.cursor/mcp.json`), **Codex**, **Cline**, etc. all use the same shape:
 
@@ -24,11 +32,13 @@ Add it to your MCP client config. The server runs over stdio via `npx`, so there
 }
 ```
 
-Restart the client, then ask it to do something in a browser:
+**3. Restart the client**, then ask it to do something in a browser:
 
 > "Use HumanJS to open example.com, search for 'docs', and screenshot the result."
 
 The first browser action launches a visible Chromium window with the humanized cursor overlay.
+
+> **Requirements:** Node ≥ 20. The `playwright` npm package is bundled as a dependency — you only need the one-time browser download above.
 
 ## Environment variables
 
