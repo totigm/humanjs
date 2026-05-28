@@ -32,6 +32,27 @@ The first browser action launches a visible Chromium window with the humanized c
 
 > **Requirements:** Node ≥ 20. The `playwright` npm package is bundled as a dependency, and the **Chromium browser binary downloads automatically** on first launch if it's missing (~150MB, one time). To disable that auto-download in locked-down environments, set `HUMANJS_AUTO_INSTALL=false` and install manually with `npx playwright install chromium`.
 
+### One-command install
+
+Some clients can register the server for you, no manual JSON:
+
+**Claude Code:**
+
+```bash
+claude mcp add humanjs --env HUMANJS_PERSONALITY=careful -- npx -y @humanjs/mcp
+# add --scope user to install it globally (all projects)
+```
+
+**Cursor** — click this deeplink (or paste it into a browser):
+
+```
+cursor://anysphere.cursor-deeplink/mcp/install?name=humanjs&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBodW1hbmpzL21jcCJdfQ==
+```
+
+<!-- TODO: replace the link above with the official "Add to Cursor" badge from https://cursor.com/docs (Cursor's deeplink/badge generator). -->
+
+The `config` payload is base64 of `{"command":"npx","args":["-y","@humanjs/mcp"]}` — regenerate it if you change the command or add env vars.
+
 ## Environment variables
 
 | Variable | Values | Default | Purpose |
