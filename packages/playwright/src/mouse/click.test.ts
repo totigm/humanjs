@@ -189,6 +189,28 @@ describe('human.click', () => {
       expect(locator.boundingBox).toHaveBeenCalled();
       expect(mouseClick).toHaveBeenCalled();
     });
+
+    it('clicks a raw Point at the exact coordinates (humanized)', async () => {
+      const { page, mouseClick, mouseMove } = makeMockPage();
+      const human = await createHuman(page, { speed: 'fast', seed: 'click-point' });
+      await human.click({ x: 640, y: 360 });
+      // No element resolution — raw coordinates are clicked as-is.
+      expect(page.locator).not.toHaveBeenCalled();
+      // Walked there along a Bezier path, then clicked the exact point.
+      expect(mouseMove).toHaveBeenCalled();
+      const [clickX, clickY] = mouseClick.mock.calls[0] ?? [0, 0];
+      expect(clickX).toBe(640);
+      expect(clickY).toBe(360);
+    });
+
+    it('clicks a raw Point in instant mode via mouse.click (no locator)', async () => {
+      const { page, mouseClick, locator } = makeMockPage();
+      const human = await createHuman(page, { speed: 'instant' });
+      await human.click({ x: 200, y: 150 });
+      expect(page.locator).not.toHaveBeenCalled();
+      expect(locator.click).not.toHaveBeenCalled();
+      expect(mouseClick).toHaveBeenCalledWith(200, 150, { button: 'left' });
+    });
   });
 
   describe('dwell timing', () => {

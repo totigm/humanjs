@@ -144,21 +144,29 @@ export interface Human {
   /**
    * Move the mouse along a humanized Bezier path to `target` and click.
    *
-   * `target` accepts either a Playwright-compatible selector string (e.g.
-   * `'button:has-text("Buy now")'`) or a built `Locator`. The click point
-   * inside the element is Gaussian-distributed around the center.
+   * `target` accepts a Playwright-compatible selector string (e.g.
+   * `'button:has-text("Buy now")'`), a built `Locator`, or a raw `Point`.
+   * For element targets the click point is Gaussian-distributed around the
+   * center; for a raw `Point` the exact coordinates are clicked. The
+   * `Point` form is the fallback for things with no clean selector —
+   * icon-only buttons, canvas, SVG — where you can see the pixel position
+   * but can't address the element.
    *
-   * In `speed: 'instant'`, all humanization is skipped and Playwright's
-   * native `locator.click()` is used directly.
+   * In `speed: 'instant'`, all humanization is skipped: element targets use
+   * Playwright's native `locator.click()`; a `Point` dispatches one
+   * `mouse.click()` at the coordinates.
    */
-  click(target: Locator | string): Promise<void>;
+  click(target: MouseTarget): Promise<void>;
   /**
    * Right-click `target` — opens a native context menu. Same Bezier-path
    * motion and hover dwell as `click()`; only the dispatched button differs.
+   * Accepts the same selector / `Locator` / `Point` targets as `click()`.
    *
-   * In `speed: 'instant'`, falls back to `locator.click({ button: 'right' })`.
+   * In `speed: 'instant'`, element targets fall back to
+   * `locator.click({ button: 'right' })`; a `Point` dispatches one
+   * `mouse.click({ button: 'right' })` at the coordinates.
    */
-  rightClick(target: Locator | string): Promise<void>;
+  rightClick(target: MouseTarget): Promise<void>;
   /**
    * Move the cursor to `target` along a humanized Bezier path and settle
    * on it — no click is dispatched. Useful for hover-triggered UI
