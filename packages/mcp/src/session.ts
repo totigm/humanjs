@@ -11,8 +11,15 @@
  * their tool args. Explicit sessions land via `human_create_session`.
  */
 
+import { join } from 'node:path';
 import type { PersonalityConfig, PresetName } from '@humanjs/core';
-import { createHuman, type Human, installMouseHelper } from '@humanjs/playwright';
+import {
+  createHuman,
+  type Human,
+  installMouseHelper,
+  type Recording,
+  type RecordingQuality,
+} from '@humanjs/playwright';
 import { type Browser, type BrowserContext, chromium, type Page } from 'playwright';
 import type { McpEnv } from './env';
 
@@ -30,12 +37,34 @@ export interface CreateSessionOptions {
   readonly personality?: PresetName;
 }
 
+/** Options accepted by {@link SessionManager.startRecording}. */
+export interface StartRecordingOptions {
+  readonly name?: string;
+  readonly video?: boolean;
+  readonly quality?: RecordingQuality;
+}
+
+/**
+ * Open-recording state held on a session. `human.record(fn)` is
+ * callback-based, but MCP actions arrive as independent tool calls — so we
+ * keep the callback alive by having it await `stop()`'s signal. Capture
+ * (frames + timeline) runs the whole time; `done` resolves with the
+ * finished `Recording` once `stop()` fires.
+ */
+interface RecordingState {
+  readonly name: string;
+  readonly startedAt: number;
+  readonly stop: () => void;
+  readonly done: Promise<Recording>;
+}
+
 interface InternalSession {
   readonly id: string;
   readonly context: BrowserContext;
   readonly page: Page;
   human: Human;
   personality: PresetName;
+  recording: RecordingState | null;
   readonly createdAt: number;
 }
 
@@ -98,10 +127,55 @@ export class SessionManager {
       page,
       human,
       personality,
+      recording: null,
       createdAt: Date.now(),
     };
     this.sessions.set(id, session);
     return session;
+  }
+
+  /**
+   * Starts a recording on a session. Holds `human.record()` open across
+   * tool calls by awaiting an internal stop-signal — capture (frames +
+   * action timeline) runs until {@link stopRecording} fires it.
+   */
+  async startRecording(id: string | undefined, options: StartRecordingOptions): Promise<void> {
+    const session = await this.get(id);
+    if (session.recording) {
+      throw new Error(
+        `Session "${session.id}" is already recording. Stop it first with human_stop_recording.`,
+      );
+    }
+    let stop!: () => void;
+    const signal = new Promise<void>((resolve) => {
+      stop = resolve;
+    });
+    const done = session.human.record(
+      { video: options.video ?? true, quality: options.quality ?? 'high' },
+      () => signal,
+    );
+    session.recording = { name: options.name ?? 'recording', startedAt: Date.now(), stop, done };
+  }
+
+  /**
+   * Stops the active recording, returns the finished {@link Recording} for
+   * export, and recreates the session's `Human` so it can record again
+   * (`human.record()` is single-use per instance; page/context/cookies are
+   * preserved).
+   */
+  async stopRecording(id?: string): Promise<Recording> {
+    const session = await this.get(id);
+    const rec = session.recording;
+    if (!rec) {
+      throw new Error(
+        `Session "${session.id}" is not recording. Start one with human_start_recording first.`,
+      );
+    }
+    rec.stop();
+    const recording = await rec.done;
+    session.recording = null;
+    session.human = await createHuman(session.page, { personality: session.personality });
+    return recording;
   }
 
   /**
@@ -133,6 +207,22 @@ export class SessionManager {
   async close(id: string): Promise<void> {
     const session = this.sessions.get(id);
     if (!session) return;
+    // Graceful finalize: if a recording is open, stop and save it to a
+    // default-named file so an in-progress clip isn't silently dropped on
+    // disconnect. Best-effort — on a hard crash this never runs, and the
+    // captured frames are left in the OS temp dir (swept by the recorder's
+    // own exit handler / OS tmp cleanup).
+    if (session.recording) {
+      const rec = session.recording;
+      session.recording = null;
+      try {
+        rec.stop();
+        const recording = await rec.done;
+        await recording.toVideo(join(this.env.outputDir, `${rec.name}-${rec.startedAt}.mp4`));
+      } catch {
+        // Nothing more we can do during teardown; don't block the close.
+      }
+    }
     this.sessions.delete(id);
     await session.context.close();
   }

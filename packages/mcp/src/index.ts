@@ -32,6 +32,7 @@ import { SessionManager } from './session';
 import { registerConfigTools } from './tools/config';
 import { registerInspectionTools } from './tools/inspection';
 import { registerPrimitiveTools } from './tools/primitives';
+import { registerRecordingTools } from './tools/recording';
 import { registerSessionTools } from './tools/sessions';
 
 const SERVER_NAME = 'humanjs-mcp';
@@ -49,6 +50,7 @@ async function main(): Promise<void> {
 
   registerPrimitiveTools(server, ctx);
   registerInspectionTools(server, ctx);
+  registerRecordingTools(server, ctx);
   registerSessionTools(server, ctx);
   registerConfigTools(server, ctx);
 
