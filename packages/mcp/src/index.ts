@@ -26,6 +26,7 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import type { ToolContext } from './context';
 import { readEnv } from './env';
 import { SessionManager } from './session';
 import { registerInspectionTools } from './tools/inspection';
@@ -37,14 +38,15 @@ const SERVER_VERSION = '0.1.0';
 async function main(): Promise<void> {
   const env = readEnv();
   const sessions = new SessionManager(env);
+  const ctx: ToolContext = { sessions, env };
 
   const server = new McpServer({
     name: SERVER_NAME,
     version: SERVER_VERSION,
   });
 
-  registerPrimitiveTools(server, sessions);
-  registerInspectionTools(server, sessions);
+  registerPrimitiveTools(server, ctx);
+  registerInspectionTools(server, ctx);
 
   // Shutdown: when the MCP client disconnects (stdio EOF) or the process
   // gets a signal, tear down browsers cleanly so we don't leak chrome

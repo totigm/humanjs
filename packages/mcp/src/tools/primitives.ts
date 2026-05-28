@@ -11,7 +11,7 @@
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import type { SessionManager } from '../session';
+import type { ToolContext } from '../context';
 
 /** Optional session arg shared across every tool. */
 const sessionArg = z
@@ -21,7 +21,7 @@ const sessionArg = z
     'Session ID to act on. Omit to use the default session (created lazily on first call). Use human_create_session for parallel browsers.',
   );
 
-export function registerPrimitiveTools(server: McpServer, sessions: SessionManager): void {
+export function registerPrimitiveTools(server: McpServer, { sessions }: ToolContext): void {
   server.registerTool(
     'human_goto',
     {

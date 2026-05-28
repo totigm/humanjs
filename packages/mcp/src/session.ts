@@ -12,7 +12,7 @@
  */
 
 import type { PersonalityConfig, PresetName } from '@humanjs/core';
-import { createHuman, type Human } from '@humanjs/playwright';
+import { createHuman, type Human, installMouseHelper } from '@humanjs/playwright';
 import { type Browser, type BrowserContext, chromium, type Page } from 'playwright';
 import type { McpEnv } from './env';
 
@@ -83,6 +83,11 @@ export class SessionManager {
 
     const browser = await this.ensureBrowser();
     const context = await browser.newContext();
+    // Install the visible cursor overlay on the context (before any page
+    // exists) so every page — including ones opened later by navigation —
+    // renders the humanized cursor. This is the point of the MCP server:
+    // the AI's actions should be watchable, and recordings need the cursor.
+    await installMouseHelper(context);
     const page = await context.newPage();
     const personality = options.personality ?? this.env.personality;
     const human = await createHuman(page, { personality });
