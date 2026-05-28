@@ -645,7 +645,10 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
       typeof target === 'string' ? page.locator(target) : isPointTarget(target) ? null : target;
     if (locator !== null) {
       try {
-        if ((await locator.first().getAttribute('type', { timeout: 1000 })) === 'password') {
+        // `type` is case-insensitive in the DOM, so normalize before matching
+        // (don't leak a value typed into `<input type="Password">`).
+        const fieldType = await locator.first().getAttribute('type', { timeout: 1000 });
+        if (fieldType?.toLowerCase() === 'password') {
           return undefined;
         }
       } catch {

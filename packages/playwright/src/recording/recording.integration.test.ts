@@ -168,6 +168,9 @@ describe('human.record (integration)', () => {
       '<html><body>' +
         '<input id="email" type="email" />' +
         '<input id="pw" type="password" />' +
+        // Uppercase type attribute — DOM treats it as a password field, so
+        // masking must be case-insensitive.
+        '<input id="pw2" type="PASSWORD" />' +
         '<textarea id="notes"></textarea>' +
         '</body></html>',
     );
@@ -176,6 +179,7 @@ describe('human.record (integration)', () => {
     const rec = await human.record({ video: false }, async () => {
       await human.type('#email', 'gonzalo@example.com');
       await human.paste('#pw', 'super-secret');
+      await human.paste('#pw2', 'also-secret');
       await human.paste('#notes', 'just a note');
     });
 
@@ -184,8 +188,10 @@ describe('human.record (integration)', () => {
     // Non-sensitive fields: real value captured.
     expect(byTarget('#email')?.inputValue).toBe('gonzalo@example.com');
     expect(byTarget('#notes')?.inputValue).toBe('just a note');
-    // Password field: value masked (omitted) even though capture is on.
+    // Password fields: value masked (omitted) even though capture is on —
+    // including the uppercase-typed one.
     expect(byTarget('#pw')?.inputValue).toBeUndefined();
+    expect(byTarget('#pw2')?.inputValue).toBeUndefined();
     // length metadata is still present for all of them.
     expect(byTarget('#pw')?.params.length).toBe('super-secret'.length);
 
@@ -198,6 +204,7 @@ describe('human.record (integration)', () => {
       const code = await readFile(scriptPath, 'utf8');
       expect(code).toContain("await human.type('#email', 'gonzalo@example.com');");
       expect(code).not.toContain('super-secret');
+      expect(code).not.toContain('also-secret');
       expect(code).toContain("await human.paste('#pw', '');");
     } finally {
       await unlink(scriptPath).catch(() => undefined);
