@@ -5,6 +5,8 @@
  * personality can flip per-session at runtime.
  */
 
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import type { PresetName } from '@humanjs/core';
 import type { Speed } from '@humanjs/playwright';
 
@@ -61,6 +63,30 @@ export interface McpEnv {
    * the manual `npx playwright install chromium` instruction instead.
    */
   readonly autoInstall: boolean;
+  /**
+   * How the browser is obtained. Resolved from the browser-mode env vars:
+   *
+   * - `'cdp'` — attach to an already-running browser over CDP
+   *   (`HUMANJS_CDP_URL`). Uses its existing context (your real logins,
+   *   tabs, extensions). Single-session; never closed on shutdown.
+   * - `'persistent'` — launch with a persistent profile dir
+   *   (`HUMANJS_USER_DATA_DIR`, or an auto dir when `HUMANJS_PERSIST=true`)
+   *   so logins survive across runs. Single-session.
+   * - `'ephemeral'` (default) — a fresh throwaway profile each run, with
+   *   isolated multi-session support.
+   */
+  readonly browserMode: 'cdp' | 'persistent' | 'ephemeral';
+  /** Resolved persistent profile dir (only set when `browserMode === 'persistent'`). */
+  readonly userDataDir: string | undefined;
+  /** CDP endpoint to attach to (only set when `browserMode === 'cdp'`). */
+  readonly cdpUrl: string | undefined;
+  /**
+   * Playwright browser channel — e.g. `'chrome'`, `'msedge'`. Launches that
+   * installed browser's binary instead of bundled Chromium. NOTE: this alone
+   * does NOT reuse your existing profile/logins — it's a fresh profile unless
+   * combined with a persistent dir or CDP attach.
+   */
+  readonly channel: string | undefined;
 }
 
 /**
@@ -69,6 +95,11 @@ export interface McpEnv {
  * immediately (and on stderr, where MCP clients can show them).
  */
 export function readEnv(): McpEnv {
+  const cdpUrl = process.env.HUMANJS_CDP_URL?.trim() || undefined;
+  const explicitDir = process.env.HUMANJS_USER_DATA_DIR?.trim() || undefined;
+  const persist = parseBool(process.env.HUMANJS_PERSIST, false);
+  const { browserMode, userDataDir } = resolveBrowserMode(cdpUrl, explicitDir, persist);
+
   return {
     personality: parsePersonality(process.env.HUMANJS_PERSONALITY),
     speed: parseSpeed(process.env.HUMANJS_SPEED),
@@ -76,7 +107,30 @@ export function readEnv(): McpEnv {
     outputDir: process.env.HUMANJS_OUTPUT_DIR ?? process.cwd(),
     viewport: parseViewport(process.env.HUMANJS_VIEWPORT),
     autoInstall: parseBool(process.env.HUMANJS_AUTO_INSTALL, true),
+    browserMode,
+    userDataDir,
+    cdpUrl,
+    channel: process.env.HUMANJS_CHANNEL?.trim() || undefined,
   };
+}
+
+/** Default persistent profile dir when `HUMANJS_PERSIST=true` without an explicit path. */
+export const DEFAULT_PERSIST_DIR = join(homedir(), '.humanjs', 'profile');
+
+/**
+ * Resolves the browser-mode precedence: CDP wins (you explicitly pointed at a
+ * running browser), then a persistent profile (explicit dir or the
+ * `HUMANJS_PERSIST` auto-dir), else ephemeral.
+ */
+function resolveBrowserMode(
+  cdpUrl: string | undefined,
+  explicitDir: string | undefined,
+  persist: boolean,
+): { browserMode: McpEnv['browserMode']; userDataDir: string | undefined } {
+  if (cdpUrl) return { browserMode: 'cdp', userDataDir: undefined };
+  if (explicitDir) return { browserMode: 'persistent', userDataDir: explicitDir };
+  if (persist) return { browserMode: 'persistent', userDataDir: DEFAULT_PERSIST_DIR };
+  return { browserMode: 'ephemeral', userDataDir: undefined };
 }
 
 function parsePersonality(raw: string | undefined): PresetName {

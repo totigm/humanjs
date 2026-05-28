@@ -59,6 +59,10 @@ The `config` payload is base64 of `{"command":"npx","args":["-y","@humanjs/mcp"]
 | `HUMANJS_OUTPUT_DIR` | path | server's CWD | Where screenshots and recordings are written. |
 | `HUMANJS_VIEWPORT` | `WIDTHxHEIGHT` | `1440x900` | Default viewport for new sessions. Bump to `1920x1080` for crisper recordings. |
 | `HUMANJS_AUTO_INSTALL` | `true` \| `false` | `true` | Auto-download the Chromium binary on first launch if missing. Set `false` to require a manual `npx playwright install chromium`. |
+| `HUMANJS_PERSIST` | `true` \| `false` | `false` | Persist a profile across runs (logins/cookies survive). Uses `~/.humanjs/profile` unless `HUMANJS_USER_DATA_DIR` is set. See [Browser modes](#browser-modes). |
+| `HUMANJS_USER_DATA_DIR` | path | — | Explicit persistent profile directory (implies persistence). |
+| `HUMANJS_CDP_URL` | URL | — | Attach to an already-running browser over CDP (e.g. `http://localhost:9222`) and use its real logins/tabs. |
+| `HUMANJS_CHANNEL` | `chrome` \| `msedge` \| … | bundled Chromium | Launch an installed browser's binary instead of bundled Chromium. Does **not** by itself reuse your profile/logins. |
 
 All of these go in the `env` block of the client config from [Quick start](#quick-start) — for example, a bigger default viewport and headless mode:
 
@@ -133,6 +137,14 @@ Click / rightClick / move / drag take a **selector or raw x/y coordinates** — 
 | `human_set_speed` | Switch humanization pace at runtime (`human` / `fast` / `instant`) |
 | `human_set_viewport` | Resize the viewport at runtime (bigger/crisper recording, responsive testing) |
 
+**Browser:**
+
+| Tool | What it does |
+|---|---|
+| `human_browser_info` | Report the browser mode (ephemeral / persistent / CDP), channel, and whether logins persist |
+| `human_enable_persistence` | Switch to a persistent profile so logins survive across runs (optionally restart now) |
+| `human_restart_browser` | Restart the browser to apply a change, or recover a wedged one |
+
 ## Personalities
 
 Four presets, each a different blend of speed, mouse curvature, typo rate, and reading pace:
@@ -156,11 +168,30 @@ Set the default with `HUMANJS_SPEED`, override per session at creation (`human_c
 
 > **Speed does not change the wait *between* actions.** That gap is the MCP client running one model inference per tool call — inherent to agentic tool use and outside this server's control. Speed only affects how long an action takes to run once it starts. To reduce between-action waiting, make fewer tool calls.
 
+## Browser modes
+
+By default each run gets a **fresh, empty browser** — predictable and isolated, but with no saved logins. Three ways to change that:
+
+| You want… | Set | What you get |
+|---|---|---|
+| Stay logged in across runs | `HUMANJS_PERSIST=true` (or `HUMANJS_USER_DATA_DIR=/path`) | A dedicated HumanJS profile. Sign in once *in it*; it persists. Starts empty. |
+| Your *existing* logins right now | `HUMANJS_CDP_URL=http://localhost:9222` | Attach to your already-running browser (start it with `--remote-debugging-port`). Uses its real sessions, tabs, extensions. |
+| A specific browser binary | `HUMANJS_CHANNEL=chrome` | Launches installed Chrome instead of bundled Chromium. **On its own, still a fresh profile** — combine with persistence or CDP for real logins. |
+
+Common trap: `HUMANJS_CHANNEL=chrome` alone does **not** give you your existing Chrome cookies/logins — it only swaps the binary. For existing logins without re-signing-in, use CDP attach; to persist new logins, use a persistent profile.
+
+You can also toggle persistence from chat: `human_enable_persistence` (then `human_restart_browser` to apply now), and `human_browser_info` reports the current mode. Switching to your *real* Chrome (CDP) stays env-only by design — it's a consent decision the agent shouldn't escalate into.
+
+Persistent and CDP modes drive a **single shared browser**, so named/parallel sessions (`human_create_session`) aren't available in those modes — which is exactly what you want when the point is one logged-in browser.
+
+> Library users (`@humanjs/playwright` directly) get all of this by creating the page themselves — see that package's "Using your own browser or a persistent profile" section.
+
 ## Security
 
 - **No arbitrary-JS `evaluate` tool.** Executing page-supplied JavaScript is a prompt-injection cliff — a malicious page could trick the agent into running code that exfiltrates data. The read-only inspection tools cover the legitimate "what's on the page" need.
 - **File-path safety.** Tools that write files accept a basename only; path components (`../`, absolute paths) are rejected, so a prompt-injected filename can't escape `HUMANJS_OUTPUT_DIR`.
 - **No credentials handling.** The server drives the browser; it doesn't manage logins, payment details, or secrets on your behalf.
+- **Attaching to your real browser (CDP) is opt-in and env-only.** When you point `HUMANJS_CDP_URL` at your running browser, the agent acts with *your* live sessions — a bigger blast radius if a page tries to manipulate it. That's why it's a deliberate config choice you make up front, never something a tool can switch on.
 
 ## Honest limits
 

@@ -25,7 +25,7 @@ import {
   type Speed,
 } from '@humanjs/playwright';
 import { type Browser, type BrowserContext, chromium, type Page } from 'playwright';
-import type { McpEnv } from './env';
+import { DEFAULT_PERSIST_DIR, type McpEnv } from './env';
 
 export const DEFAULT_SESSION_ID = 'default';
 
@@ -65,6 +65,8 @@ interface RecordingState {
   readonly done: Promise<Recording>;
 }
 
+type BrowserMode = 'cdp' | 'persistent' | 'ephemeral';
+
 interface InternalSession {
   readonly id: string;
   readonly context: BrowserContext;
@@ -72,8 +74,21 @@ interface InternalSession {
   human: Human;
   personality: PresetName;
   speed: Speed;
+  /** The browser mode this session was created under (drives cleanup). */
+  readonly mode: BrowserMode;
   recording: RecordingState | null;
   readonly createdAt: number;
+}
+
+/** Read-only snapshot of how the browser is (or will be) obtained. */
+export interface BrowserInfo {
+  readonly mode: BrowserMode;
+  readonly userDataDir: string | null;
+  readonly cdpUrl: string | null;
+  readonly channel: string | null;
+  /** True when a persistence toggle is set but a restart is needed to apply it. */
+  readonly persistPendingRestart: boolean;
+  readonly browserRunning: boolean;
 }
 
 /**
@@ -82,12 +97,27 @@ interface InternalSession {
  * registration so tools can resolve sessions consistently.
  */
 export class SessionManager {
+  /** Backing browser for `ephemeral` and `cdp` modes. */
   private browser: Browser | null = null;
+  /** Backing context for `persistent` mode (launchPersistentContext returns a context, no Browser). */
+  private persistentContext: BrowserContext | null = null;
+  /** True when `browser` was obtained via connectOverCDP — must NOT be closed on teardown. */
+  private cdpConnected = false;
+  /** Runtime persistence toggle (from human_enable_persistence); overrides env mode on next launch. */
+  private persistOverride: { userDataDir: string } | null = null;
   private readonly sessions = new Map<string, InternalSession>();
   private readonly env: McpEnv;
 
   constructor(env: McpEnv) {
     this.env = env;
+  }
+
+  /** Effective browser mode, honoring the runtime persistence override. */
+  private effectiveMode(): { mode: BrowserMode; userDataDir: string | undefined } {
+    if (this.persistOverride) {
+      return { mode: 'persistent', userDataDir: this.persistOverride.userDataDir };
+    }
+    return { mode: this.env.browserMode, userDataDir: this.env.userDataDir };
   }
 
   /**
@@ -118,16 +148,15 @@ export class SessionManager {
       );
     }
 
-    const browser = await this.ensureBrowser();
-    const context = await browser.newContext({
-      viewport: options.viewport ?? this.env.viewport,
-    });
-    // Install the visible cursor overlay on the context (before any page
-    // exists) so every page — including ones opened later by navigation —
-    // renders the humanized cursor. This is the point of the MCP server:
-    // the AI's actions should be watchable, and recordings need the cursor.
-    await installMouseHelper(context);
-    const page = await context.newPage();
+    const { mode } = this.effectiveMode();
+    if (mode !== 'ephemeral' && id !== DEFAULT_SESSION_ID) {
+      throw new Error(
+        `In ${mode} mode HumanJS drives a single shared browser, so named/parallel sessions aren't available. Omit the session argument to use the default session.`,
+      );
+    }
+
+    const viewport = options.viewport ?? this.env.viewport;
+    const { context, page } = await this.acquireContext(mode, viewport);
     const personality = options.personality ?? this.env.personality;
     const speed = options.speed ?? this.env.speed;
     const human = await createHuman(page, { personality, speed });
@@ -139,11 +168,48 @@ export class SessionManager {
       human,
       personality,
       speed,
+      mode,
       recording: null,
       createdAt: Date.now(),
     };
     this.sessions.set(id, session);
     return session;
+  }
+
+  /**
+   * Obtains a `{ context, page }` for the given mode:
+   *
+   * - `cdp` — reuse the attached browser's existing context + page (the
+   *   user's real session); only make a new one if there's none.
+   * - `persistent` — the single persistent context; reuse its page.
+   * - `ephemeral` — a fresh isolated context + page per session.
+   *
+   * The visible cursor overlay is installed on the context in every mode.
+   */
+  private async acquireContext(
+    mode: BrowserMode,
+    viewport: { width: number; height: number },
+  ): Promise<{ context: BrowserContext; page: Page }> {
+    if (mode === 'cdp') {
+      const browser = await this.ensureCdpBrowser();
+      const context = browser.contexts()[0] ?? (await browser.newContext());
+      await installMouseHelper(context);
+      const page = context.pages()[0] ?? (await context.newPage());
+      return { context, page };
+    }
+    if (mode === 'persistent') {
+      const { userDataDir } = this.effectiveMode();
+      const context = await this.ensurePersistentContext(userDataDir as string, viewport);
+      const page = context.pages()[0] ?? (await context.newPage());
+      return { context, page };
+    }
+    const browser = await this.ensureEphemeralBrowser();
+    const context = await browser.newContext({ viewport });
+    // Install the visible cursor overlay before any page exists so every
+    // page (including ones opened later by navigation) shows the cursor.
+    await installMouseHelper(context);
+    const page = await context.newPage();
+    return { context, page };
   }
 
   /**
@@ -256,36 +322,127 @@ export class SessionManager {
       }
     }
     this.sessions.delete(id);
-    await session.context.close();
+    // Mode-aware teardown. Ephemeral contexts are ours to close. The
+    // persistent context owns its browser, so closing it shuts that down.
+    // In CDP mode we attached to the user's running browser — never close
+    // their context or browser; just drop our reference on closeAll.
+    if (session.mode === 'ephemeral') {
+      await session.context.close();
+    } else if (session.mode === 'persistent') {
+      await this.persistentContext?.close();
+      this.persistentContext = null;
+    }
   }
 
   /**
-   * Closes every session and the shared browser process. Called from
-   * the bin entry's shutdown handlers (SIGINT / SIGTERM / normal exit)
-   * so the MCP client doesn't leak chrome processes when it disconnects.
+   * Tears down every session and the backing browser. Called from the bin
+   * entry's shutdown handlers (SIGINT / SIGTERM) so we don't leak chrome
+   * processes — and by {@link restartBrowser}. A CDP-attached browser is
+   * never closed (it's the user's), only disconnected by dropping the ref.
    */
   async closeAll(): Promise<void> {
     for (const id of [...this.sessions.keys()]) {
       await this.close(id);
     }
-    if (this.browser) {
+    if (this.browser && !this.cdpConnected) {
       await this.browser.close();
-      this.browser = null;
     }
+    this.browser = null;
+    this.cdpConnected = false;
+    this.persistentContext = null;
   }
 
-  private async ensureBrowser(): Promise<Browser> {
+  /**
+   * Tears the browser down so the next action relaunches it in the current
+   * (possibly newly-toggled) mode. Backs `human_restart_browser` — the way
+   * to apply a persistence change without restarting the whole MCP server.
+   * Discards open pages/tabs.
+   */
+  async restartBrowser(): Promise<void> {
+    await this.closeAll();
+  }
+
+  /**
+   * Turns on a persistent profile for subsequent browser starts (backs
+   * `human_enable_persistence`). Takes effect on the next browser launch —
+   * call {@link restartBrowser} to apply it to an already-running browser.
+   */
+  setPersistOverride(userDataDir?: string): void {
+    this.persistOverride = { userDataDir: userDataDir ?? DEFAULT_PERSIST_DIR };
+  }
+
+  /** Read-only snapshot of the browser configuration (backs `human_browser_info`). */
+  browserInfo(): BrowserInfo {
+    const { mode, userDataDir } = this.effectiveMode();
+    const running = this.browserRunning();
+    return {
+      mode,
+      userDataDir: userDataDir ?? null,
+      cdpUrl: this.env.cdpUrl ?? null,
+      channel: this.env.channel ?? null,
+      // A toggle is "pending restart" only when a browser is already up:
+      // before any browser exists, the new mode just applies on next start.
+      persistPendingRestart: this.persistOverride !== null && running,
+      browserRunning: running,
+    };
+  }
+
+  private browserRunning(): boolean {
+    return this.browser !== null || this.persistentContext !== null;
+  }
+
+  private async ensureEphemeralBrowser(): Promise<Browser> {
     if (this.browser) return this.browser;
+    this.browser = await this.withBrowserInstall(() =>
+      chromium.launch({ headless: this.env.headless, channel: this.env.channel }),
+    );
+    return this.browser;
+  }
+
+  private async ensureCdpBrowser(): Promise<Browser> {
+    if (this.browser) return this.browser;
+    const url = this.env.cdpUrl as string;
     try {
-      this.browser = await chromium.launch({ headless: this.env.headless });
+      this.browser = await chromium.connectOverCDP(url);
     } catch (error) {
-      // The most common first-run failure: the npm package is installed but
-      // the Chromium binary hasn't been downloaded (binaries can't ship via
-      // npm). Auto-install it once and retry, so `npx -y @humanjs/mcp` works
-      // with zero manual setup — unless the operator opted out.
       const message = error instanceof Error ? error.message : String(error);
-      const isMissingBrowser = /executable doesn't exist|playwright install/i.test(message);
-      if (!isMissingBrowser) throw error;
+      throw new Error(
+        `Could not attach to a browser at ${url} (HUMANJS_CDP_URL). Start your browser with ` +
+          `--remote-debugging-port and a matching URL, then retry. (${message})`,
+      );
+    }
+    this.cdpConnected = true;
+    return this.browser;
+  }
+
+  private async ensurePersistentContext(
+    userDataDir: string,
+    viewport: { width: number; height: number },
+  ): Promise<BrowserContext> {
+    if (this.persistentContext) return this.persistentContext;
+    this.persistentContext = await this.withBrowserInstall(() =>
+      chromium.launchPersistentContext(userDataDir, {
+        headless: this.env.headless,
+        channel: this.env.channel,
+        viewport,
+      }),
+    );
+    await installMouseHelper(this.persistentContext);
+    return this.persistentContext;
+  }
+
+  /**
+   * Runs a browser-launch thunk, auto-installing Chromium once and retrying
+   * if the binary is missing (the common first-run failure — binaries can't
+   * ship via npm). Honors `HUMANJS_AUTO_INSTALL=false`. CDP attach doesn't
+   * need a local binary, so it doesn't go through here.
+   */
+  private async withBrowserInstall<T>(launch: () => Promise<T>): Promise<T> {
+    try {
+      return await launch();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/executable doesn't exist|playwright install/i.test(message)) throw error;
 
       if (!this.env.autoInstall) {
         throw new Error(
@@ -295,9 +452,8 @@ export class SessionManager {
       }
 
       await installChromium();
-      // Retry once. If it still fails, surface a clear manual instruction.
       try {
-        this.browser = await chromium.launch({ headless: this.env.headless });
+        return await launch();
       } catch (retryError) {
         const retryMessage = retryError instanceof Error ? retryError.message : String(retryError);
         throw new Error(
@@ -307,7 +463,6 @@ export class SessionManager {
         );
       }
     }
-    return this.browser;
   }
 }
 

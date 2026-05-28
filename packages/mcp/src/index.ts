@@ -29,6 +29,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import type { ToolContext } from './context';
 import { readEnv } from './env';
 import { SessionManager } from './session';
+import { registerBrowserTools } from './tools/browser';
 import { registerConfigTools } from './tools/config';
 import { registerInspectionTools } from './tools/inspection';
 import { registerPrimitiveTools } from './tools/primitives';
@@ -53,6 +54,7 @@ async function main(): Promise<void> {
   registerRecordingTools(server, ctx);
   registerSessionTools(server, ctx);
   registerConfigTools(server, ctx);
+  registerBrowserTools(server, ctx);
 
   // Shutdown: when the MCP client disconnects (stdio EOF) or the process
   // gets a signal, tear down browsers cleanly so we don't leak chrome
