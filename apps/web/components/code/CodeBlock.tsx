@@ -70,7 +70,12 @@ export function CodeBlock({
         </div>
       )}
       <pre className="overflow-x-auto p-5 text-sm">
-        <code className="font-mono text-foreground/90 leading-relaxed">{code}</code>
+        {/* Reset inherited sans stylistic sets (ss01/cv11) so monospace code
+            renders character-exact — otherwise spacing around tokens like
+            " -- " can look collapsed. */}
+        <code className="font-mono text-foreground/90 leading-relaxed [font-feature-settings:normal]">
+          {code}
+        </code>
       </pre>
       {!label && showCopy && (
         <div className="absolute right-3 top-3 opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100">
