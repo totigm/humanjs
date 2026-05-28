@@ -39,6 +39,26 @@ The first browser action launches a visible Chromium window with the humanized c
 | `HUMANJS_OUTPUT_DIR` | path | server's CWD | Where screenshots and recordings are written. |
 | `HUMANJS_VIEWPORT` | `WIDTHxHEIGHT` | `1440x900` | Default viewport for new sessions. Bump to `1920x1080` for crisper recordings. |
 
+All of these go in the `env` block of the client config from [Quick start](#quick-start) — for example, a bigger default viewport and headless mode:
+
+```jsonc
+{
+  "mcpServers": {
+    "humanjs": {
+      "command": "npx",
+      "args": ["-y", "@humanjs/mcp"],
+      "env": {
+        "HUMANJS_PERSONALITY": "careful",
+        "HUMANJS_VIEWPORT": "1920x1080",
+        "HUMANJS_HEADLESS": "false"
+      }
+    }
+  }
+}
+```
+
+Changes to `env` take effect on the next client restart. To resize without restarting, use the `human_set_viewport` tool mid-session.
+
 ## Tools
 
 **Primitives** — the humanized actions:
