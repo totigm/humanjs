@@ -43,15 +43,11 @@ claude mcp add humanjs --env HUMANJS_PERSONALITY=careful -- npx -y @humanjs/mcp
 # add --scope user to install it globally (all projects)
 ```
 
-**Cursor** — click this deeplink (or paste it into a browser):
+**Cursor** — one click:
 
-```
-cursor://anysphere.cursor-deeplink/mcp/install?name=humanjs&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBodW1hbmpzL21jcCJdfQ==
-```
+[![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=humanjs&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBodW1hbmpzL21jcCJdfQ==)
 
-<!-- TODO: replace the link above with the official "Add to Cursor" badge from https://cursor.com/docs (Cursor's deeplink/badge generator). -->
-
-The `config` payload is base64 of `{"command":"npx","args":["-y","@humanjs/mcp"]}` — regenerate it if you change the command or add env vars.
+The `config` payload is base64 of `{"command":"npx","args":["-y","@humanjs/mcp"]}` — regenerate it via [cursor.com/docs/mcp/install-links](https://cursor.com/docs/mcp/install-links) if you change the command or add env vars.
 
 ## Environment variables
 
