@@ -356,6 +356,113 @@ export interface Human {
    */
   record(fn: () => Promise<void>): Promise<Recording>;
   record(options: HumanRecordOptions, fn: () => Promise<void>): Promise<Recording>;
+
+  // ────────────────────────────────────────────────────────────────────
+  // Thin re-exports of common Playwright `Page` methods, for ergonomic
+  // coherence (`human.*` is the single surface a user thinks about). No
+  // humanization happens here — these are pure forwards. Navigation
+  // actions fire plugin events; read-only state queries and waits do not.
+  // ────────────────────────────────────────────────────────────────────
+
+  /**
+   * Take a screenshot of the page. Forwards to `page.screenshot(options)`
+   * unchanged — see Playwright docs for the full options shape.
+   *
+   * Not a humanized action: no plugin events fire. Pure ergonomic
+   * re-export so `human.*` stays a single surface.
+   */
+  screenshot(options?: Parameters<Page['screenshot']>[0]): Promise<Buffer>;
+  /**
+   * Visible text content of the page (`document.body.innerText`). Forwards
+   * to `page.innerText('body')`. Useful for AI agents that need to
+   * understand what's on screen without parsing HTML.
+   *
+   * For a region instead of the whole page, use `page.innerText(selector)`.
+   *
+   * Not a humanized action: no plugin events fire.
+   */
+  pageText(): Promise<string>;
+  /**
+   * Full HTML of the page. Forwards to `page.content()`. Often large
+   * (50–500 KB on typical sites) — prefer {@link Human.pageText} when
+   * passing to an LLM unless structure matters.
+   *
+   * Not a humanized action: no plugin events fire.
+   */
+  content(): Promise<string>;
+  /**
+   * Current URL of the page. Forwards to `page.url()`. Synchronous return
+   * because Playwright's underlying API is sync.
+   *
+   * Not a humanized action: no plugin events fire.
+   */
+  url(): string;
+  /**
+   * Current document title. Forwards to `page.title()`.
+   *
+   * Not a humanized action: no plugin events fire.
+   */
+  title(): Promise<string>;
+  /**
+   * Reload the current page. Forwards to `page.reload(options)`. Real-user
+   * analog of hitting the refresh button — the click motion is *not*
+   * humanized (we treat reload as navigation, not a cursor action).
+   *
+   * Plugins observe a `'reload'` action.
+   */
+  reload(options?: Parameters<Page['reload']>[0]): Promise<void>;
+  /**
+   * Navigate back in the browser history. Forwards to `page.goBack(options)`.
+   *
+   * Plugins observe a `'goBack'` action.
+   */
+  goBack(options?: Parameters<Page['goBack']>[0]): Promise<void>;
+  /**
+   * Navigate forward in the browser history. Forwards to
+   * `page.goForward(options)`.
+   *
+   * Plugins observe a `'goForward'` action.
+   */
+  goForward(options?: Parameters<Page['goForward']>[0]): Promise<void>;
+  /**
+   * Wait until the page reaches the specified load state. Forwards to
+   * `page.waitForLoadState(state, options)`. Common after a humanized
+   * click that triggers navigation — gives the page time to settle before
+   * the next action.
+   *
+   * Not a humanized action: no plugin events fire.
+   */
+  waitForLoadState(
+    state?: Parameters<Page['waitForLoadState']>[0],
+    options?: Parameters<Page['waitForLoadState']>[1],
+  ): Promise<void>;
+  /**
+   * Wait until the page's URL matches `url` (string, RegExp, or predicate).
+   * Forwards to `page.waitForURL(url, options)`. Common post-action wait
+   * (e.g. after `human.click('#login')`, wait for `/dashboard`).
+   *
+   * Not a humanized action: no plugin events fire.
+   */
+  waitForURL(
+    url: Parameters<Page['waitForURL']>[0],
+    options?: Parameters<Page['waitForURL']>[1],
+  ): Promise<void>;
+  /**
+   * Resize the viewport. Forwards to `page.setViewportSize(size)`. Useful
+   * for testing responsive layouts or switching between breakpoints
+   * mid-session.
+   *
+   * Not a humanized action: no plugin events fire.
+   */
+  setViewportSize(size: { width: number; height: number }): Promise<void>;
+  /**
+   * Render the page as a PDF. Forwards to `page.pdf(options)`. Chromium
+   * only; works most reliably in headless mode (in headed mode, Playwright
+   * silently switches to a print-style render).
+   *
+   * Not a humanized action: no plugin events fire.
+   */
+  pdf(options?: Parameters<Page['pdf']>[0]): Promise<Buffer>;
 }
 
 /** Options for {@link Human.record}. */
@@ -678,6 +785,54 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
         speed,
         events,
       });
+    },
+
+    // ────────────────────────────────────────────────────────────────────
+    // Thin re-exports of common Playwright `Page` methods. See the `Human`
+    // interface for the rationale; implementations forward unchanged.
+    // ────────────────────────────────────────────────────────────────────
+
+    screenshot(opts) {
+      return page.screenshot(opts);
+    },
+    pageText() {
+      return page.innerText('body');
+    },
+    content() {
+      return page.content();
+    },
+    url() {
+      return page.url();
+    },
+    title() {
+      return page.title();
+    },
+    async reload(opts) {
+      await performAction({ type: 'reload', params: {} }, async () => {
+        await page.reload(opts);
+      });
+    },
+    async goBack(opts) {
+      await performAction({ type: 'goBack', params: {} }, async () => {
+        await page.goBack(opts);
+      });
+    },
+    async goForward(opts) {
+      await performAction({ type: 'goForward', params: {} }, async () => {
+        await page.goForward(opts);
+      });
+    },
+    waitForLoadState(state, opts) {
+      return page.waitForLoadState(state, opts);
+    },
+    waitForURL(url, opts) {
+      return page.waitForURL(url, opts);
+    },
+    setViewportSize(size) {
+      return page.setViewportSize(size);
+    },
+    pdf(opts) {
+      return page.pdf(opts);
     },
   };
 }
