@@ -186,6 +186,7 @@ async function main() {
   const rec = await record(
     {
       output,
+      name: `HumanJS record demo (${personality})`,
       personality,
       seed: 'record-demo-1',
       viewport: { width: 1920, height: 1080 },

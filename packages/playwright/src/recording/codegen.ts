@@ -50,16 +50,28 @@ function emitScroll(target: unknown): string {
   return `  await human.scroll(${q(s)});`;
 }
 
+interface EmitOptions {
+  /** Append safely-derivable assertions (test export). */
+  readonly asserts?: boolean;
+  /** When set, `goto` URLs under this origin are emitted as relative paths. */
+  readonly baseOrigin?: string;
+}
+
 /**
- * Map one timeline event to generated code. When `asserts` is on (test
- * export), append the assertions we can safely derive from recorded state:
- * a read implies the target was visible; a captured input implies its value.
+ * Map one timeline event to generated code. With `asserts` on (test export),
+ * append the assertions we can safely derive from recorded state: a read
+ * implies the target was visible; a captured input implies its value.
  */
-function emitAction(e: TimelineEvent, asserts = false): string {
+function emitAction(e: TimelineEvent, opts: EmitOptions = {}): string {
   const p = e.params;
   switch (e.type) {
-    case 'goto':
-      return `  await human.goto(${q(p.url)});`;
+    case 'goto': {
+      const url = String(p.url ?? '');
+      if (opts.baseOrigin && url.startsWith(opts.baseOrigin)) {
+        return `  await human.goto(${q(url.slice(opts.baseOrigin.length) || '/')});`;
+      }
+      return `  await human.goto(${q(url)});`;
+    }
     case 'click':
     case 'rightClick':
     case 'hover':
@@ -80,7 +92,7 @@ function emitAction(e: TimelineEvent, asserts = false): string {
         return `  await human.${e.type}(${code}, '');${UNCAPTURED_COMMENT}`;
       }
       const call = `  await human.${e.type}(${code}, ${q(e.inputValue)});`;
-      if (asserts && !isPoint) {
+      if (opts.asserts && !isPoint) {
         return `${call}\n  await expect(page.locator(${code})).toHaveValue(${q(e.inputValue)});`;
       }
       return call;
@@ -97,7 +109,7 @@ function emitAction(e: TimelineEvent, asserts = false): string {
         return `  // human.read(...) — ${desc}; original target not captured`;
       }
       const call = `  await human.read(${q(desc)});`;
-      if (asserts) return `${call}\n  await expect(page.locator(${q(desc)})).toBeVisible();`;
+      if (opts.asserts) return `${call}\n  await expect(page.locator(${q(desc)})).toBeVisible();`;
       return call;
     }
     case 'sleep':
@@ -152,6 +164,81 @@ export interface PlaywrightTestOptions {
   readonly keepSleeps?: boolean;
   /** Test title. Defaults to the recording's name, else `'recorded session'`. */
   readonly title?: string;
+  /**
+   * Wrap actions in `test.step(...)` groups — a new step per navigation — so
+   * they show as collapsible sections in the HTML report / trace. Default false.
+   */
+  readonly steps?: boolean;
+  /**
+   * When all `goto`s share one origin, emit them as relative paths and add a
+   * note to set `use.baseURL` in the Playwright config (portable across
+   * environments). Default false — absolute URLs that run without any config.
+   */
+  readonly baseUrl?: boolean;
+}
+
+const NAV_TYPES = new Set(['goto', 'reload', 'goBack', 'goForward']);
+
+/** The common origin of all `goto`s, or undefined if absent / mixed / relative. */
+function sharedGotoOrigin(events: readonly TimelineEvent[]): string | undefined {
+  let origin: string | undefined;
+  for (const e of events) {
+    if (e.type !== 'goto') continue;
+    try {
+      const o = new URL(String(e.params.url ?? '')).origin;
+      if (origin === undefined) origin = o;
+      else if (origin !== o) return undefined;
+    } catch {
+      return undefined;
+    }
+  }
+  return origin;
+}
+
+/** Prefix every non-empty line of `block` with `pad`. */
+function indentLines(block: string, pad: string): string {
+  return block
+    .split('\n')
+    .map((line) => (line.length > 0 ? pad + line : line))
+    .join('\n');
+}
+
+/** A human-ish label for a `test.step` that begins with `event`. */
+function stepLabel(event: TimelineEvent, index: number, baseOrigin?: string): string {
+  switch (event.type) {
+    case 'goto': {
+      const url = String(event.params.url ?? '');
+      const path =
+        baseOrigin && url.startsWith(baseOrigin) ? url.slice(baseOrigin.length) || '/' : url;
+      return `go to ${path}`;
+    }
+    case 'reload':
+      return 'reload';
+    case 'goBack':
+      return 'go back';
+    case 'goForward':
+      return 'go forward';
+    default:
+      return `step ${index + 1}`;
+  }
+}
+
+/** Group events into `test.step` blocks — a new step begins at each navigation. */
+function emitSteps(events: readonly TimelineEvent[], opts: EmitOptions): string {
+  const groups: TimelineEvent[][] = [];
+  for (const e of events) {
+    const last = groups[groups.length - 1];
+    if (last === undefined || NAV_TYPES.has(e.type)) groups.push([e]);
+    else last.push(e);
+  }
+  return groups
+    .map((group, i) => {
+      const [first] = group;
+      const label = first ? stepLabel(first, i, opts.baseOrigin) : `step ${i + 1}`;
+      const inner = group.map((e) => indentLines(emitAction(e, opts), '  ')).join('\n');
+      return `  await test.step(${q(label)}, async () => {\n${inner}\n  });`;
+    })
+    .join('\n\n');
 }
 
 /**
@@ -168,11 +255,15 @@ export function generatePlaywrightTest(
   const events = options.keepSleeps
     ? timeline.events
     : timeline.events.filter((e) => e.type !== 'sleep');
-  const body = events.map((e) => emitAction(e, true)).join('\n');
+  const baseOrigin = options.baseUrl ? sharedGotoOrigin(events) : undefined;
+  const emitOpts: EmitOptions = { asserts: true, baseOrigin };
+  const body = options.steps
+    ? emitSteps(events, emitOpts)
+    : events.map((e) => emitAction(e, emitOpts)).join('\n');
   const needsSleep = events.some((e) => e.type === 'sleep');
-  // Only import `expect` if we actually emitted assertions — otherwise the
-  // generated file carries an unused import.
-  const hasAsserts = /^ {2}await expect\(/m.test(body);
+  // Only import `expect` if we actually emitted assertions (body has no
+  // comments yet, so this won't match the TODO placeholder below).
+  const hasAsserts = body.includes('await expect(');
   const testImport = hasAsserts
     ? "import { expect, test } from '@playwright/test';"
     : "import { test } from '@playwright/test';";
@@ -180,6 +271,9 @@ export function generatePlaywrightTest(
     ? "import { createHuman, sleep } from '@humanjs/playwright';"
     : "import { createHuman } from '@humanjs/playwright';";
   const title = options.title ?? timeline.name ?? 'recorded session';
+  const baseUrlNote = baseOrigin
+    ? `  // Set use.baseURL = ${q(baseOrigin)} in playwright.config.ts for these relative paths.\n\n`
+    : '';
   // Outcome assertions (URL, text appeared, …) can't be derived from recorded
   // actions, so leave a guided placeholder instead of guessing them.
   const todo = [
@@ -195,7 +289,7 @@ ${humanImport}
 test(${q(title)}, async ({ page }) => {
   const human = await createHuman(page, ${createHumanOptions(timeline, true)});
 
-${body}
+${baseUrlNote}${body}
 
 ${todo}
 });

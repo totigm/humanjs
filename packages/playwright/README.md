@@ -356,6 +356,8 @@ await rec.toPlaywright('session.spec.ts'); // @playwright/test spec (humanized)
 
 Generated tests are built to *be tests*: they run `speed: process.env.CI ? 'instant' : '<recorded>'` (instant in CI, recorded feel locally) and drop recorded `sleep()` pauses (timing fidelity belongs in a demo, not a test — pass `toPlaywright(path, { keepSleeps: true })` to keep them). The test title comes from the recording's name (`human.record({ name })`) and is overridable with `{ title }`.
 
+Two more options: `{ steps: true }` groups the actions into `test.step(...)` blocks (a new step per navigation) for collapsible sections in the HTML report and trace; `{ baseUrl: true }` rewrites same-origin `goto`s to relative paths and adds a note to set `use.baseURL` in your `playwright.config.ts` — so the same test runs against local / staging / prod.
+
 By default the actual typed/pasted text is captured into the timeline (and the exported code). Values typed into `input[type="password"]` are always masked; set `captureInputs: false` to record none — exports then emit empty-string placeholders:
 
 ```ts

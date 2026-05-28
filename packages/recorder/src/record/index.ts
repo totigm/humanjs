@@ -44,6 +44,11 @@ export interface RecordOptions extends CreateHumanOptions {
    */
   readonly output?: string;
   /**
+   * Optional label for the recording — becomes the title of a generated
+   * `toPlaywright()` test. See `@humanjs/playwright`'s `HumanRecordOptions.name`.
+   */
+  readonly name?: string;
+  /**
    * Quality preset. Picks both source viewport and ffmpeg encoding settings.
    * Defaults to `'high'` (visually-lossless 1080p).
    *
@@ -178,6 +183,7 @@ export async function record(
 
   const {
     output,
+    name,
     quality,
     captureInputs,
     url,
@@ -216,7 +222,7 @@ export async function record(
     // Capture runs only when the caller asked for an output file — saves
     // the screenshot + disk-write overhead for timeline-only recordings.
     const recording = await human.record(
-      { video: wantsCapture, quality: resolvedQuality, captureInputs },
+      { name, video: wantsCapture, quality: resolvedQuality, captureInputs },
       () => fn(human, page),
     );
 

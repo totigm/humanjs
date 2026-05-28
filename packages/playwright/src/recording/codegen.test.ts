@@ -215,4 +215,46 @@ describe('generatePlaywrightTest', () => {
     expect(out).toContain("await human.type('#pw', '');");
     expect(out).not.toContain('toHaveValue');
   });
+
+  it('groups actions into test.step blocks per navigation when steps is set', () => {
+    const out = generatePlaywrightTest(
+      timeline([
+        ev('goto', { url: 'https://example.com/login' }),
+        ev('click', { target: '#submit' }),
+        ev('goto', { url: 'https://example.com/dashboard' }),
+        ev('read', { target: '.welcome' }),
+      ]),
+      { steps: true },
+    );
+    expect(out).toContain("await test.step('go to https://example.com/login', async () => {");
+    expect(out).toContain("await test.step('go to https://example.com/dashboard', async () => {");
+    // actions are indented one level deeper inside a step (4 spaces)
+    expect(out).toContain("    await human.click('#submit');");
+  });
+
+  it('relativizes gotos under a shared origin with baseUrl', () => {
+    const out = generatePlaywrightTest(
+      timeline([
+        ev('goto', { url: 'https://app.example.com/login' }),
+        ev('goto', { url: 'https://app.example.com/dashboard' }),
+      ]),
+      { baseUrl: true },
+    );
+    expect(out).toContain("await human.goto('/login');");
+    expect(out).toContain("await human.goto('/dashboard');");
+    expect(out).toContain("// Set use.baseURL = 'https://app.example.com'");
+  });
+
+  it('keeps absolute gotos when origins differ even with baseUrl', () => {
+    const out = generatePlaywrightTest(
+      timeline([
+        ev('goto', { url: 'https://a.example.com/x' }),
+        ev('goto', { url: 'https://b.example.com/y' }),
+      ]),
+      { baseUrl: true },
+    );
+    expect(out).toContain("await human.goto('https://a.example.com/x');");
+    expect(out).toContain("await human.goto('https://b.example.com/y');");
+    expect(out).not.toContain('use.baseURL');
+  });
 });
