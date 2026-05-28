@@ -354,6 +354,8 @@ await rec.toPlaywright('session.spec.ts'); // @playwright/test spec (humanized)
 
 `toPlaywright()` also derives the assertions it safely can from the recording — a `read` implies its target was visible (`toBeVisible`), a captured input implies its value (`toHaveValue`) — and leaves a `TODO` for outcome assertions (URL changed, text appeared) that can't be inferred from actions alone. It never fabricates assertions that might fail on a correct run.
 
+Generated tests are built to *be tests*: they run `speed: process.env.CI ? 'instant' : '<recorded>'` (instant in CI, recorded feel locally) and drop recorded `sleep()` pauses (timing fidelity belongs in a demo, not a test — pass `toPlaywright(path, { keepSleeps: true })` to keep them). The test title comes from the recording's name (`human.record({ name })`) and is overridable with `{ title }`.
+
 By default the actual typed/pasted text is captured into the timeline (and the exported code). Values typed into `input[type="password"]` are always masked; set `captureInputs: false` to record none — exports then emit empty-string placeholders:
 
 ```ts

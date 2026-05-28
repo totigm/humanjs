@@ -153,9 +153,39 @@ describe('generatePlaywrightTest', () => {
     expect(out).toContain('});');
   });
 
-  it('imports sleep alongside createHuman when needed', () => {
-    const out = generatePlaywrightTest(timeline([ev('sleep', { ms: 50 })]));
+  it('drops timing sleeps by default (a test should not replay human pauses)', () => {
+    const out = generatePlaywrightTest(
+      timeline([ev('sleep', { ms: 800 }), ev('click', { target: '#go' })]),
+    );
+    expect(out).not.toContain('await sleep(');
+    expect(out).not.toContain('import { createHuman, sleep }');
+    expect(out).toContain("await human.click('#go');");
+  });
+
+  it('keeps sleeps and imports sleep when keepSleeps is set', () => {
+    const out = generatePlaywrightTest(
+      timeline([ev('sleep', { ms: 800 }), ev('click', { target: '#go' })]),
+      { keepSleeps: true },
+    );
+    expect(out).toContain('await sleep(800);');
     expect(out).toContain("import { createHuman, sleep } from '@humanjs/playwright';");
+  });
+
+  it('runs instant in CI / recorded speed locally', () => {
+    const out = generatePlaywrightTest(timeline([ev('click', { target: '#go' })]));
+    expect(out).toContain("speed: process.env.CI ? 'instant' : 'human',");
+  });
+
+  it('uses the recording name as the test title, overridable via options', () => {
+    const named = generatePlaywrightTest(
+      timeline([ev('click', { target: '#go' })], { name: 'checkout flow' }),
+    );
+    expect(named).toContain("test('checkout flow', async ({ page }) => {");
+    const overridden = generatePlaywrightTest(
+      timeline([ev('click', { target: '#go' })], { name: 'checkout flow' }),
+      { title: 'override' },
+    );
+    expect(overridden).toContain("test('override', async ({ page }) => {");
   });
 
   it('derives toBeVisible from reads and toHaveValue from captured inputs', () => {

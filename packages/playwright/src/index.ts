@@ -94,6 +94,7 @@ export type { ReadOptions, ReadResult, ReadTarget } from './reading';
 export {
   type FfmpegPreset,
   type FfmpegTune,
+  type PlaywrightTestOptions,
   Recording,
   type RecordingQuality,
   type Timeline,
@@ -476,6 +477,11 @@ export interface Human {
 /** Options for {@link Human.record}. */
 export interface HumanRecordOptions {
   /**
+   * Optional label for the recording. Stored on the timeline and used as the
+   * title of a generated `toPlaywright()` test.
+   */
+  readonly name?: string;
+  /**
    * Whether to capture frames for video output. Defaults to `true`.
    * Set to `false` for timeline-only recordings (no capture loop, no
    * temp files, no encoding overhead — `toTimeline()` still works).
@@ -849,6 +855,7 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
       const captureResult = captureSession ? await captureSession.stop() : null;
 
       return new Recording(captureResult, windowStartMs, windowEndMs, {
+        name: recordOptions.name,
         personality: personality.name,
         seed: options.seed === undefined ? null : String(options.seed),
         speed,

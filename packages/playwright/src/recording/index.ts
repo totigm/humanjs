@@ -4,7 +4,9 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, extname } from 'node:path';
 import ffmpegStatic from 'ffmpeg-static';
 import type { CaptureResult } from './capture';
-import { generateHumanJS, generatePlaywrightTest } from './codegen';
+import { generateHumanJS, generatePlaywrightTest, type PlaywrightTestOptions } from './codegen';
+
+export type { PlaywrightTestOptions } from './codegen';
 
 // Safety net for captured-frame temp dirs: every live Recording registers
 // its dir here, and a single lazy `process.on('exit')` handler sweeps
@@ -182,6 +184,8 @@ export interface TimelineEvent {
 /** Structured action timeline of a recording. */
 export interface Timeline {
   readonly version: 1;
+  /** Optional label for the recording (used as the generated test's title). */
+  readonly name?: string;
   readonly personality: string;
   readonly seed: string | null;
   readonly speed: string;
@@ -191,6 +195,7 @@ export interface Timeline {
 
 /** Metadata passed from `human.record()` into the Recording constructor. */
 export interface RecordingTimelineSource {
+  readonly name?: string;
   readonly personality: string;
   readonly seed: string | null;
   readonly speed: string;
@@ -258,6 +263,7 @@ export class Recording {
   get timeline(): Timeline {
     return {
       version: 1,
+      ...(this.#timelineSource.name !== undefined ? { name: this.#timelineSource.name } : {}),
       personality: this.#timelineSource.personality,
       seed: this.#timelineSource.seed,
       speed: this.#timelineSource.speed,
@@ -465,16 +471,18 @@ export class Recording {
   /**
    * Generates a `@playwright/test` spec from the timeline — a humanized test
    * (uses `createHuman` + `human.*`), not raw Playwright — and writes it to
-   * `outputPath`.
+   * `outputPath`. Runs instant in CI / recorded speed locally, drops timing
+   * `sleep()`s (pass `{ keepSleeps: true }` to keep them), and derives the
+   * assertions it safely can.
    *
    * Independent of frame capture — works on timeline-only recordings and is
    * unaffected by `dispose()`.
    *
    * @returns the resolved output path.
    */
-  async toPlaywright(outputPath: string): Promise<string> {
+  async toPlaywright(outputPath: string, options?: PlaywrightTestOptions): Promise<string> {
     await mkdir(dirname(outputPath), { recursive: true });
-    await writeFile(outputPath, generatePlaywrightTest(this.timeline), 'utf8');
+    await writeFile(outputPath, generatePlaywrightTest(this.timeline, options), 'utf8');
     return outputPath;
   }
 

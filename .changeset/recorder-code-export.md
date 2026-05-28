@@ -7,7 +7,7 @@
 Recorder code export — turn a recorded session into runnable code.
 
 - **`Recording.toHumanJS(path)`** — writes a standalone HumanJS script (`createHuman` + `human.*`) that replays the session.
-- **`Recording.toPlaywright(path)`** — writes a `@playwright/test` spec that drives the page through HumanJS, so the generated test runs humanized too.
+- **`Recording.toPlaywright(path, options?)`** — writes a `@playwright/test` spec that drives the page through HumanJS, so the generated test runs humanized too. It's built to *be* a test: runs instant in CI / recorded speed locally, drops timing `sleep()`s (`{ keepSleeps: true }` to keep them), titles the test from the recording's `name` (or `{ title }`), and derives the assertions it safely can (`toBeVisible` from reads, `toHaveValue` from captured inputs).
 
 Both are available on the `Recording` returned by `human.record()` and by `@humanjs/recorder`'s `record()`. String selectors round-trip verbatim; raw `point(x, y)` targets are emitted with a flag comment (locator/point → selector synthesis is a planned follow-up).
 

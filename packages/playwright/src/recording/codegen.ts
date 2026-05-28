@@ -24,11 +24,19 @@ function targetArg(desc: unknown): { code: string; isPoint: boolean } {
   return { code: q(s), isPoint: false };
 }
 
-/** `createHuman` options block, reconstructed from the timeline metadata. */
-function createHumanOptions(timeline: Timeline): string {
+/**
+ * `createHuman` options block, reconstructed from the timeline metadata.
+ * With `ciSpeed`, emits the documented test pattern — instant in CI, the
+ * recorded speed locally — so generated tests stay fast in pipelines.
+ */
+function createHumanOptions(timeline: Timeline, ciSpeed = false): string {
   const parts = [`    personality: ${q(timeline.personality)},`];
   if (timeline.seed !== null) parts.push(`    seed: ${q(timeline.seed)},`);
-  parts.push(`    speed: ${q(timeline.speed)},`);
+  parts.push(
+    ciSpeed
+      ? `    speed: process.env.CI ? 'instant' : ${q(timeline.speed)},`
+      : `    speed: ${q(timeline.speed)},`,
+  );
   return `{\n${parts.join('\n')}\n  }`;
 }
 
@@ -135,22 +143,43 @@ main();
 `;
 }
 
+/** Options for {@link generatePlaywrightTest} / `Recording.toPlaywright`. */
+export interface PlaywrightTestOptions {
+  /**
+   * Keep recorded `sleep()` pauses. Default `false` — a test shouldn't carry
+   * human-timing waits (slow + flaky in CI; Playwright auto-waits instead).
+   */
+  readonly keepSleeps?: boolean;
+  /** Test title. Defaults to the recording's name, else `'recorded session'`. */
+  readonly title?: string;
+}
+
 /**
  * Generates a `@playwright/test` spec that replays the session through
  * HumanJS — a humanized test, not raw Playwright, since the humanization is
- * the point. Same action mapping as {@link generateHumanJS}, test scaffold.
+ * the point. Runs instant in CI / recorded speed locally, drops timing
+ * `sleep()`s by default, and derives the assertions it safely can.
  */
-export function generatePlaywrightTest(timeline: Timeline): string {
-  const body = timeline.events.map((e) => emitAction(e, true)).join('\n');
+export function generatePlaywrightTest(
+  timeline: Timeline,
+  options: PlaywrightTestOptions = {},
+): string {
+  // A test shouldn't replay human-timing pauses — drop them unless asked.
+  const events = options.keepSleeps
+    ? timeline.events
+    : timeline.events.filter((e) => e.type !== 'sleep');
+  const body = events.map((e) => emitAction(e, true)).join('\n');
+  const needsSleep = events.some((e) => e.type === 'sleep');
   // Only import `expect` if we actually emitted assertions — otherwise the
   // generated file carries an unused import.
   const hasAsserts = /^ {2}await expect\(/m.test(body);
   const testImport = hasAsserts
     ? "import { expect, test } from '@playwright/test';"
     : "import { test } from '@playwright/test';";
-  const humanImport = needsSleepImport(timeline)
+  const humanImport = needsSleep
     ? "import { createHuman, sleep } from '@humanjs/playwright';"
     : "import { createHuman } from '@humanjs/playwright';";
+  const title = options.title ?? timeline.name ?? 'recorded session';
   // Outcome assertions (URL, text appeared, …) can't be derived from recorded
   // actions, so leave a guided placeholder instead of guessing them.
   const todo = [
@@ -163,8 +192,8 @@ export function generatePlaywrightTest(timeline: Timeline): string {
   return `${testImport}
 ${humanImport}
 
-test('recorded session', async ({ page }) => {
-  const human = await createHuman(page, ${createHumanOptions(timeline)});
+test(${q(title)}, async ({ page }) => {
+  const human = await createHuman(page, ${createHumanOptions(timeline, true)});
 
 ${body}
 

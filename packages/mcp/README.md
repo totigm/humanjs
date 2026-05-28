@@ -48,9 +48,14 @@ Some clients can register the server for you, no manual JSON:
 **Claude Code:**
 
 ```bash
+# this project only (default scope: local)
 claude mcp add humanjs --env HUMANJS_PERSONALITY=careful -- npx -y @humanjs/mcp
-# add --scope user to install it globally (all projects)
+
+# all your projects (global): add --scope user (-s user)
+claude mcp add humanjs --scope user --env HUMANJS_PERSONALITY=careful -- npx -y @humanjs/mcp
 ```
+
+`--scope` is `local` (default, this project only), `user` (you, across all projects), or `project` (shared via a checked-in `.mcp.json`). Use `user` for a one-time global install.
 
 **Cursor** — one click:
 
