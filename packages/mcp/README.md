@@ -175,12 +175,31 @@ By default each run gets a **fresh, empty browser** — predictable and isolated
 | You want… | Set | What you get |
 |---|---|---|
 | Stay logged in across runs | `HUMANJS_PERSIST=true` (or `HUMANJS_USER_DATA_DIR=/path`) | A dedicated HumanJS profile. Sign in once *in it*; it persists. Starts empty. |
-| Your *existing* logins right now | `HUMANJS_CDP_URL=http://localhost:9222` | Attach to your already-running browser (start it with `--remote-debugging-port`). Uses its real sessions, tabs, extensions. |
+| Drive a browser you launched | `HUMANJS_CDP_URL=http://localhost:9222` | Attach to a Chrome you started with `--remote-debugging-port` (see below). Reuses that instance's tabs and whatever you've signed into *there*. |
 | A specific browser binary | `HUMANJS_CHANNEL=chrome` | Launches installed Chrome instead of bundled Chromium. **On its own, still a fresh profile** — combine with persistence or CDP for real logins. |
 
-Common trap: `HUMANJS_CHANNEL=chrome` alone does **not** give you your existing Chrome cookies/logins — it only swaps the binary. For existing logins without re-signing-in, use CDP attach; to persist new logins, use a persistent profile.
+Common trap: `HUMANJS_CHANNEL=chrome` alone does **not** give you your existing Chrome cookies/logins — it only swaps the binary. To keep logins, use a persistent profile or CDP attach.
 
-You can also toggle persistence from chat: `human_enable_persistence` (then `human_restart_browser` to apply now), and `human_browser_info` reports the current mode. Switching to your *real* Chrome (CDP) stays env-only by design — it's a consent decision the agent shouldn't escalate into.
+### Attaching over CDP
+
+`HUMANJS_CDP_URL` connects to a browser **you launch yourself** with a remote-debugging port and a **separate profile dir**:
+
+```bash
+# macOS
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --remote-debugging-port=9222 --user-data-dir="$HOME/.humanjs-chrome"
+
+# Linux
+google-chrome --remote-debugging-port=9222 --user-data-dir="$HOME/.humanjs-chrome"
+
+# Windows (PowerShell)
+& "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --user-data-dir="$env:USERPROFILE\.humanjs-chrome"
+```
+
+Then set `HUMANJS_CDP_URL=http://localhost:9222`. Log into whatever you need in that window once; it lives in the `--user-data-dir` you chose (use a stable path like `~/.humanjs-chrome`, **not** `/tmp`, so it survives reboots).
+
+> **You can't attach to your everyday Chrome.** Chrome only exposes a debug port when launched with the flag, and since ~v136 it **refuses `--remote-debugging-port` on your default profile** (a security fix that stopped malware reading your cookies via CDP). So a separate `--user-data-dir` is required — it's a distinct profile, not your normal one. If all you want is "stay logged in," `HUMANJS_PERSIST=true` is simpler and skips this dance entirely.
+
+You can also toggle persistence from chat: `human_enable_persistence` (then `human_restart_browser` to apply now), and `human_browser_info` reports the current mode. Switching to a CDP browser stays env-only by design — it's a consent decision the agent shouldn't escalate into.
 
 Persistent and CDP modes drive a **single shared browser**, so named/parallel sessions (`human_create_session`) aren't available in those modes — which is exactly what you want when the point is one logged-in browser.
 
