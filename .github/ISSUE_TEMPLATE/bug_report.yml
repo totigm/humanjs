@@ -1,0 +1,65 @@
+name: Bug report
+description: Something in HumanJS behaves incorrectly or crashes.
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a report. A small, runnable reproduction is the single most helpful thing you can include.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you observe, and what did you expect instead?
+      placeholder: human.type() dropped characters when the personality was set to "fast"...
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: A minimal code snippet or, ideally, a link to a repo / Playwright trace. Include the page or a stand-in if the behaviour is site-specific.
+      render: ts
+      placeholder: |
+        const human = await createHuman(page, { personality: 'fast', seed: 'repro' });
+        await human.type('#email', 'a@b.com');
+    validations:
+      required: true
+  - type: dropdown
+    id: package
+    attributes:
+      label: Which package?
+      multiple: true
+      options:
+        - "@humanjs/core"
+        - "@humanjs/playwright"
+        - "@humanjs/recorder"
+        - "@humanjs/mcp"
+        - "@humanjs/skill"
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Package version(s)
+      description: The version of the affected package(s) — e.g. `@humanjs/playwright@0.7.0`.
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: OS, Node version, Playwright version, browser, and whether you run headed or headless / CDP.
+      placeholder: macOS 14, Node 22, Playwright 1.49, Chromium headless
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / errors
+      description: Any relevant stack trace or console output. This is automatically formatted as code.
+      render: shell
+    validations:
+      required: false

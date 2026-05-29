@@ -230,7 +230,7 @@ We do not accept PRs that:
 - Implement captcha solvers, fingerprint masking, or proxy management
 - Position HumanJS as a stealth tool
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md).
+See [CONTRIBUTING.md](./CONTRIBUTING.md) to get started, and please follow our [Code of Conduct](./CODE_OF_CONDUCT.md). To report a security issue, see the [security policy](./SECURITY.md).
 
 ## Credits
 
