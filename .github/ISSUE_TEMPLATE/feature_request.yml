@@ -26,7 +26,7 @@ body:
     id: not-a-non-goal
     attributes:
       label: Scope check
-      description: "HumanJS will not implement these — see the [non-goals](https://github.com/totigm/humanjs#non-goals). Requests for them will be closed."
+      description: "HumanJS will not implement these — see the [non-goals](https://github.com/totigm/humanjs#what-humanjs-is-not). Requests for them will be closed."
       options:
         - label: This is **not** captcha solving / bypass, fingerprint masking, proxy rotation, TLS / network stealth, "undetectable" framing, time-of-day variation, or AI-generated mouse trajectories.
           required: true

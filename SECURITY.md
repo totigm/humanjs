@@ -27,7 +27,7 @@ Issues in HumanJS's own code or published packages — for example, a bug that l
 
 ## What's *not* in scope
 
-- **The [non-goals](https://github.com/totigm/humanjs#non-goals).** HumanJS does not — and will not — defeat bot detection, solve or bypass captchas, mask fingerprints, rotate proxies, or provide "undetectable" automation. Reports or requests framed around those are feature requests we decline, not security issues.
+- **The [non-goals](https://github.com/totigm/humanjs#what-humanjs-is-not).** HumanJS does not — and will not — defeat bot detection, solve or bypass captchas, mask fingerprints, rotate proxies, or provide "undetectable" automation. Reports or requests framed around those are feature requests we decline, not security issues.
 - Vulnerabilities in **your own automation scripts**, the **sites you automate**, or **Playwright / the browser** themselves (report those upstream).
 
 ## Responsible use

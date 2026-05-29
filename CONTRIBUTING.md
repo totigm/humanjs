@@ -6,7 +6,7 @@ By participating, you agree to abide by our [Code of Conduct](./CODE_OF_CONDUCT.
 
 ## Before you start: scope
 
-HumanJS humanizes browser automation for **AI agents, QA tests, and demo/tutorial recordings**. Some things are deliberately out of scope and we will not merge them — captcha solving/bypass, fingerprint masking, proxy rotation, TLS/network stealth, "undetectable" framing, time-of-day variation, and AI-generated mouse trajectories. See the [non-goals](https://github.com/totigm/humanjs#non-goals) before opening a feature PR. If you're unsure whether an idea fits, open a [Discussion](https://github.com/totigm/humanjs/discussions) first.
+HumanJS humanizes browser automation for **AI agents, QA tests, and demo/tutorial recordings**. Some things are deliberately out of scope and we will not merge them — captcha solving/bypass, fingerprint masking, proxy rotation, TLS/network stealth, "undetectable" framing, time-of-day variation, and AI-generated mouse trajectories. See the [non-goals](https://github.com/totigm/humanjs#what-humanjs-is-not) before opening a feature PR. If you're unsure whether an idea fits, open a [Discussion](https://github.com/totigm/humanjs/discussions) first.
 
 ## Prerequisites
 

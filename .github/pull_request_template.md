@@ -11,3 +11,4 @@
 - [ ] `pnpm typecheck`, `pnpm test`, and `pnpm lint` pass locally
 - [ ] Tests added/updated for the change
 - [ ] Docs / README updated if behaviour or public API changed
+- [ ] This is **not** a [non-goal](https://github.com/totigm/humanjs#what-humanjs-is-not) (captcha, fingerprint masking, proxy rotation, stealth)
