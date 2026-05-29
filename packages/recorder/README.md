@@ -58,6 +58,8 @@ The returned `Recording` has:
 | `rec.toVideo(path, options?)` | Write an mp4 or webm. Repeatable. |
 | `rec.toGif(path, options?)` | Write an animated GIF (palette-optimized, defaults to 15fps). Repeatable. |
 | `rec.toTimeline(path)` | Write the structured JSON timeline. Repeatable. |
+| `rec.toHumanJS(path)` | Write a runnable HumanJS script that replays the session. |
+| `rec.toPlaywright(path)` | Write a `@playwright/test` spec (humanized — uses HumanJS). |
 | `rec.timeline` | Read the in-memory `Timeline` object. |
 | `rec.durationMs` | Wall-clock duration of the recorded window. |
 | `rec.hasVideo` | True if frames were captured (i.e. `output` was set). |
@@ -81,6 +83,7 @@ await record(
   {
     output: 'demo.mp4',          // .mp4 / .webm / .gif — omit to skip video entirely
     quality: 'high',             // 'fast' | 'standard' | 'high' (default) | 'lossless'
+    captureInputs: true,         // capture typed/pasted text for code export (default; passwords masked)
     url: 'https://example.com',  // optional — navigate before the callback
     personality: 'careful',      // any PersonalityConfig
     seed: 'session-42',          // deterministic when set

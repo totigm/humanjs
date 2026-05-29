@@ -161,6 +161,73 @@ describe('human.record (integration)', () => {
     }
   });
 
+  it('captures typed/pasted values by default and masks password fields', async () => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await page.setContent(
+      '<html><body>' +
+        '<input id="email" type="email" />' +
+        '<input id="pw" type="password" />' +
+        // Uppercase type attribute — DOM treats it as a password field, so
+        // masking must be case-insensitive.
+        '<input id="pw2" type="PASSWORD" />' +
+        '<textarea id="notes"></textarea>' +
+        '</body></html>',
+    );
+    const human = await createHuman(page, { speed: 'instant' });
+
+    const rec = await human.record({ video: false }, async () => {
+      await human.type('#email', 'gonzalo@example.com');
+      await human.paste('#pw', 'super-secret');
+      await human.paste('#pw2', 'also-secret');
+      await human.paste('#notes', 'just a note');
+    });
+
+    const byTarget = (t: string) => rec.timeline.events.find((e) => e.params.target === t);
+
+    // Non-sensitive fields: real value captured.
+    expect(byTarget('#email')?.inputValue).toBe('gonzalo@example.com');
+    expect(byTarget('#notes')?.inputValue).toBe('just a note');
+    // Password fields: value masked (omitted) even though capture is on —
+    // including the uppercase-typed one.
+    expect(byTarget('#pw')?.inputValue).toBeUndefined();
+    expect(byTarget('#pw2')?.inputValue).toBeUndefined();
+    // length metadata is still present for all of them.
+    expect(byTarget('#pw')?.params.length).toBe('super-secret'.length);
+
+    // The captured value flows into generated code; the password does not.
+    const { mkdtemp } = await import('node:fs/promises');
+    const dir = await mkdtemp(join(tmpdir(), 'humanjs-codegen-'));
+    const scriptPath = join(dir, 'session.ts');
+    try {
+      await rec.toHumanJS(scriptPath);
+      const code = await readFile(scriptPath, 'utf8');
+      expect(code).toContain("await human.type('#email', 'gonzalo@example.com');");
+      expect(code).not.toContain('super-secret');
+      expect(code).not.toContain('also-secret');
+      expect(code).toContain("await human.paste('#pw', '');");
+    } finally {
+      await unlink(scriptPath).catch(() => undefined);
+      await context.close().catch(() => undefined);
+    }
+  });
+
+  it('records no input values when captureInputs is false', async () => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await page.setContent('<html><body><input id="email" /></body></html>');
+    const human = await createHuman(page, { speed: 'instant' });
+
+    const rec = await human.record({ video: false, captureInputs: false }, async () => {
+      await human.type('#email', 'gonzalo@example.com');
+    });
+
+    const event = rec.timeline.events.find((e) => e.params.target === '#email');
+    expect(event?.inputValue).toBeUndefined();
+    expect(event?.params.length).toBe('gonzalo@example.com'.length);
+    await context.close();
+  });
+
   it('sweep-on-exit deletes an un-disposed capture dir when the process ends', async () => {
     // Spawn a child Node process that constructs a Recording with a real
     // capture dir and then exits WITHOUT calling dispose. The sweep handler

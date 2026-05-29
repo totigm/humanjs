@@ -17,3 +17,22 @@ export function resolveOutputPath(outputDir: string, filename: string): string {
   }
   return join(outputDir, base);
 }
+
+/** Export format a recording filename maps to. */
+export type RecordingFormat = 'video' | 'gif' | 'timeline' | 'humanjs' | 'playwright';
+
+/**
+ * Picks a recording's export format from its filename extension.
+ * `.spec.ts` / `.test.ts` → a Playwright test; a plain `.ts` → a HumanJS
+ * script. Returns `null` for unsupported extensions. Checked before the
+ * recording is stopped so a bad name fails without losing the take.
+ */
+export function resolveRecordingFormat(filename: string): RecordingFormat | null {
+  const lower = filename.toLowerCase();
+  if (lower.endsWith('.mp4') || lower.endsWith('.webm')) return 'video';
+  if (lower.endsWith('.gif')) return 'gif';
+  if (lower.endsWith('.json')) return 'timeline';
+  if (lower.endsWith('.spec.ts') || lower.endsWith('.test.ts')) return 'playwright';
+  if (lower.endsWith('.ts')) return 'humanjs';
+  return null;
+}
