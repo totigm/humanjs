@@ -6,7 +6,13 @@
     "humanjs",
     "humanize",
     "playwright",
-    "browser-automation"
+    "browser-automation",
+    "personality",
+    "bezier",
+    "typing-rhythm",
+    "plugin",
+    "ai-agents",
+    "qa-testing"
   ],
   "author": "Gonzalo Muñoz <toti@eventurex.com.ar>",
   "license": "MIT",
@@ -50,6 +56,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
+    "check:exports": "publint",
     "clean": "rm -rf dist .turbo"
   },
   "publishConfig": {

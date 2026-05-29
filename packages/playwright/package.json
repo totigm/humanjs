@@ -53,6 +53,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
+    "check:exports": "publint",
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
