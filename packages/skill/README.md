@@ -34,9 +34,25 @@ npx @humanjs/skill --claude --cursor       # pick some
 | `--cursor` | `.cursor/rules/humanjs.mdc` |
 | `--codex` | `AGENTS.md` (merged in place — see below) |
 | `--all` | all of the above |
+| `--global`, `-g` | install for **every** project (your home dir) instead of this one |
 | `-h`, `--help` | usage |
 
 The same instructions go to every target; only the wrapper format and location differ. Re-running is safe — files are overwritten with the latest skill, and `AGENTS.md` is updated in place.
+
+### Global install
+
+Add `--global` (`-g`) to install once for every project instead of the current one:
+
+```bash
+npx @humanjs/skill --global            # prompt, then install globally
+npx @humanjs/skill -g --claude --codex # global, specific tools
+```
+
+| Target | Global location |
+|---|---|
+| Claude Code | `~/.claude/skills/humanjs/SKILL.md` |
+| Codex | `~/.codex/AGENTS.md` (merged in place) |
+| Cursor | **no global rules file** — Cursor's user rules live in its settings; install Cursor per-project, or paste the skill into Cursor → Settings → Rules |
 
 ### AGENTS.md is never clobbered
 

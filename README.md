@@ -117,10 +117,11 @@ Every action the agent takes goes through HumanJS without changing your agent co
 **Writing HumanJS by hand with an AI coding assistant?** Install the skill so Claude Code, Cursor, and Codex know the API:
 
 ```bash
-npx @humanjs/skill
+npx @humanjs/skill            # this project
+npx @humanjs/skill --global   # every project (~/.claude/skills, ~/.codex/AGENTS.md)
 ```
 
-Drops the HumanJS skill into your project (`.claude/skills/`, `.cursor/rules/`, or `AGENTS.md`). See [`@humanjs/skill`](./packages/skill/README.md). (The MCP server *runs* a humanized browser; the skill teaches an agent to *write* HumanJS.)
+Drops the HumanJS skill into your project (`.claude/skills/`, `.cursor/rules/`, or `AGENTS.md`) — or, with `--global`, into your home dir for every project. See [`@humanjs/skill`](./packages/skill/README.md). (The MCP server *runs* a humanized browser; the skill teaches an agent to *write* HumanJS.)
 
 ## Recorder
 

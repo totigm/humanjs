@@ -7,16 +7,17 @@ import { ALL_TARGETS, parseArgs, TARGET_LABELS, type Target } from './targets';
 const HELP = `humanjs-skill — install the HumanJS coding-agent skill
 
 Teaches Claude Code, Cursor, and Codex to write humanized Playwright
-automation with HumanJS. Run it in your project root.
+automation with HumanJS. Run it in your project root, or with --global.
 
 Usage:
-  npx @humanjs/skill [targets]
+  npx @humanjs/skill [targets] [--global]
 
 Targets (omit to choose interactively):
-  --claude     .claude/skills/humanjs/SKILL.md
-  --cursor     .cursor/rules/humanjs.mdc
-  --codex      AGENTS.md (merged in place — never clobbered)
+  --claude     project: .claude/skills/humanjs/SKILL.md  · global: ~/.claude/skills/humanjs/SKILL.md
+  --cursor     project: .cursor/rules/humanjs.mdc        · (no global rules file — see below)
+  --codex      project: ./AGENTS.md                      · global: ~/.codex/AGENTS.md   (merged, never clobbered)
   --all        all of the above
+  --global, -g install for every project (your home dir) instead of this one
   -h, --help   show this help
 `;
 
@@ -26,8 +27,8 @@ function readBody(): string {
 }
 
 /** Interactive multiselect of targets. Returns `null` if the user cancels. */
-async function promptTargets(): Promise<Target[] | null> {
-  intro('HumanJS skill installer');
+async function promptTargets(global: boolean): Promise<Target[] | null> {
+  intro(global ? 'HumanJS skill installer (global)' : 'HumanJS skill installer');
   const selected = await multiselect<Target>({
     message: 'Which tools should get the HumanJS skill?',
     options: ALL_TARGETS.map((value) => ({ value, label: TARGET_LABELS[value] })),
@@ -42,7 +43,7 @@ async function promptTargets(): Promise<Target[] | null> {
 
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
-  const { targets: flagged, help } = parseArgs(argv);
+  const { targets: flagged, global, help } = parseArgs(argv);
 
   if (help) {
     process.stdout.write(HELP);
@@ -60,19 +61,34 @@ async function main(): Promise<void> {
       process.exitCode = 1;
       return;
     }
-    targets = await promptTargets();
+    targets = await promptTargets(global);
     if (targets === null) return;
   }
 
   const body = readBody();
   const cwd = process.cwd();
   const written: string[] = [];
+  const skipped: Target[] = [];
   for (const target of targets) {
-    written.push(await installTarget(target, body, cwd));
+    const path = await installTarget(target, body, cwd, { global });
+    if (path === null) skipped.push(target);
+    else written.push(path);
   }
 
-  const list = written.map((p) => `  ${relative(cwd, p) || p}`).join('\n');
-  outro(`Installed the HumanJS skill:\n${list}`);
+  // Global paths live outside the project, so show them absolute.
+  const fmt = (p: string) => (global ? p : relative(cwd, p) || p);
+  const lines: string[] = [];
+  if (written.length > 0) {
+    lines.push(global ? 'Installed the HumanJS skill globally:' : 'Installed the HumanJS skill:');
+    for (const p of written) lines.push(`  ${fmt(p)}`);
+  }
+  if (skipped.includes('cursor')) {
+    if (lines.length > 0) lines.push('');
+    lines.push('Cursor has no global rules file — add it per-project with');
+    lines.push('`npx @humanjs/skill --cursor`, or paste the skill into');
+    lines.push('Cursor → Settings → Rules (User Rules).');
+  }
+  outro(lines.join('\n'));
 }
 
 main().catch((error) => {

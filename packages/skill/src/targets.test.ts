@@ -23,4 +23,13 @@ describe('parseArgs', () => {
   it('--all wins over individual flags', () => {
     expect(parseArgs(['--claude', '--all']).targets).toEqual([...ALL_TARGETS]);
   });
+
+  it('detects --global / -g, orthogonal to targets', () => {
+    expect(parseArgs([]).global).toBe(false);
+    expect(parseArgs(['--global']).global).toBe(true);
+    expect(parseArgs(['-g']).global).toBe(true);
+    const parsed = parseArgs(['-g', '--claude']);
+    expect(parsed.global).toBe(true);
+    expect(parsed.targets).toEqual(['claude']);
+  });
 });
