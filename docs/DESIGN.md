@@ -9,7 +9,7 @@ Modern websites have become hostile to all browser automation, and detection sys
 Five categories of legitimate use where humanization matters:
 
 1. **User-authorized AI agents** running routine tasks on behalf of their owner — booking flights, monitoring listings, filling forms — that get caught by interaction-timing heuristics.
-2. **Agent product vendors** (Stagehand, Operator, Playwright MCP) who don't want their tool banned from the open web because every flow looks robotic.
+2. **Agent product vendors** (Operator, Playwright MCP, and other agent frameworks) who don't want their tool banned from the open web because every flow looks robotic.
 3. **QA tests** where race conditions, debounced inputs, and animation states only manifest at human pace. Robotic test runs hide real bugs by skipping the timing windows where they appear.
 4. **Demo videos and product walkthroughs** that need to look human-paced. Robotic Playwright recordings break the suspension of disbelief in marketing material.
 5. **Tutorial recordings and supervised agent monitoring** — a 50-actions-per-second agent is unwatchable. Humanization makes review sessions legible.
@@ -26,7 +26,7 @@ HumanJS does not compete with ghost-cursor on coordinate math. The math is sound
 - Typing rhythm, reading dwell, scroll behavior — interaction layers ghost-cursor doesn't address
 - Personality system with seedable determinism
 - Session recorder with multi-format export
-- AI agent adapters (Stagehand, Playwright MCP)
+- AI agent integration via an MCP server
 - Plugin system for third-party extensions
 
 ### Why HumanJS is not framed as "an alternative to ghost-cursor"
@@ -45,7 +45,7 @@ Independent versioning matters: the recorder and the Playwright adapter evolve a
 
 ### Playwright-first
 
-Playwright has passed Puppeteer for testing and is the de facto AI-agent stack — Stagehand and Playwright MCP both build on it. Building on Playwright first opens the larger audience. Puppeteer is a roadmap adapter, not v1 scope.
+Playwright has passed Puppeteer for testing and is the de facto AI-agent stack — Playwright MCP and most agent frameworks build on it. Building on Playwright first opens the larger audience. Puppeteer is a roadmap adapter, not v1 scope.
 
 ### Plugin system from day one
 
@@ -83,21 +83,16 @@ Three modes: `human` (full humanization, default), `fast` (humanized but acceler
 
 ## AI agent integrations
 
-Three integration surfaces, each targeting a different audience:
+Two integration surfaces, each targeting a different audience:
 
-### Adapter package — `@humanjs/stagehand`
+### Why no framework adapters (Browser Use, Stagehand)
 
-A thin wrapper around Stagehand. Every action the agent takes routes through HumanJS without the agent author changing their code:
+We evaluated thin `wrap()` adapters for the popular agent frameworks and decided against shipping them:
 
-```ts
-import { Stagehand } from '@browserbasehq/stagehand';
-import { wrap } from '@humanjs/stagehand';
+- **Browser Use** is Python-first — there's no clean way to wrap it from a TypeScript package.
+- **Stagehand v3** went CDP-native: its `act()` / `agent()` dispatch raw Chrome DevTools Protocol input events through an internal engine ("understudy"), bypassing Playwright entirely. HumanJS humanizes by intercepting Playwright `Page` / mouse / keyboard calls — and in v3 there's nothing to intercept, so a wrapper cannot humanize Stagehand's actions. The only fallback (`observe()` to get an xpath, then execute it yourself via HumanJS) is a ~10-line user recipe, doesn't cover `agent()`, and isn't worth a maintained package.
 
-const stagehand = wrap(new Stagehand({ /* ... */ }), { personality: 'careful' });
-// act() / agent() / extract() run exactly as before — every browser action humanized.
-```
-
-The adapter is small (~100 lines), but makes HumanJS feel native inside the existing agent ecosystem. (Browser Use was evaluated but it's Python-first, so a clean TS adapter isn't viable — the MCP server covers that audience instead.)
+The MCP server is the AI-agent integration: any MCP-capable agent gets humanization with no adapter and no code changes.
 
 ### `@humanjs/mcp` — MCP server
 
@@ -108,7 +103,7 @@ npx @humanjs/mcp
 # Exposes tools: human_click, human_type, human_read, human_record, ...
 ```
 
-This is more powerful than the adapters because it doesn't require code changes in the agent — any MCP-capable agent gets humanization for free.
+It requires no code changes in the agent — any MCP-capable agent gets humanization for free.
 
 ### `@humanjs/skill` — coding-agent skill
 
