@@ -11,7 +11,11 @@
     "webm",
     "gif",
     "humanize",
-    "browser-automation"
+    "browser-automation",
+    "screen-recording",
+    "test-generation",
+    "demo",
+    "tutorial"
   ],
   "author": "Gonzalo Muñoz <toti@eventurex.com.ar>",
   "license": "MIT",
@@ -56,7 +60,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
-    "check:exports": "publint",
+    "check:exports": "publint --strict",
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {

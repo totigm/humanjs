@@ -56,7 +56,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
-    "check:exports": "publint",
+    "check:exports": "publint --strict",
     "clean": "rm -rf dist .turbo"
   },
   "publishConfig": {

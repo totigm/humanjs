@@ -12,7 +12,10 @@
     "codex",
     "ai-agent",
     "browser-automation",
-    "humanize"
+    "humanize",
+    "mcp-server",
+    "claude-code",
+    "llm"
   ],
   "author": "Gonzalo Muñoz <toti@eventurex.com.ar>",
   "license": "MIT",
@@ -59,7 +62,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
-    "check:exports": "publint",
+    "check:exports": "publint --strict",
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
