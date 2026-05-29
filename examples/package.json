@@ -7,6 +7,8 @@
   "scripts": {
     "click": "tsx click-demo.ts",
     "compare": "tsx compare-demo.ts",
+    "grandma": "tsx personality-grandma.ts",
+    "plugin": "tsx plugin-logger.ts",
     "primitives": "tsx primitives-demo.ts",
     "read": "tsx read-demo.ts",
     "record": "tsx record-demo.ts",
