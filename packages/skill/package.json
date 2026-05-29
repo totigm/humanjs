@@ -15,6 +15,7 @@
     "browser-automation",
     "humanize",
     "coding-agent",
+    "ai-agent",
     "ai-agents"
   ],
   "author": "Gonzalo Muñoz <toti@eventurex.com.ar>",
