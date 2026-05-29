@@ -25,7 +25,7 @@ Modern websites are increasingly hostile to all browser automation, and they can
 
 If you're building:
 
-- **AI agents** (Browser Use, Stagehand, Playwright MCP) that book flights, fill forms, or monitor accounts on behalf of users
+- **AI agents** that book flights, fill forms, or monitor accounts on behalf of users
 - **QA tests** where race conditions, debounced inputs, or animation states only break at real-user pace
 - **Demos and walkthroughs** that need to look human-paced instead of robotic
 - **Onboarding recordings** or supervised agent monitoring
@@ -102,23 +102,9 @@ Or build your own and publish it as `@yourname/personality-*`. The full `Persona
 
 ## AI agent integrations
 
-```ts
-// Browser Use
-import { BrowserUse } from 'browser-use';
-import { wrap } from '@humanjs/browser-use';
-
-const agent = wrap(new BrowserUse({ /* ... */ }), { personality: 'careful' });
-
-// Stagehand
-import { Stagehand } from '@browserbasehq/stagehand';
-import { wrap } from '@humanjs/stagehand';
-
-const stagehand = wrap(new Stagehand({ /* ... */ }), { personality: 'fast' });
-```
+Drive a humanized browser straight from your AI agent via the **MCP server** — works with Claude Code, Claude Desktop, Cursor, Codex, Cline, and any other MCP client. Register it in one command:
 
 ```bash
-# MCP server — drive a humanized browser from Claude Code, Claude Desktop,
-# Cursor, Codex, Cline, and any other MCP client. Register it in one command:
 claude mcp add humanjs -- npx -y @humanjs/mcp
 ```
 
@@ -126,7 +112,7 @@ claude mcp add humanjs -- npx -y @humanjs/mcp
 
 [![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=humanjs&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBodW1hbmpzL21jcCJdfQ==)
 
-Every action goes through HumanJS without changing your agent code. See [`@humanjs/mcp`](./packages/mcp/README.md) for the full tool catalog and per-client config.
+Every action the agent takes goes through HumanJS without changing your agent code. See [`@humanjs/mcp`](./packages/mcp/README.md) for the full tool catalog and per-client config.
 
 ## Recorder
 
@@ -194,7 +180,7 @@ The `seed` makes runs deterministic. `speed: 'instant'` in CI keeps your test su
 | Scroll humanization | ✅ | ❌ | ✅ |
 | Personalities | ✅ | ❌ | ❌ |
 | Session recorder + code export | ✅ | partial | ❌ |
-| AI agent adapters (Browser Use, Stagehand, MCP) | ✅ | ❌ | ❌ |
+| AI agent integration (MCP server) | ✅ | ❌ | ❌ |
 | Playwright-native | ✅ | ✅ | ❌ (Puppeteer) |
 | Deterministic via seed | ✅ | n/a | ❌ |
 
@@ -211,8 +197,10 @@ ghost-cursor pioneered humanized mouse paths and is excellent at what it does. H
 
 - [x] Mouse + scroll + typing + reading primitives
 - [x] Personalities (careful, fast, distracted, precise) + blend / extend
-- [x] Session recorder → mp4 / Playwright code / JSON
-- [x] AI agent adapters (Browser Use, Stagehand, MCP)
+- [x] Session recorder → mp4 / GIF / JSON timeline
+- [x] MCP server (`@humanjs/mcp`) for AI agents
+- [x] Recorder code export (Playwright / HumanJS)
+- [ ] AI coding-agent skill (`@humanjs/skill`)
 - [ ] Visual generator (`@humanjs/generator`)
 - [ ] Plugin system + community personalities (`@humanjs-community/personality-*`)
 - [ ] Recipes (`@humanjs/recipes`) for common flows

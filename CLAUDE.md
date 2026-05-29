@@ -11,7 +11,7 @@ Greenfield — no code yet. We're scaffolding the v1 monorepo from scratch.
 
 ## Positioning (immutable)
 
-**HumanJS humanizes browser automation for AI agents (Browser Use, Stagehand, Playwright MCP), QA tests where real-pace timing exposes bugs, and demo/tutorial recordings.**
+**HumanJS humanizes browser automation for AI agents, QA tests where real-pace timing exposes bugs, and demo/tutorial recordings.**
 
 When writing copy, docs, examples, or comments: never frame the project around scraping, captcha bypass, or "undetectable" automation. The audience is AI agent builders, QA engineers, and demo/tutorial creators.
 
@@ -34,7 +34,7 @@ If asked, decline and link to this section.
 - **Fallback scope**: `@totigm/humanjs` (used only if `@humanjs` org isn't claimable on first publish)
 - **Domain**: humanjs.dev (planned)
 
-Verified available on npm at project start: `@humanjs/core`, `@humanjs/playwright`, `@humanjs/recorder`, `@humanjs/browser-use`, `@humanjs/stagehand`, `@humanjs/mcp`, `@humanjs/generator`, `@humanjs/skill`, `@humanjs/recipes`. Unscoped `humanjs` is owned by a dormant 2022 package — irrelevant scope, doesn't block us.
+Verified available on npm at project start: `@humanjs/core`, `@humanjs/playwright`, `@humanjs/recorder`, `@humanjs/mcp`, `@humanjs/generator`, `@humanjs/skill`, `@humanjs/recipes`. Unscoped `humanjs` is owned by a dormant 2022 package — irrelevant scope, doesn't block us.
 
 ## Architecture
 
@@ -51,10 +51,8 @@ Verified available on npm at project start: `@humanjs/core`, `@humanjs/playwrigh
 | `@humanjs/core` | Personality system, timing math, types, plugin contract | v1 |
 | `@humanjs/playwright` | Playwright adapter — the main public API | v1 |
 | `@humanjs/recorder` | Session recording → mp4 / Playwright code / JSON | v1 |
-| `@humanjs/browser-use` | Browser Use integration adapter | v1 |
-| `@humanjs/stagehand` | Stagehand integration adapter | v1 |
 | `@humanjs/mcp` | MCP server for runtime AI agents | v1 |
-| `@humanjs/skill` | Anthropic / Cursor / Cline skill for AI coding agents | v1 |
+| `@humanjs/skill` | Anthropic / Cursor / Codex skill for AI coding agents | v1 |
 | `@humanjs/generator` | `npx @humanjs/generator <url>` — visual recorder UI | v2 |
 | `@humanjs/recipes` | Pre-built common flows (login, checkout, etc.) | v2 |
 | `@humanjs/puppeteer` | Puppeteer adapter | v3 |
@@ -154,7 +152,7 @@ Don't ship core packages without these:
 - Session recorder (→ mp4 / Playwright code / JSON)
 - Visual overlay (modernized `installMouseHelper`)
 - Plugin system contract (interface exists even with no plugins shipped)
-- AI agent adapters: Browser Use, Stagehand, MCP, plus Claude/Cursor/Cline skill
+- AI agent integration: MCP server, plus Claude/Cursor/Codex skill
 
 ## Honest limits — state in README, never hide
 

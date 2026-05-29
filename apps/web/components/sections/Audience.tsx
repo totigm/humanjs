@@ -15,8 +15,8 @@ const audiences: AudienceCardData[] = [
     icon: Bot,
     title: 'AI agent builders',
     description:
-      'Browser Use, Stagehand, Playwright MCP — without the giveaway robotic clicks that flag your agent as a bot.',
-    examples: 'Browser Use · Stagehand · MCP',
+      'Playwright MCP and custom agents — without the giveaway robotic clicks that flag your agent as a bot.',
+    examples: 'MCP · Playwright · agents',
   },
   {
     icon: FlaskConical,
