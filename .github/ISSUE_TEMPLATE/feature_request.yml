@@ -1,0 +1,32 @@
+name: Feature request
+description: Suggest a new primitive, personality, adapter, or behaviour.
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        HumanJS humanizes browser automation for **AI agents, QA tests, and demo/tutorial recordings**. Requests are weighed against that scope.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the use case, not just the feature. What are you trying to do that HumanJS makes hard today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would the API or behaviour look like? A sketch of the call signature helps.
+      render: ts
+    validations:
+      required: false
+  - type: checkboxes
+    id: not-a-non-goal
+    attributes:
+      label: Scope check
+      description: "HumanJS will not implement these — see the [non-goals](https://github.com/totigm/humanjs#non-goals). Requests for them will be closed."
+      options:
+        - label: This is **not** captcha solving / bypass, fingerprint masking, proxy rotation, TLS / network stealth, "undetectable" framing, time-of-day variation, or AI-generated mouse trajectories.
+          required: true

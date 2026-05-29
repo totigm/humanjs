@@ -10,6 +10,9 @@ build
 *.tsbuildinfo
 next-env.d.ts
 
+# Package tarballs (npm pack output)
+*.tgz
+
 # Test outputs
 coverage
 .nyc_output
