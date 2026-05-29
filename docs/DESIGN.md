@@ -83,16 +83,12 @@ Three modes: `human` (full humanization, default), `fast` (humanized but acceler
 
 ## AI agent integrations
 
-Two integration surfaces, each targeting a different audience:
-
-### Why no framework adapters (Browser Use, Stagehand)
-
 We evaluated thin `wrap()` adapters for the popular agent frameworks and decided against shipping them:
 
 - **Browser Use** is Python-first — there's no clean way to wrap it from a TypeScript package.
 - **Stagehand v3** went CDP-native: its `act()` / `agent()` dispatch raw Chrome DevTools Protocol input events through an internal engine ("understudy"), bypassing Playwright entirely. HumanJS humanizes by intercepting Playwright `Page` / mouse / keyboard calls — and in v3 there's nothing to intercept, so a wrapper cannot humanize Stagehand's actions. The only fallback (`observe()` to get an xpath, then execute it yourself via HumanJS) is a ~10-line user recipe, doesn't cover `agent()`, and isn't worth a maintained package.
 
-The MCP server is the AI-agent integration: any MCP-capable agent gets humanization with no adapter and no code changes.
+So HumanJS integrates with AI agents through two surfaces, each targeting a different audience:
 
 ### `@humanjs/mcp` — MCP server
 
