@@ -211,7 +211,7 @@ ghost-cursor pioneered humanized mouse paths and is excellent at what it does. H
 - [x] Recorder code export (Playwright / HumanJS)
 - [x] AI coding-agent skill (`@humanjs/skill`)
 - [ ] Visual generator (`@humanjs/generator`)
-- [ ] Plugin system + community personalities (`@humanjs-community/personality-*`)
+- [x] Plugin system + community personality authoring (`@yourname/personality-*`)
 - [ ] Recipes (`@humanjs/recipes`) for common flows
 - [ ] Touch / mobile humanization
 - [ ] Puppeteer adapter (`@humanjs/puppeteer`)
