@@ -114,6 +114,14 @@ claude mcp add humanjs -- npx -y @humanjs/mcp
 
 Every action the agent takes goes through HumanJS without changing your agent code. See [`@humanjs/mcp`](./packages/mcp/README.md) for the full tool catalog and per-client config.
 
+**Writing HumanJS by hand with an AI coding assistant?** Install the skill so Claude Code, Cursor, and Codex know the API:
+
+```bash
+npx @humanjs/skill
+```
+
+Drops the HumanJS skill into your project (`.claude/skills/`, `.cursor/rules/`, or `AGENTS.md`). See [`@humanjs/skill`](./packages/skill/README.md). (The MCP server *runs* a humanized browser; the skill teaches an agent to *write* HumanJS.)
+
 ## Recorder
 
 ```ts
@@ -200,7 +208,7 @@ ghost-cursor pioneered humanized mouse paths and is excellent at what it does. H
 - [x] Session recorder → mp4 / GIF / JSON timeline
 - [x] MCP server (`@humanjs/mcp`) for AI agents
 - [x] Recorder code export (Playwright / HumanJS)
-- [ ] AI coding-agent skill (`@humanjs/skill`)
+- [x] AI coding-agent skill (`@humanjs/skill`)
 - [ ] Visual generator (`@humanjs/generator`)
 - [ ] Plugin system + community personalities (`@humanjs-community/personality-*`)
 - [ ] Recipes (`@humanjs/recipes`) for common flows

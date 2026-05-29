@@ -1,0 +1,71 @@
+{
+  "name": "@humanjs/skill",
+  "version": "0.0.0",
+  "description": "Install the HumanJS coding-agent skill — teaches Claude Code, Cursor, and Codex to write humanized Playwright automation. Run: npx @humanjs/skill",
+  "keywords": [
+    "humanjs",
+    "playwright",
+    "skill",
+    "agent-skill",
+    "claude",
+    "claude-code",
+    "cursor",
+    "codex",
+    "agents-md",
+    "browser-automation"
+  ],
+  "author": "Gonzalo Muñoz <toti@eventurex.com.ar>",
+  "license": "MIT",
+  "homepage": "https://humanjs.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/totigm/humanjs.git",
+    "directory": "packages/skill"
+  },
+  "bugs": "https://github.com/totigm/humanjs/issues",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "humanjs-skill": "./dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "templates",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "clean": "rm -rf dist .turbo"
+  },
+  "devDependencies": {
+    "@clack/prompts": "^1.4.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
