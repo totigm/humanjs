@@ -186,6 +186,7 @@ async function main() {
   const rec = await record(
     {
       output,
+      name: `HumanJS record demo (${personality})`,
       personality,
       seed: 'record-demo-1',
       viewport: { width: 1920, height: 1080 },
@@ -225,6 +226,12 @@ async function main() {
   // Also dump the structured timeline alongside the video so the demo
   // showcases all three outputs from a single recorded session.
   await rec.toTimeline(timelineOutput);
+
+  const humanjsOutput = `recordings/humanjs-${personality}.ts`;
+  await rec.toHumanJS(humanjsOutput);
+
+  const playwrightOutput = `recordings/humanjs-${personality}.spec.ts`;
+  await rec.toPlaywright(playwrightOutput);
 
   // No explicit cleanup needed — a sweep-on-exit handler clears the
   // captured-frames temp dir when this script ends. Call `await rec.dispose()`

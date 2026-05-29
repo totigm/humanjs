@@ -48,9 +48,14 @@ Some clients can register the server for you, no manual JSON:
 **Claude Code:**
 
 ```bash
+# this project only (default scope: local)
 claude mcp add humanjs --env HUMANJS_PERSONALITY=careful -- npx -y @humanjs/mcp
-# add --scope user to install it globally (all projects)
+
+# all your projects (global): add --scope user (-s user)
+claude mcp add humanjs --scope user --env HUMANJS_PERSONALITY=careful -- npx -y @humanjs/mcp
 ```
+
+`--scope` is `local` (default, this project only), `user` (you, across all projects), or `project` (shared via a checked-in `.mcp.json`). Use `user` for a one-time global install.
 
 **Cursor** — one click:
 
@@ -128,7 +133,7 @@ Click / rightClick / move / drag take a **selector or raw x/y coordinates** — 
 | Tool | What it does |
 |---|---|
 | `human_start_recording` | Begin capturing (frames + action timeline) |
-| `human_stop_recording` | Finalize and write one or more files — `.mp4` / `.webm` / `.gif` / `.json` (e.g. video + timeline from one recording) |
+| `human_stop_recording` | Finalize and write one or more files — `.mp4` / `.webm` (video), `.gif`, `.json` (timeline), `.ts` (HumanJS script), `.spec.ts` / `.test.ts` (Playwright test). Pass several to export multiple ways, e.g. a video + a ready-to-commit test |
 
 **Sessions** — only needed for parallel browsers; the default session is implicit:
 

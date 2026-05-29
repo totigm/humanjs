@@ -4,6 +4,9 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, extname } from 'node:path';
 import ffmpegStatic from 'ffmpeg-static';
 import type { CaptureResult } from './capture';
+import { generateHumanJS, generatePlaywrightTest, type PlaywrightTestOptions } from './codegen';
+
+export type { PlaywrightTestOptions } from './codegen';
 
 // Safety net for captured-frame temp dirs: every live Recording registers
 // its dir here, and a single lazy `process.on('exit')` handler sweeps
@@ -170,11 +173,19 @@ export interface TimelineEvent {
   readonly durationMs: number;
   /** Error message, present only if the action threw. */
   readonly error?: string;
+  /**
+   * For `type` / `paste`: the actual text written, captured when
+   * `captureInputs` is on (the default). Omitted when capture is off or the
+   * target is a password field (always masked). Flows into exported code.
+   */
+  readonly inputValue?: string;
 }
 
 /** Structured action timeline of a recording. */
 export interface Timeline {
   readonly version: 1;
+  /** Optional label for the recording (used as the generated test's title). */
+  readonly name?: string;
   readonly personality: string;
   readonly seed: string | null;
   readonly speed: string;
@@ -184,6 +195,7 @@ export interface Timeline {
 
 /** Metadata passed from `human.record()` into the Recording constructor. */
 export interface RecordingTimelineSource {
+  readonly name?: string;
   readonly personality: string;
   readonly seed: string | null;
   readonly speed: string;
@@ -251,6 +263,7 @@ export class Recording {
   get timeline(): Timeline {
     return {
       version: 1,
+      ...(this.#timelineSource.name !== undefined ? { name: this.#timelineSource.name } : {}),
       personality: this.#timelineSource.personality,
       seed: this.#timelineSource.seed,
       speed: this.#timelineSource.speed,
@@ -436,6 +449,40 @@ export class Recording {
   async toTimeline(outputPath: string): Promise<string> {
     await mkdir(dirname(outputPath), { recursive: true });
     await writeFile(outputPath, `${JSON.stringify(this.timeline, null, 2)}\n`, 'utf8');
+    return outputPath;
+  }
+
+  /**
+   * Generates a standalone, runnable HumanJS script from the timeline and
+   * writes it to `outputPath`. String selectors round-trip verbatim; typed
+   * values are included when `captureInputs` was on (passwords masked).
+   *
+   * Independent of frame capture — works on timeline-only recordings and is
+   * unaffected by `dispose()`.
+   *
+   * @returns the resolved output path.
+   */
+  async toHumanJS(outputPath: string): Promise<string> {
+    await mkdir(dirname(outputPath), { recursive: true });
+    await writeFile(outputPath, generateHumanJS(this.timeline), 'utf8');
+    return outputPath;
+  }
+
+  /**
+   * Generates a `@playwright/test` spec from the timeline — a humanized test
+   * (uses `createHuman` + `human.*`), not raw Playwright — and writes it to
+   * `outputPath`. Runs instant in CI / recorded speed locally, drops timing
+   * `sleep()`s (pass `{ keepSleeps: true }` to keep them), and derives the
+   * assertions it safely can.
+   *
+   * Independent of frame capture — works on timeline-only recordings and is
+   * unaffected by `dispose()`.
+   *
+   * @returns the resolved output path.
+   */
+  async toPlaywright(outputPath: string, options?: PlaywrightTestOptions): Promise<string> {
+    await mkdir(dirname(outputPath), { recursive: true });
+    await writeFile(outputPath, generatePlaywrightTest(this.timeline, options), 'utf8');
     return outputPath;
   }
 

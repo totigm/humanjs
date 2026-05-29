@@ -230,7 +230,10 @@ export class SessionManager {
       stop = resolve;
     });
     const video = options.video ?? true;
-    const done = session.human.record({ video, quality: options.quality ?? 'high' }, () => signal);
+    const done = session.human.record(
+      { name: options.name, video, quality: options.quality ?? 'high' },
+      () => signal,
+    );
     session.recording = {
       name: options.name ?? 'recording',
       startedAt: Date.now(),

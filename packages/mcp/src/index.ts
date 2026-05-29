@@ -53,6 +53,10 @@ Recording a flow (the natural-looking way):
 1. EXPLORE FIRST (un-recorded). Navigate the flow once to discover correct, unambiguous selectors (human_screenshot / human_get_html / human_get_attribute). Do this by default whenever the selectors aren't already known — no need for the user to ask. Skip it only if the selectors are already known or the user tells you not to explore.
 2. THEN RECORD ONE CLEAN RUN AS A SINGLE BATCH: human_start_recording + every action + human_stop_recording, all emitted in one turn. Keep selector-guessing and fumbles out of the take.
 
+Export as a test: human_stop_recording picks format by extension. A .spec.ts (or .test.ts) filename writes a ready-to-commit @playwright/test with derived assertions; a .ts writes a standalone HumanJS script; .mp4/.webm/.gif/.json are video/timeline. So "record this flow and save it as a test" = run the clean pass, then stop into e.g. "checkout.spec.ts".
+
+Captured input + passwords: typed/pasted text IS recorded into the timeline and code exports, so generated scripts/tests are runnable — EXCEPT password fields, which are always masked (emitted as an empty string with a "fill in" comment). This is intentional, not a bug; don't work around it by hand-editing the secret back in. If the user explicitly wants the flow to log in, edit the exported file to read the credential from an env var (e.g. process.env.APP_PASSWORD) and tell them to set it — never hardcode a real password into a file that may be committed.
+
 Dynamic UI: prefer specific selectors (role, aria-label) over text — the same visible text often matches several cards before a filter, or the wrong one after. If a click reports multiple matches, narrow the selector.
 
 Browser state: by default each run is a fresh, signed-out browser. If a flow needs a login, tell the user to enable persistence (human_enable_persistence or HUMANJS_PERSIST) or CDP attach — see human_browser_info.`;
