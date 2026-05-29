@@ -12,7 +12,11 @@
     "cursor",
     "codex",
     "agents-md",
-    "browser-automation"
+    "browser-automation",
+    "humanize",
+    "coding-agent",
+    "ai-agent",
+    "ai-agents"
   ],
   "author": "Gonzalo Muñoz <toti@eventurex.com.ar>",
   "license": "MIT",
@@ -60,6 +64,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
+    "check:exports": "publint --strict",
     "clean": "rm -rf dist .turbo"
   },
   "devDependencies": {

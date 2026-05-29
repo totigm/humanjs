@@ -36,6 +36,10 @@
       "dependsOn": ["^build"],
       "inputs": ["src/**", "test/**", "tsconfig.json"]
     },
+    "check:exports": {
+      "dependsOn": ["build"],
+      "inputs": ["dist/**", "package.json"]
+    },
     "lint": {
       "inputs": ["src/**", "test/**", "biome.json", "package.json"]
     },
