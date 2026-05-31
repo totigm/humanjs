@@ -76,6 +76,24 @@ export function registerPrimitiveTools(server: McpServer, { sessions }: ToolCont
   );
 
   server.registerTool(
+    'human_doubleClick',
+    {
+      title: 'Double-click (humanized)',
+      description:
+        'Double-clicks the target — same humanized motion as human_click, but two presses within the OS double-click window. Use for things that open/activate on double-click (list rows, file items, editable cells). Target is a selector OR x/y coordinates.',
+      inputSchema: { ...targetFields, session: sessionArg },
+    },
+    async ({ selector, x, y, session }) => {
+      const { human } = await sessions.get(session);
+      const target = resolveTarget({ selector, x, y });
+      await human.doubleClick(target);
+      return {
+        content: [{ type: 'text', text: `double-clicked ${describeTarget(selector, x, y)}` }],
+      };
+    },
+  );
+
+  server.registerTool(
     'human_hover',
     {
       title: 'Hover an element (humanized)',
@@ -182,6 +200,89 @@ export function registerPrimitiveTools(server: McpServer, { sessions }: ToolCont
       const { human } = await sessions.get(session);
       await human.paste(selector, value);
       return { content: [{ type: 'text', text: `pasted ${value.length} chars into ${selector}` }] };
+    },
+  );
+
+  server.registerTool(
+    'human_check',
+    {
+      title: 'Check a box (humanized)',
+      description:
+        'Ticks a checkbox or radio — moves the cursor to it and clicks, but only if it is not already checked (a real user does not re-click a ticked box). Verifies the resulting state. Element-bound: pass the input (or its label) selector.',
+      inputSchema: {
+        selector: z.string().describe('Selector of the checkbox/radio (or its label).'),
+        session: sessionArg,
+      },
+    },
+    async ({ selector, session }) => {
+      const { human } = await sessions.get(session);
+      await human.check(selector);
+      return { content: [{ type: 'text', text: `checked ${selector}` }] };
+    },
+  );
+
+  server.registerTool(
+    'human_uncheck',
+    {
+      title: 'Uncheck a box (humanized)',
+      description:
+        'Unticks a checkbox — humanized click only if currently checked. Radios cannot be unchecked by clicking (select a different option instead). Element-bound: pass the input (or its label) selector.',
+      inputSchema: {
+        selector: z.string().describe('Selector of the checkbox (or its label).'),
+        session: sessionArg,
+      },
+    },
+    async ({ selector, session }) => {
+      const { human } = await sessions.get(session);
+      await human.uncheck(selector);
+      return { content: [{ type: 'text', text: `unchecked ${selector}` }] };
+    },
+  );
+
+  server.registerTool(
+    'human_selectOption',
+    {
+      title: 'Select dropdown option (humanized)',
+      description:
+        "Chooses option(s) in a native <select> — moves the cursor to the dropdown, then sets the value (native selects open an OS menu automation can't drive, so the value is set programmatically, firing change/input). For custom DOM dropdowns, use human_click on the rendered options instead. Match by value(s); pass one string or an array for multi-selects.",
+      inputSchema: {
+        selector: z.string().describe('Selector of the <select> element.'),
+        values: z
+          .union([z.string(), z.array(z.string())])
+          .describe('Option value, or array of values for a multi-select.'),
+        session: sessionArg,
+      },
+    },
+    async ({ selector, values, session }) => {
+      const { human } = await sessions.get(session);
+      const selected = await human.selectOption(selector, values);
+      return {
+        content: [{ type: 'text', text: `selected ${selected.join(', ')} in ${selector}` }],
+      };
+    },
+  );
+
+  server.registerTool(
+    'human_upload',
+    {
+      title: 'Upload file(s) (humanized)',
+      description:
+        'Attaches file(s) to a file input — moves the cursor to the control, then sets the files. Never opens the OS file dialog (which would hang); files are attached directly. Paths are resolved on the machine running this MCP server. Pass the <input type="file"> selector.',
+      inputSchema: {
+        selector: z.string().describe('Selector of the file input.'),
+        files: z
+          .union([z.string(), z.array(z.string())])
+          .describe('Absolute path, or array of paths, on the server filesystem.'),
+        session: sessionArg,
+      },
+    },
+    async ({ selector, files, session }) => {
+      const { human } = await sessions.get(session);
+      await human.upload(selector, files);
+      const count = Array.isArray(files) ? files.length : 1;
+      return {
+        content: [{ type: 'text', text: `uploaded ${count} file(s) to ${selector}` }],
+      };
     },
   );
 

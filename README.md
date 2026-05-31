@@ -71,6 +71,7 @@ await human.goto('https://example.com');
 await human.click('Sign in');
 await human.type('Email', 'gonzalo@example.com');
 await human.paste('Password', process.env.PW!);
+await human.check('Remember me');
 await human.read('Welcome back');
 await human.scroll('natural');
 ```

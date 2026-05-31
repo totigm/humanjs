@@ -72,11 +72,16 @@ const human = await createHuman(page, {
 await human.goto(url);
 await human.click(selector);              // hover, micro-move, click
 await human.rightClick(selector);         // context-menu click
+await human.doubleClick(selector);        // same motion as click; double-click dispatch
 await human.hover(selector);              // hover without clicking
 await human.move(target);                 // selector | Locator | Point — positional, no settle dwell
 await human.drag(from, to);               // each endpoint: selector | Locator | Point
 await human.type(selector, value);        // click, then realistic typing rhythm
 await human.paste(selector, value);       // Cmd-V style (no per-char timing)
+await human.check(selector);              // tick a checkbox/radio (clicks only if needed)
+await human.uncheck(selector);            // untick a checkbox
+await human.selectOption(selector, value);// native <select> — cursor moves to it, then sets value
+await human.upload(selector, files);      // attach file(s) to a file input (no OS dialog)
 await human.read(text);                   // dwell based on word count
 await human.scroll('natural');
 await human.press('Mod+S');               // chord — 'Mod' auto-maps: Meta on Mac, Control elsewhere
