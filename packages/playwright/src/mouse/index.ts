@@ -53,6 +53,13 @@ export interface ClickOptions {
    * context-menu click; `'middle'` is the wheel-button click (rarely used).
    */
   readonly button?: 'left' | 'right' | 'middle';
+  /**
+   * Number of clicks at the target. `2` dispatches a double-click (the two
+   * presses fire back-to-back within the OS double-click window). Defaults
+   * to `1`. The humanized approach motion (path + hover dwell) is identical
+   * regardless of count — only the final dispatch differs.
+   */
+  readonly clickCount?: 1 | 2;
 }
 
 /**
@@ -85,10 +92,14 @@ export async function executeClick(
   options: ClickOptions = {},
 ): Promise<ClickResult> {
   const button = options.button ?? 'left';
+  const clickCount = options.clickCount ?? 1;
+  // Only surface `clickCount` when it's a double-click — keeps the common
+  // single-click dispatch as `{ button }` (no behavioral change for clicks).
+  const clickOpts = clickCount > 1 ? { button, clickCount } : { button };
 
   if (ctx.speed === 'instant') {
     if (isPoint(target)) {
-      await ctx.page.mouse.click(target.x, target.y, { button });
+      await ctx.page.mouse.click(target.x, target.y, clickOpts);
       ctx.setMousePosition(target);
       return { target };
     }
@@ -98,7 +109,7 @@ export async function executeClick(
     // remove the element, after which `boundingBox()` returns null.
     const locator = typeof target === 'string' ? ctx.page.locator(target) : target;
     const box = await locator.boundingBox();
-    await locator.click({ button });
+    await locator.click(clickOpts);
     const center = box
       ? { x: box.x + box.width / 2, y: box.y + box.height / 2 }
       : ctx.getMousePosition();
@@ -128,7 +139,7 @@ export async function executeClick(
   // (page closed, target removed mid-flight), the next action still starts
   // from the correct mouse position.
   ctx.setMousePosition(targetPoint);
-  await ctx.page.mouse.click(targetPoint.x, targetPoint.y, { button });
+  await ctx.page.mouse.click(targetPoint.x, targetPoint.y, clickOpts);
 
   // Post-action dwell — a beat after the click before the next action.
   const postActionMs = computeDwellTime(

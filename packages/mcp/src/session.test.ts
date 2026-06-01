@@ -39,6 +39,7 @@ function makeEnv(browser: BrowserConfig = { mode: 'ephemeral' }, channel?: strin
     speed: 'human',
     headless: true,
     outputDir: '/tmp/out',
+    uploadDir: '/tmp/uploads',
     viewport: { width: 1440, height: 900 },
     autoInstall: true,
     browser,

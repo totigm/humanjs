@@ -41,6 +41,22 @@ function createHumanOptions(timeline: Timeline, ciSpeed = false): string {
   return `{\n${parts.join('\n')}\n  }`;
 }
 
+/** Render `selectOption` values (string / string[] / `{value|label|index}`) as a call arg. */
+function serializeSelectValues(values: unknown): string {
+  if (typeof values === 'string') return q(values);
+  if (Array.isArray(values)) {
+    return `[${values.map((v) => (typeof v === 'string' ? q(v) : JSON.stringify(v))).join(', ')}]`;
+  }
+  // Object form ({ value } / { label } / { index }) — JSON is valid JS here.
+  return JSON.stringify(values ?? '');
+}
+
+/** Render `upload` files (recorded as a path string or array of paths) as a call arg. */
+function serializeFiles(files: unknown): string {
+  if (Array.isArray(files)) return `[${files.map((f) => q(String(f))).join(', ')}]`;
+  return q(String(files ?? ''));
+}
+
 function emitScroll(target: unknown): string {
   const s = String(target ?? 'natural');
   if (s === 'natural') return "  await human.scroll('natural');";
@@ -75,10 +91,24 @@ function emitAction(e: TimelineEvent, opts: EmitOptions = {}): string {
     }
     case 'click':
     case 'rightClick':
+    case 'doubleClick':
     case 'hover':
     case 'move': {
       const { code, isPoint } = targetArg(p.target);
       return `  await human.${e.type}(${code});${isPoint ? POINT_COMMENT : ''}`;
+    }
+    case 'check':
+    case 'uncheck': {
+      const { code } = targetArg(p.target);
+      return `  await human.${e.type}(${code});`;
+    }
+    case 'selectOption': {
+      const { code } = targetArg(p.target);
+      return `  await human.selectOption(${code}, ${serializeSelectValues(p.values)});`;
+    }
+    case 'upload': {
+      const { code } = targetArg(p.target);
+      return `  await human.upload(${code}, ${serializeFiles(p.files)});`;
     }
     case 'drag': {
       const from = targetArg(p.from);
