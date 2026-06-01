@@ -86,11 +86,15 @@ All await; selectors are strings or Playwright `Locator`s (`move`/`drag` also ac
 | `human.goto(url)` | Navigate. |
 | `human.click(target)` | Hover → micro-move → click. Occasional near-miss + recovery. |
 | `human.rightClick(target)` | Context-menu click. |
+| `human.doubleClick(target)` | Same motion as click; double-click dispatch. |
 | `human.hover(target)` | Hover and settle (no click). |
 | `human.move(target)` | Positional move, no dwell. |
 | `human.drag(from, to)` | Humanized drag; endpoints are selector / Locator / Point. |
 | `human.type(target, value)` | Click to focus, then realistic typing rhythm (+ optional typos/backspace). |
 | `human.paste(target, value)` | Cmd-V style insert — no per-char timing. |
+| `human.check(target)` / `human.uncheck(target)` | Tick/untick a checkbox or radio — clicks only if the state needs to change. |
+| `human.selectOption(target, values)` | Choose option(s) in a native `<select>` (cursor moves to it, then sets the value). |
+| `human.upload(target, files)` | Attach file(s) to a file input (no OS dialog). |
 | `human.press(key)` | Single key (`'Tab'`) or chord (`'Mod+S'` — `Mod` = Meta on macOS, Control elsewhere). |
 | `human.read(target)` | Dwell based on word count. |
 | `human.scroll('natural')` | Humanized scroll; also `{ by }` / `{ to }` / a selector. |

@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { resolveOutputPath, resolveRecordingFormat } from './output';
+import { resolveOutputPath, resolveRecordingFormat, resolveUploadPath } from './output';
 
 describe('resolveOutputPath', () => {
   const OUT = '/out/dir';
@@ -25,6 +25,21 @@ describe('resolveOutputPath', () => {
 
   it('rejects an empty name', () => {
     expect(() => resolveOutputPath(OUT, '')).toThrow(/path components/i);
+  });
+});
+
+describe('resolveUploadPath', () => {
+  const UP = '/upload/dir';
+
+  it('joins a plain basename to the upload dir', () => {
+    expect(resolveUploadPath(UP, 'photo.png')).toBe(join(UP, 'photo.png'));
+  });
+
+  it('rejects parent-traversal, nested, absolute, and empty names', () => {
+    expect(() => resolveUploadPath(UP, '../../etc/passwd')).toThrow(/path components/i);
+    expect(() => resolveUploadPath(UP, 'sub/photo.png')).toThrow(/path components/i);
+    expect(() => resolveUploadPath(UP, '/etc/passwd')).toThrow(/path components/i);
+    expect(() => resolveUploadPath(UP, '')).toThrow(/path components/i);
   });
 });
 
