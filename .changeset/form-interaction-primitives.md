@@ -13,3 +13,5 @@ Add form-interaction primitives so real flows (forms, checkout, settings) stay f
 - **`human.upload(target, files)`** — attach file(s) to a file input; the cursor moves to the control, then files are set directly (never opens the OS dialog).
 
 Each is mirrored as an MCP tool (`human_doubleClick`, `human_check`, `human_uncheck`, `human_selectOption`, `human_upload`), exported by the recorder's code generators (`toPlaywright` / `toHumanJS`), and documented in the `@humanjs/skill` primitives reference. `@humanjs/core` gains the matching `KnownActionType` entries so plugins can observe them.
+
+`human_upload` confines reads to `HUMANJS_UPLOAD_DIR` (default: the server's working dir) and accepts a basename only — `../`, subdirectories, and absolute paths are rejected — so a prompt-injected filename can't read and exfiltrate arbitrary local files to a web form (same path-safety model as the output tools).

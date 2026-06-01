@@ -13,6 +13,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { ToolContext } from '../context';
+import { resolveUploadPath } from '../output';
 import { resolveTarget, targetFields } from './targets';
 
 const sessionArg = z
@@ -22,7 +23,7 @@ const sessionArg = z
     'Session ID to act on. Omit to use the default session (created lazily on first call). Use human_create_session for parallel browsers.',
   );
 
-export function registerPrimitiveTools(server: McpServer, { sessions }: ToolContext): void {
+export function registerPrimitiveTools(server: McpServer, { sessions, env }: ToolContext): void {
   server.registerTool(
     'human_goto',
     {
@@ -208,9 +209,9 @@ export function registerPrimitiveTools(server: McpServer, { sessions }: ToolCont
     {
       title: 'Check a box (humanized)',
       description:
-        'Ticks a checkbox or radio — moves the cursor to it and clicks, but only if it is not already checked (a real user does not re-click a ticked box). Verifies the resulting state. Element-bound: pass the input (or its label) selector.',
+        'Ticks a checkbox or radio — moves the cursor to it and clicks, but only if it is not already checked (a real user does not re-click a ticked box). Verifies the resulting state. Pass the checkbox/radio input itself (or a [role=checkbox]) — not a wrapping <label> — so the current state can be read and the click stays idempotent.',
       inputSchema: {
-        selector: z.string().describe('Selector of the checkbox/radio (or its label).'),
+        selector: z.string().describe('Selector of the checkbox/radio input.'),
         session: sessionArg,
       },
     },
@@ -226,9 +227,9 @@ export function registerPrimitiveTools(server: McpServer, { sessions }: ToolCont
     {
       title: 'Uncheck a box (humanized)',
       description:
-        'Unticks a checkbox — humanized click only if currently checked. Radios cannot be unchecked by clicking (select a different option instead). Element-bound: pass the input (or its label) selector.',
+        'Unticks a checkbox — humanized click only if currently checked. Radios cannot be unchecked by clicking (select a different option instead). Pass the checkbox input itself (or a [role=checkbox]) — not a wrapping <label> — so its state can be read and the click stays idempotent.',
       inputSchema: {
-        selector: z.string().describe('Selector of the checkbox (or its label).'),
+        selector: z.string().describe('Selector of the checkbox input.'),
         session: sessionArg,
       },
     },
@@ -267,21 +268,24 @@ export function registerPrimitiveTools(server: McpServer, { sessions }: ToolCont
     {
       title: 'Upload file(s) (humanized)',
       description:
-        'Attaches file(s) to a file input — moves the cursor to the control, then sets the files. Never opens the OS file dialog (which would hang); files are attached directly. Paths are resolved on the machine running this MCP server. Pass the <input type="file"> selector.',
+        'Attaches file(s) to a file input — moves the cursor to the control, then sets the files (never opens the OS dialog, which would hang). For safety, files are read by basename from HUMANJS_UPLOAD_DIR (default: the server working dir) — subdirectories, "../", and absolute paths are rejected, so the agent can\'t read and exfiltrate arbitrary local files. Pass the <input type="file"> selector and the filename(s).',
       inputSchema: {
         selector: z.string().describe('Selector of the file input.'),
         files: z
           .union([z.string(), z.array(z.string())])
-          .describe('Absolute path, or array of paths, on the server filesystem.'),
+          .describe('Filename(s) inside HUMANJS_UPLOAD_DIR — a basename only, no path components.'),
         session: sessionArg,
       },
     },
     async ({ selector, files, session }) => {
       const { human } = await sessions.get(session);
-      await human.upload(selector, files);
-      const count = Array.isArray(files) ? files.length : 1;
+      const names = Array.isArray(files) ? files : [files];
+      // Confine reads to HUMANJS_UPLOAD_DIR — upload can read+send local files,
+      // so a prompt-injected path must not escape the configured directory.
+      const paths = names.map((name) => resolveUploadPath(env.uploadDir, name));
+      await human.upload(selector, paths);
       return {
-        content: [{ type: 'text', text: `uploaded ${count} file(s) to ${selector}` }],
+        content: [{ type: 'text', text: `uploaded ${paths.length} file(s) to ${selector}` }],
       };
     },
   );

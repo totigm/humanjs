@@ -104,7 +104,14 @@ export async function executeSelectOption(
 ): Promise<string[]> {
   const locator = toLocator(target, ctx);
   if (ctx.speed !== 'instant') {
-    await executeHover(locator, ctx);
+    try {
+      await executeHover(locator, ctx);
+    } catch {
+      // No visible control to approach (zero-box / not yet rendered). Don't
+      // surface a "Cannot hover" error for a selectOption call — fall through
+      // and let `selectOption` raise the authoritative error (or succeed via
+      // its own actionability) so the failure is attributed correctly.
+    }
   }
   return locator.selectOption(values);
 }
