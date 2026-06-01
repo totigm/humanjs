@@ -59,7 +59,9 @@ export interface PluginContext {
  * action types without a core release.
  */
 export type KnownActionType =
+  | 'check'
   | 'click'
+  | 'doubleClick'
   | 'drag'
   | 'goBack'
   | 'goForward'
@@ -71,9 +73,12 @@ export type KnownActionType =
   | 'reload'
   | 'rightClick'
   | 'scroll'
+  | 'selectOption'
   | 'press'
   | 'sleep'
-  | 'type';
+  | 'type'
+  | 'uncheck'
+  | 'upload';
 
 /**
  * Loose action-type string: known names autocomplete in IDEs while any

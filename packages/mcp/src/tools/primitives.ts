@@ -13,6 +13,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { ToolContext } from '../context';
+import { resolveUploadPath } from '../output';
 import { resolveTarget, targetFields } from './targets';
 
 const sessionArg = z
@@ -22,7 +23,7 @@ const sessionArg = z
     'Session ID to act on. Omit to use the default session (created lazily on first call). Use human_create_session for parallel browsers.',
   );
 
-export function registerPrimitiveTools(server: McpServer, { sessions }: ToolContext): void {
+export function registerPrimitiveTools(server: McpServer, { sessions, env }: ToolContext): void {
   server.registerTool(
     'human_goto',
     {
@@ -71,6 +72,24 @@ export function registerPrimitiveTools(server: McpServer, { sessions }: ToolCont
       await human.rightClick(target);
       return {
         content: [{ type: 'text', text: `right-clicked ${describeTarget(selector, x, y)}` }],
+      };
+    },
+  );
+
+  server.registerTool(
+    'human_doubleClick',
+    {
+      title: 'Double-click (humanized)',
+      description:
+        'Double-clicks the target — same humanized motion as human_click, but two presses within the OS double-click window. Use for things that open/activate on double-click (list rows, file items, editable cells). Target is a selector OR x/y coordinates.',
+      inputSchema: { ...targetFields, session: sessionArg },
+    },
+    async ({ selector, x, y, session }) => {
+      const { human } = await sessions.get(session);
+      const target = resolveTarget({ selector, x, y });
+      await human.doubleClick(target);
+      return {
+        content: [{ type: 'text', text: `double-clicked ${describeTarget(selector, x, y)}` }],
       };
     },
   );
@@ -182,6 +201,92 @@ export function registerPrimitiveTools(server: McpServer, { sessions }: ToolCont
       const { human } = await sessions.get(session);
       await human.paste(selector, value);
       return { content: [{ type: 'text', text: `pasted ${value.length} chars into ${selector}` }] };
+    },
+  );
+
+  server.registerTool(
+    'human_check',
+    {
+      title: 'Check a box (humanized)',
+      description:
+        'Ticks a checkbox or radio — moves the cursor to it and clicks, but only if it is not already checked (a real user does not re-click a ticked box). Verifies the resulting state. Pass the checkbox/radio input itself (or a [role=checkbox]) — not a wrapping <label> — so the current state can be read and the click stays idempotent.',
+      inputSchema: {
+        selector: z.string().describe('Selector of the checkbox/radio input.'),
+        session: sessionArg,
+      },
+    },
+    async ({ selector, session }) => {
+      const { human } = await sessions.get(session);
+      await human.check(selector);
+      return { content: [{ type: 'text', text: `checked ${selector}` }] };
+    },
+  );
+
+  server.registerTool(
+    'human_uncheck',
+    {
+      title: 'Uncheck a box (humanized)',
+      description:
+        'Unticks a checkbox — humanized click only if currently checked. Radios cannot be unchecked by clicking (select a different option instead). Pass the checkbox input itself (or a [role=checkbox]) — not a wrapping <label> — so its state can be read and the click stays idempotent.',
+      inputSchema: {
+        selector: z.string().describe('Selector of the checkbox input.'),
+        session: sessionArg,
+      },
+    },
+    async ({ selector, session }) => {
+      const { human } = await sessions.get(session);
+      await human.uncheck(selector);
+      return { content: [{ type: 'text', text: `unchecked ${selector}` }] };
+    },
+  );
+
+  server.registerTool(
+    'human_selectOption',
+    {
+      title: 'Select dropdown option (humanized)',
+      description:
+        "Chooses option(s) in a native <select> — moves the cursor to the dropdown, then sets the value (native selects open an OS menu automation can't drive, so the value is set programmatically, firing change/input). For custom DOM dropdowns, use human_click on the rendered options instead. Match by value(s); pass one string or an array for multi-selects.",
+      inputSchema: {
+        selector: z.string().describe('Selector of the <select> element.'),
+        values: z
+          .union([z.string(), z.array(z.string())])
+          .describe('Option value, or array of values for a multi-select.'),
+        session: sessionArg,
+      },
+    },
+    async ({ selector, values, session }) => {
+      const { human } = await sessions.get(session);
+      const selected = await human.selectOption(selector, values);
+      return {
+        content: [{ type: 'text', text: `selected ${selected.join(', ')} in ${selector}` }],
+      };
+    },
+  );
+
+  server.registerTool(
+    'human_upload',
+    {
+      title: 'Upload file(s) (humanized)',
+      description:
+        'Attaches file(s) to a file input — moves the cursor to the control, then sets the files (never opens the OS dialog, which would hang). For safety, files are read by basename from HUMANJS_UPLOAD_DIR (default: the server working dir) — subdirectories, "../", and absolute paths are rejected, so the agent can\'t read and exfiltrate arbitrary local files. Pass the <input type="file"> selector and the filename(s).',
+      inputSchema: {
+        selector: z.string().describe('Selector of the file input.'),
+        files: z
+          .union([z.string(), z.array(z.string())])
+          .describe('Filename(s) inside HUMANJS_UPLOAD_DIR — a basename only, no path components.'),
+        session: sessionArg,
+      },
+    },
+    async ({ selector, files, session }) => {
+      const { human } = await sessions.get(session);
+      const names = Array.isArray(files) ? files : [files];
+      // Confine reads to HUMANJS_UPLOAD_DIR — upload can read+send local files,
+      // so a prompt-injected path must not escape the configured directory.
+      const paths = names.map((name) => resolveUploadPath(env.uploadDir, name));
+      await human.upload(selector, paths);
+      return {
+        content: [{ type: 'text', text: `uploaded ${paths.length} file(s) to ${selector}` }],
+      };
     },
   );
 

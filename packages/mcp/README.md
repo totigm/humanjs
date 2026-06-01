@@ -71,6 +71,7 @@ The `config` payload is base64 of `{"command":"npx","args":["-y","@humanjs/mcp"]
 | `HUMANJS_SPEED` | `human` \| `fast` \| `instant` | `human` | Humanization pace. `human` = full realistic motion; `fast` = humanized but quick; `instant` = no humanized motion. Changes how long each action *executes*, not the wait between actions. |
 | `HUMANJS_HEADLESS` | `true` \| `false` | `false` | Headless browser. Default is visible — the point of the MCP. |
 | `HUMANJS_OUTPUT_DIR` | path | server's CWD | Where screenshots and recordings are written. |
+| `HUMANJS_UPLOAD_DIR` | path | server's CWD | Folder `human_upload` reads files from (basename only — can't escape it). |
 | `HUMANJS_VIEWPORT` | `WIDTHxHEIGHT` | `1440x900` | Default viewport for new sessions. Bump to `1920x1080` for crisper recordings. |
 | `HUMANJS_AUTO_INSTALL` | `true` \| `false` | `true` | Auto-download the Chromium binary on first launch if missing. Set `false` to require a manual `npx playwright install chromium`. |
 | `HUMANJS_PERSIST` | `true` \| `false` | `false` | Persist a profile across runs (logins/cookies survive). Uses `~/.humanjs/profile` unless `HUMANJS_USER_DATA_DIR` is set. See [Browser modes](#browser-modes). |
@@ -232,6 +233,7 @@ The server ships **built-in guidance** (sent to the agent on connect via MCP `in
 
 - **No arbitrary-JS `evaluate` tool.** Executing page-supplied JavaScript is a prompt-injection cliff — a malicious page could trick the agent into running code that exfiltrates data. The read-only inspection tools cover the legitimate "what's on the page" need.
 - **File-path safety.** Tools that write files accept a basename only; path components (`../`, absolute paths) are rejected, so a prompt-injected filename can't escape `HUMANJS_OUTPUT_DIR`.
+- **Upload path safety.** `human_upload` can attach a local file to a web form — a potential exfiltration path if a page prompt-injects the agent. So it reads files by **basename only** from `HUMANJS_UPLOAD_DIR` (default: the server's working dir); subdirectories, `../`, and absolute paths are rejected, so the agent can't reach (and send) files outside that folder. Point `HUMANJS_UPLOAD_DIR` at where your upload fixtures live.
 - **No credentials handling.** The server drives the browser; it doesn't manage logins, payment details, or secrets on your behalf.
 - **Attaching to your real browser (CDP) is opt-in and env-only.** When you point `HUMANJS_CDP_URL` at your running browser, the agent acts with *your* live sessions — a bigger blast radius if a page tries to manipulate it. That's why it's a deliberate config choice you make up front, never something a tool can switch on.
 
