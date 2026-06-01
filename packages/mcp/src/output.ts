@@ -18,6 +18,25 @@ export function resolveOutputPath(outputDir: string, filename: string): string {
   return join(outputDir, base);
 }
 
+/**
+ * Resolves a user/AI-supplied upload filename to a safe absolute path inside
+ * `uploadDir`. The mirror of {@link resolveOutputPath} for *reading* a file to
+ * attach to a form: rejects path components (`../`, `sub/dir`, absolute paths)
+ * so a prompt-injected filename can't read — and exfiltrate to a web form —
+ * files outside the configured upload directory. `human_upload` can otherwise
+ * read+send any server-readable file, so this confinement is the safety
+ * boundary that makes exposing upload over MCP acceptable.
+ */
+export function resolveUploadPath(uploadDir: string, filename: string): string {
+  const base = basename(filename);
+  if (base !== filename || base.length === 0) {
+    throw new Error(
+      `upload filename must be a plain name with no path components, got "${filename}". Files are read from HUMANJS_UPLOAD_DIR — place the file there (or point HUMANJS_UPLOAD_DIR at its folder) and pass just the name.`,
+    );
+  }
+  return join(uploadDir, base);
+}
+
 /** Export format a recording filename maps to. */
 export type RecordingFormat = 'video' | 'gif' | 'timeline' | 'humanjs' | 'playwright';
 

@@ -11,6 +11,13 @@ import {
   sleep,
 } from '@humanjs/core';
 import type { Locator, Page } from 'playwright';
+import {
+  executeSelectOption,
+  executeSetChecked,
+  executeUpload,
+  type SelectOptionValues,
+  type UploadFiles,
+} from './forms';
 import { executePaste, executePress, executeType, type KeyOrChord } from './keyboard';
 import { executeClick, executeDrag, executeHover, executeMove, type MouseTarget } from './mouse';
 import { executeRead, type ReadOptions, type ReadResult, type ReadTarget } from './reading';
@@ -86,6 +93,7 @@ export {
   type Page,
   webkit,
 } from 'playwright';
+export type { SelectOptionValues, UploadFiles } from './forms';
 export type { KeyModifier, KeyName, KeyOrChord, PressResult } from './keyboard';
 export type { MouseTarget } from './mouse';
 export type { InstallMouseHelperOptions } from './mouse-helper';
@@ -169,6 +177,17 @@ export interface Human {
    */
   rightClick(target: MouseTarget): Promise<void>;
   /**
+   * Double-click `target`. Identical humanized approach to `click()` — same
+   * Bezier path, hover dwell, and occasional near-miss — but the final
+   * dispatch is a double-click (two presses within the OS double-click
+   * window). Accepts the same selector / `Locator` / `Point` targets.
+   *
+   * In `speed: 'instant'`, element targets fall back to
+   * `locator.click({ clickCount: 2 })`; a `Point` dispatches
+   * `mouse.click(x, y, { clickCount: 2 })`.
+   */
+  doubleClick(target: MouseTarget): Promise<void>;
+  /**
    * Move the cursor to `target` along a humanized Bezier path and settle
    * on it — no click is dispatched. Useful for hover-triggered UI
    * (tooltips, dropdowns), for positioning the cursor before a non-target
@@ -234,6 +253,57 @@ export interface Human {
    * by nature.
    */
   paste(target: Locator | string, value: string): Promise<void>;
+  /**
+   * Tick a checkbox or radio `target`. Moves the cursor to the control and
+   * clicks it with the same humanized motion as `click()` — but only when
+   * needed: if it already reports checked, no click fires (a real user
+   * doesn't re-click a box that's already ticked). The resulting state is
+   * verified; trying to `check` something that won't toggle throws.
+   *
+   * `target` is element-bound (selector or `Locator`). In `speed: 'instant'`,
+   * delegates to Playwright's native `locator.check()`.
+   */
+  check(target: Locator | string): Promise<void>;
+  /**
+   * Untick a checkbox `target`. Mirror of `check()` — humanized click only if
+   * currently checked, with state verification afterward. Radios can't be
+   * unchecked by clicking (select a different option instead); attempting it
+   * throws a clear error.
+   *
+   * In `speed: 'instant'`, delegates to `locator.uncheck()`.
+   */
+  uncheck(target: Locator | string): Promise<void>;
+  /**
+   * Choose option(s) in a native `<select>` `target`. The cursor moves to the
+   * dropdown and settles on it (humanized), then the value is set — native
+   * selects open an OS menu automation can't drive visually, so the *approach*
+   * is humanized while the choice itself is set programmatically (firing
+   * `input`/`change`), exactly as Playwright does. For custom DOM dropdowns,
+   * drive the rendered options with `click` instead.
+   *
+   * `values` takes the Playwright `selectOption` shape — a value string, an
+   * array of values, or `{ value | label | index }`. Returns the option
+   * values that ended up selected.
+   *
+   * In `speed: 'instant'`, sets the value with no cursor motion.
+   */
+  selectOption(target: Locator | string, values: SelectOptionValues): Promise<string[]>;
+  /**
+   * Attach file(s) to a file-input `target`. The cursor moves to the control
+   * (visible in recordings / the overlay), then the files are attached via
+   * `setInputFiles`. Unlike a real click this never opens the OS file dialog
+   * (which would hang) — files are set directly, the way Playwright models
+   * uploads.
+   *
+   * `target` should be the `<input type="file">`. For the common hidden-input-
+   * behind-a-styled-button pattern there's no visible control to approach, so
+   * the motion is skipped and the files are attached directly. `files` takes
+   * the Playwright `setInputFiles` shape (a path, an array of paths, or
+   * in-memory `{ name, mimeType, buffer }` payloads).
+   *
+   * In `speed: 'instant'`, attaches the files with no cursor motion.
+   */
+  upload(target: Locator | string, files: UploadFiles): Promise<void>;
   /**
    * Press a single key (`'Tab'`, `'Enter'`, `'Escape'`, `'ArrowDown'`, …)
    * or a keyboard chord (`'Mod+S'`, `'Cmd+Shift+P'`, `'Ctrl+C'`, …).
@@ -678,6 +748,12 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
         await executeClick(target, mouseCtx(), { button: 'right' });
       });
     },
+    async doubleClick(target) {
+      const description = describeMouseTarget(target);
+      await performAction({ type: 'doubleClick', params: { target: description } }, async () => {
+        await executeClick(target, mouseCtx(), { clickCount: 2 });
+      });
+    },
     async hover(target) {
       const description = describeMouseTarget(target);
       await performAction({ type: 'hover', params: { target: description } }, async () => {
@@ -741,6 +817,39 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
           await executePaste(target, value, { page, personality, rng, speed });
         },
         inputValue !== undefined ? { inputValue } : undefined,
+      );
+    },
+    async check(target) {
+      await performAction(
+        { type: 'check', params: { target: describeMouseTarget(target) } },
+        async () => {
+          await executeSetChecked(target, mouseCtx(), true);
+        },
+      );
+    },
+    async uncheck(target) {
+      await performAction(
+        { type: 'uncheck', params: { target: describeMouseTarget(target) } },
+        async () => {
+          await executeSetChecked(target, mouseCtx(), false);
+        },
+      );
+    },
+    async selectOption(target, values) {
+      return performAction(
+        { type: 'selectOption', params: { target: describeMouseTarget(target), values } },
+        () => executeSelectOption(target, values, mouseCtx()),
+      );
+    },
+    async upload(target, files) {
+      await performAction(
+        {
+          type: 'upload',
+          params: { target: describeMouseTarget(target), files: sanitizeUploadFiles(files) },
+        },
+        async () => {
+          await executeUpload(target, files, mouseCtx());
+        },
       );
     },
     async press(key) {
@@ -914,6 +1023,21 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
       return page.pdf(opts);
     },
   };
+}
+
+/**
+ * JSON-safe projection of upload files for the timeline / plugin params.
+ * Paths pass through; in-memory `{ name, mimeType, buffer }` payloads collapse
+ * to their `name` so a Buffer never bloats (or breaks) the serialized timeline.
+ */
+function sanitizeUploadFiles(files: UploadFiles): string | string[] {
+  const one = (f: unknown): string =>
+    typeof f === 'string'
+      ? f
+      : f && typeof f === 'object' && 'name' in f
+        ? String((f as { name: unknown }).name)
+        : 'file';
+  return Array.isArray(files) ? files.map(one) : one(files);
 }
 
 /**

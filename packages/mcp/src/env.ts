@@ -47,6 +47,15 @@ export interface McpEnv {
    */
   readonly outputDir: string;
   /**
+   * Directory `human_upload` reads files from. Defaults to the MCP server's
+   * working directory at startup. Like the output tools, `human_upload`
+   * accepts a basename only — `../`, subdirectories, and absolute paths are
+   * rejected — so a prompt-injected filename can't read (and exfiltrate to a
+   * web form) files outside this directory. Set `HUMANJS_UPLOAD_DIR` to the
+   * folder your upload fixtures live in.
+   */
+  readonly uploadDir: string;
+  /**
    * Default viewport for new sessions. Per-session overrides (via
    * `human_create_session`) and runtime resizes (via `human_set_viewport`)
    * take precedence. Defaults to 1440×900 — a comfortable desktop size
@@ -103,6 +112,7 @@ export function readEnv(): McpEnv {
     speed: parseSpeed(process.env.HUMANJS_SPEED),
     headless: parseBool(process.env.HUMANJS_HEADLESS, false),
     outputDir: process.env.HUMANJS_OUTPUT_DIR ?? process.cwd(),
+    uploadDir: process.env.HUMANJS_UPLOAD_DIR ?? process.cwd(),
     viewport: parseViewport(process.env.HUMANJS_VIEWPORT),
     autoInstall: parseBool(process.env.HUMANJS_AUTO_INSTALL, true),
     browser: resolveBrowserConfig(),
