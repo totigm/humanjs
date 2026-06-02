@@ -59,7 +59,21 @@ createHuman(page, { personality: blend('careful', 'distracted', 0.3) });
 
 ## Determinism and CI
 
-Set `seed` for reproducible runs (required for snapshot tests). Use `speed: 'instant'` in CI to bypass humanization and keep the suite fast — the documented test pattern:
+Set `seed` for reproducible runs (required for snapshot tests). Use `speed: 'instant'` in CI to bypass humanization and keep the suite fast.
+
+In Playwright tests, prefer the `@humanjs/playwright/test` fixture — it provides a `human` already seeded from the test title and instant-in-CI / humanized-locally, so there's no `createHuman` boilerplate:
+
+```ts
+import { test, expect } from '@humanjs/playwright/test';
+
+test('checkout flow', async ({ human, page }) => {
+  await human.goto('/');
+  await human.click('Buy now');
+  await expect(page).toHaveURL(/checkout/);
+});
+```
+
+Override per file or project with `test.use({ humanOptions: { personality: 'distracted' } })`. The explicit form still works when you want full control:
 
 ```ts
 import { test, expect } from '@playwright/test';
@@ -70,9 +84,7 @@ test('checkout flow', async ({ page }) => {
     seed: test.info().title,
     speed: process.env.CI ? 'instant' : 'human',
   });
-
   await human.goto('/');
-  await human.click('Buy now');
   await expect(page).toHaveURL(/checkout/);
 });
 ```
