@@ -50,6 +50,21 @@ describe('TimelineStore', () => {
     expect(store.list().map((s) => s.type)).toEqual(['b', 'a']);
   });
 
+  it('reorders to a full id order', () => {
+    const store = seed('a', 'b', 'c');
+    const [a, b, c] = store.list();
+    store.reorder([c?.id ?? '', a?.id ?? '', b?.id ?? '']);
+    expect(store.list().map((s) => s.type)).toEqual(['c', 'a', 'b']);
+  });
+
+  it('keeps unmentioned steps at the end when reordering', () => {
+    const store = seed('a', 'b', 'c');
+    const [a, , c] = store.list();
+    // Only mention two ids (e.g. a step captured mid-drag isn't in the list).
+    store.reorder([c?.id ?? '', a?.id ?? '']);
+    expect(store.list().map((s) => s.type)).toEqual(['c', 'a', 'b']);
+  });
+
   it('updates the chosen selector, label, and value', () => {
     const store = seed('type');
     const id = store.list()[0]?.id ?? '';

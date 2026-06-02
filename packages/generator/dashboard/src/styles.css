@@ -64,7 +64,6 @@ button.del:hover {
   color: #f87171;
 }
 
-select,
 input {
   font: inherit;
   font-size: 0.8rem;
@@ -205,6 +204,135 @@ li.step {
   align-items: center;
   gap: 0.4rem;
   flex-wrap: wrap;
+}
+
+/* Custom select */
+.select {
+  position: relative;
+  display: inline-block;
+}
+.select-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #111;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 0.32rem 0.5rem;
+  max-width: 22rem;
+}
+.select-btn:hover {
+  background: #161616;
+  border-color: #2a2a2a;
+}
+.select-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.select-caret {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+.select-list {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 100%;
+  max-width: min(34rem, 70vw);
+  max-height: 16rem;
+  overflow: auto;
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  background: #0d0d0d;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+}
+.select-list li {
+  list-style: none;
+}
+.select-opt {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0.4rem 0.5rem;
+  border-radius: 5px;
+  cursor: pointer;
+  word-break: break-all;
+  color: #d7d7d7;
+}
+.select-opt:hover,
+.select-opt.is-active {
+  background: #18181b;
+  color: #d7d7d7;
+}
+.select-opt.is-selected {
+  color: var(--accent);
+}
+.select-opt.is-selected::before {
+  content: "✓ ";
+  color: var(--accent);
+}
+.select.picker .select-btn {
+  font-size: 0.78rem;
+}
+
+/* Drag handle + reorder lift */
+.grip {
+  background: none;
+  color: #555;
+  padding: 0 0.15rem;
+  cursor: grab;
+  touch-action: none;
+}
+.grip:hover {
+  background: none;
+  color: var(--accent);
+}
+.grip:active {
+  cursor: grabbing;
+}
+li.step {
+  background: var(--bg);
+  list-style: none;
+}
+li.step[data-dragging="true"],
+li.step:active {
+  position: relative;
+  z-index: 5;
+}
+
+/* Syntax tokens */
+pre.code code {
+  font: inherit;
+}
+.t-comment {
+  color: #5f6b7a;
+  font-style: italic;
+}
+.t-string {
+  color: #34d399;
+}
+.t-keyword {
+  color: #c792ea;
+}
+.t-builtin {
+  color: #7dd3fc;
+}
+.t-property {
+  color: #93c5fd;
+}
+.t-number {
+  color: #fbbf24;
+}
+.t-ident {
+  color: #d7d7d7;
 }
 
 @media (max-width: 820px) {

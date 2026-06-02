@@ -58,6 +58,9 @@ export async function start(targetUrl: string): Promise<void> {
       case 'move':
         store.move(message.id, message.toIndex);
         break;
+      case 'reorder':
+        store.reorder(message.ids);
+        break;
       case 'update':
         store.update(message.id, message.patch);
         break;

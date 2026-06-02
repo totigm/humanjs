@@ -37,6 +37,22 @@ export class TimelineStore {
     this.#steps.splice(clamped, 0, step);
   }
 
+  /** Reorder the timeline to match the given id order (a full-order set from a drag). */
+  reorder(ids: readonly string[]): void {
+    const byId = new Map(this.#steps.map((step) => [step.id, step]));
+    const next: Step[] = [];
+    for (const id of ids) {
+      const step = byId.get(id);
+      if (step) {
+        next.push(step);
+        byId.delete(id);
+      }
+    }
+    // Keep any steps the client didn't mention (e.g. captured mid-drag) at the end.
+    for (const step of this.#steps) if (byId.has(step.id)) next.push(step);
+    this.#steps = next;
+  }
+
   update(id: string, patch: StepPatch): void {
     this.#steps = this.#steps.map((step) => (step.id === id ? applyPatch(step, patch) : step));
   }

@@ -1,6 +1,9 @@
-import { useState } from 'react';
+import { Reorder, useDragControls } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
 import type { AssertKind, ClientMessage, Step } from '../../src/protocol';
 import { type Generator, useGenerator } from './api';
+import { Select } from './components/Select';
+import { highlightTs } from './highlight';
 
 const ASSERT_KINDS: AssertKind[] = ['visible', 'text', 'url'];
 
@@ -54,17 +57,12 @@ function AssertForm({ afterId, send }: { afterId: string; send: Generator['send'
 
   return (
     <div className="assert-form">
-      <select
-        aria-label="assertion kind"
+      <Select
+        ariaLabel="assertion kind"
         value={kind}
-        onChange={(e) => setKind(e.target.value as AssertKind)}
-      >
-        {ASSERT_KINDS.map((k) => (
-          <option key={k} value={k}>
-            {k}
-          </option>
-        ))}
-      </select>
+        options={ASSERT_KINDS.map((k) => ({ value: k }))}
+        onChange={(v) => setKind(v as AssertKind)}
+      />
       {kind !== 'url' && (
         <input
           aria-label="assertion target"
@@ -93,15 +91,16 @@ function AssertForm({ afterId, send }: { afterId: string; send: Generator['send'
 
 function StepRow({
   step,
-  index,
   send,
-  onMove,
+  onDragStart,
+  onDragEnd,
 }: {
   step: Step;
-  index: number;
   send: Generator['send'];
-  onMove: (draggedId: string, toIndex: number) => void;
+  onDragStart: () => void;
+  onDragEnd: () => void;
 }) {
+  const controls = useDragControls();
   const candidates = candidatesOf(step);
   const target = strParam(step, 'target');
   const isText = step.type === 'type' || step.type === 'paste';
@@ -109,21 +108,24 @@ function StepRow({
   const label = strParam(step, 'label');
 
   return (
-    <li
+    <Reorder.Item
+      value={step}
+      dragListener={false}
+      dragControls={controls}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
       className="step"
-      draggable
-      onDragStart={(e) => e.dataTransfer.setData('text/plain', step.id)}
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={(e) => {
-        e.preventDefault();
-        const draggedId = e.dataTransfer.getData('text/plain');
-        if (draggedId && draggedId !== step.id) onMove(draggedId, index);
-      }}
+      whileDrag={{ scale: 1.015 }}
     >
       <div className="step-head">
-        <span className="grip" aria-hidden>
+        <button
+          type="button"
+          className="grip"
+          aria-label="drag to reorder"
+          onPointerDown={(e) => controls.start(e)}
+        >
           ⋮⋮
-        </span>
+        </button>
         <span className={`kind kind-${step.type}`}>{step.type}</span>
         <span className="detail">{detailFor(step)}</span>
         <button
@@ -138,19 +140,13 @@ function StepRow({
 
       <div className="step-edit">
         {candidates.length > 1 && step.type !== 'assert' && (
-          <select
-            aria-label="selector"
+          <Select
+            className="picker"
+            ariaLabel="selector"
             value={target}
-            onChange={(e) =>
-              send({ type: 'update', id: step.id, patch: { target: e.target.value } })
-            }
-          >
-            {candidates.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+            options={candidates.map((c) => ({ value: c }))}
+            onChange={(v) => send({ type: 'update', id: step.id, patch: { target: v } })}
+          />
         )}
 
         {isText && (
@@ -202,12 +198,21 @@ function StepRow({
 
         <AssertForm afterId={step.id} send={send} />
       </div>
-    </li>
+    </Reorder.Item>
   );
 }
 
 export function App() {
   const { state, connected, exportedPath, send } = useGenerator();
+  const [order, setOrder] = useState<Step[]>([]);
+  const dragging = useRef(false);
+
+  // Mirror the server's step order locally so framer-motion can animate
+  // reordering. Don't clobber the local order mid-drag (the server echoes our
+  // own reorder back, which would otherwise interrupt the animation).
+  useEffect(() => {
+    if (state && !dragging.current) setOrder([...state.steps]);
+  }, [state]);
 
   if (!state) {
     return (
@@ -229,19 +234,15 @@ export function App() {
           </h1>
           <p className="muted target">Recording: {state.targetUrl}</p>
           <div className="controls">
-            <label className="field">
-              Personality
-              <select
+            <div className="field">
+              <span>Personality</span>
+              <Select
+                ariaLabel="personality"
                 value={state.personality}
-                onChange={(e) => send({ type: 'setPersonality', personality: e.target.value })}
-              >
-                {state.personalities.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
-            </label>
+                options={state.personalities.map((p) => ({ value: p }))}
+                onChange={(v) => send({ type: 'setPersonality', personality: v })}
+              />
+            </div>
             <button type="button" onClick={() => send({ type: 'export', format: 'spec' })}>
               Export .spec.ts
             </button>
@@ -252,22 +253,34 @@ export function App() {
           {exportedPath && <p className="saved">Saved {exportedPath}</p>}
         </header>
 
-        {state.steps.length === 0 ? (
+        {order.length === 0 ? (
           <p className="muted hint">
-            No steps yet — interact with the Chromium window. Drag rows to reorder.
+            No steps yet — interact with the Chromium window. Drag the handle to reorder.
           </p>
         ) : (
-          <ul className="steps">
-            {state.steps.map((step, index) => (
+          <Reorder.Group
+            axis="y"
+            values={order}
+            onReorder={(next) => {
+              setOrder(next);
+              send({ type: 'reorder', ids: next.map((s) => s.id) });
+            }}
+            className="steps"
+          >
+            {order.map((step) => (
               <StepRow
                 key={step.id}
                 step={step}
-                index={index}
                 send={send}
-                onMove={(draggedId, toIndex) => send({ type: 'move', id: draggedId, toIndex })}
+                onDragStart={() => {
+                  dragging.current = true;
+                }}
+                onDragEnd={() => {
+                  dragging.current = false;
+                }}
               />
             ))}
-          </ul>
+          </Reorder.Group>
         )}
       </section>
 
@@ -275,7 +288,10 @@ export function App() {
         <header className="preview-head">
           <span className="muted">Live preview · spec</span>
         </header>
-        <pre className="code">{state.code}</pre>
+        <pre className="code">
+          {/* biome-ignore lint/security/noDangerouslySetInnerHtml: generated code, fully HTML-escaped by highlightTs */}
+          <code dangerouslySetInnerHTML={{ __html: highlightTs(state.code) }} />
+        </pre>
       </section>
     </div>
   );

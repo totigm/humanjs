@@ -46,6 +46,7 @@ export type ServerMessage =
 export type ClientMessage =
   | { readonly type: 'delete'; readonly id: string }
   | { readonly type: 'move'; readonly id: string; readonly toIndex: number }
+  | { readonly type: 'reorder'; readonly ids: readonly string[] }
   | { readonly type: 'update'; readonly id: string; readonly patch: StepPatch }
   | {
       readonly type: 'addAssert';
