@@ -38,6 +38,18 @@ export const PLACEHOLDER_HTML = `<!doctype html>
       ol li .kind { color: #10b981; min-width: 5.5rem; }
       ol li .detail { color: #c9c9c9; word-break: break-all; }
       .empty { color: #6a6a6a; }
+      .bar { display: flex; align-items: center; gap: 0.6rem; margin-top: 1.5rem; flex-wrap: wrap; }
+      button {
+        font: inherit; font-size: 0.8rem; color: #050505; background: #10b981;
+        border: 0; border-radius: 6px; padding: 0.45rem 0.8rem; cursor: pointer;
+      }
+      button:hover { background: #34d399; }
+      .saved { color: #10b981; font-size: 0.8rem; }
+      pre.code {
+        margin-top: 1rem; padding: 1rem; background: #0a0a0a; border: 1px solid #1a1a1a;
+        border-radius: 8px; overflow: auto; max-height: 320px; font-size: 0.8rem;
+        color: #cfcfcf; white-space: pre; line-height: 1.5;
+      }
       footer { margin-top: 1.75rem; font-size: 0.8rem; }
     </style>
   </head>
@@ -48,6 +60,12 @@ export const PLACEHOLDER_HTML = `<!doctype html>
       <div class="row"><span id="dot" class="dot"></span><span id="status">connecting&hellip;</span></div>
       <p class="muted target" id="target"></p>
       <ol id="events"><li class="empty">No steps captured yet &mdash; interact with the Chromium window.</li></ol>
+      <div class="bar">
+        <button id="exp-spec" type="button">Export .spec.ts</button>
+        <button id="exp-script" type="button">Export .ts</button>
+        <span id="saved" class="saved"></span>
+      </div>
+      <pre class="code" id="code"></pre>
       <footer class="muted">This view becomes the live, editable timeline.</footer>
     </main>
     <script>
@@ -55,6 +73,8 @@ export const PLACEHOLDER_HTML = `<!doctype html>
       var status = document.getElementById('status');
       var target = document.getElementById('target');
       var events = document.getElementById('events');
+      var code = document.getElementById('code');
+      var saved = document.getElementById('saved');
       var count = 0;
 
       function detailFor(ev) {
@@ -90,8 +110,17 @@ export const PLACEHOLDER_HTML = `<!doctype html>
           var msg = JSON.parse(event.data);
           if (msg.type === 'hello') { target.textContent = 'Recording: ' + msg.targetUrl; }
           else if (msg.type === 'event') { addEvent(msg.event); }
+          else if (msg.type === 'code') { code.textContent = msg.code; }
+          else if (msg.type === 'exported') { saved.textContent = 'Saved ' + msg.path; }
         } catch (_) { /* ignore non-JSON frames */ }
       };
+
+      function requestExport(format) {
+        saved.textContent = '';
+        ws.send(JSON.stringify({ type: 'export', format: format }));
+      }
+      document.getElementById('exp-spec').onclick = function () { requestExport('spec'); };
+      document.getElementById('exp-script').onclick = function () { requestExport('script'); };
     </script>
   </body>
 </html>
