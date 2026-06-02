@@ -98,7 +98,8 @@ function emitAction(e: TimelineEvent, opts: EmitOptions = {}): string {
       return `  await human.${e.type}(${code});${isPoint ? POINT_COMMENT : ''}`;
     }
     case 'check':
-    case 'uncheck': {
+    case 'uncheck':
+    case 'clear': {
       const { code } = targetArg(p.target);
       return `  await human.${e.type}(${code});`;
     }
