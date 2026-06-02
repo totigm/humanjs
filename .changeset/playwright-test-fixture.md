@@ -16,3 +16,5 @@ test('checkout', async ({ human, page }) => {
 ```
 
 Customize per file or project via `test.use({ humanOptions: { … } })`. `@playwright/test` is an optional peer dependency (only needed for this subpath; the package root is unaffected).
+
+The recorder's `toPlaywright()` code export now generates specs that use this fixture — `import { test, expect } from '@humanjs/playwright/test'` plus `test.use({ humanOptions: … })` carrying the recorded personality/seed/speed — instead of a per-test `createHuman` call. (`toHumanJS()`, the standalone script export, is unchanged.)
