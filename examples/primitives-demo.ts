@@ -687,13 +687,11 @@ async function main() {
     }
     await human.sleep(900);
 
-    // 5. Type — realistic per-key rhythm into the input. `human.type()` also
-    // implicitly clicks the input first, so you'll see the cursor land on
-    // the field before the keys land.
-    // 5. Type & clear — same field, two primitives. First a humanized per-key
-    // type; then `clear` (select-all + delete) wipes it and we retype the
-    // corrected value — the realistic "edit an existing value" flow. `clear`
-    // has no element of its own, so it shares the type field here.
+    // 5. Type & clear — same field, two primitives. `human.type()` implicitly
+    // clicks the input first (watch the cursor land before the keys) and types
+    // with a humanized per-key rhythm. Then `clear` (select-all + delete) wipes
+    // it and we retype the corrected value — the realistic "edit an existing
+    // value" flow. `clear` has no element of its own, so it shares this field.
     console.log('5. type & clear → type into the input, then wipe it and retype');
     await human.type('#type-input', 'demo@humanjs.dev');
     await human.sleep(900);
