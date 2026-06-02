@@ -470,6 +470,22 @@ export interface Human {
    */
   content(): Promise<string>;
   /**
+   * Accessibility-tree **outline** of the page (or a region) — every
+   * interactive element and landmark by its ARIA role + accessible name,
+   * rendered as compact YAML (Playwright's `ariaSnapshot`). The most
+   * token-efficient way for an AI agent to see what's actionable and pick a
+   * selector: the names map directly to `getByRole` / accessible-name
+   * selectors, which HumanJS already favors.
+   *
+   * Prefer this over {@link Human.content} when the question is "what can I
+   * click / fill"; reach for {@link Human.screenshot} when you need the
+   * visual layout. Pass `target` to scope the outline to a region.
+   *
+   * Not a humanized action: no plugin events fire. Requires Playwright ≥ 1.49
+   * (when `ariaSnapshot` landed).
+   */
+  outline(target?: Locator | string): Promise<string>;
+  /**
    * Current URL of the page. Forwards to `page.url()`. Synchronous return
    * because Playwright's underlying API is sync.
    *
@@ -988,6 +1004,15 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
     },
     content() {
       return page.content();
+    },
+    outline(target) {
+      const locator =
+        target === undefined
+          ? page.locator('body')
+          : typeof target === 'string'
+            ? page.locator(target)
+            : target;
+      return locator.ariaSnapshot();
     },
     url() {
       return page.url();

@@ -37,6 +37,8 @@ await human.type('Card number', '4242…');      // by label
 await human.click('button.checkout');          // CSS fallback when needed
 ```
 
+Not sure what's on the page? `await human.outline()` returns the accessibility-tree outline (every element by ARIA role + accessible name, as YAML) — a compact, selector-friendly view of what's actionable. The names it shows are exactly what you pass to the role/label selectors above. Pass a selector to scope it to a region. (Requires Playwright ≥ 1.49.)
+
 ## Personalities
 
 ```ts

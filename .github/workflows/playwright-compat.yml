@@ -20,7 +20,10 @@ jobs:
         playwright:
           # Floor: the minimum version our peerDependency promises to support.
           # If a test fails here, either fix the code or raise the peer range.
-          - "1.40.0"
+          # Bumped 1.40 -> 1.49 when human.outline() adopted `ariaSnapshot`
+          # (added in Playwright 1.49); kept in sync with @humanjs/playwright's
+          # peerDependencies range.
+          - "1.49.0"
           # Current latest, to catch regressions on new releases.
           - "latest"
     steps:

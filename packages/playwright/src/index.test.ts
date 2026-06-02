@@ -1653,3 +1653,43 @@ describe('createHuman', () => {
     });
   });
 });
+
+describe('human.outline', () => {
+  function makeOutlinePage(snapshot = '- button "Sign in"'): {
+    page: Page;
+    locator: { ariaSnapshot: ReturnType<typeof vi.fn> };
+    locatorFn: ReturnType<typeof vi.fn>;
+  } {
+    const locator = { ariaSnapshot: vi.fn().mockResolvedValue(snapshot) };
+    const locatorFn = vi.fn().mockReturnValue(locator);
+    const page = { locator: locatorFn } as unknown as Page;
+    return { page, locator, locatorFn };
+  }
+
+  it('returns the body aria snapshot by default', async () => {
+    const { page, locator, locatorFn } = makeOutlinePage('- heading "Welcome"');
+    const human = await createHuman(page, { speed: 'instant' });
+    const out = await human.outline();
+    expect(locatorFn).toHaveBeenCalledWith('body');
+    expect(locator.ariaSnapshot).toHaveBeenCalledTimes(1);
+    expect(out).toBe('- heading "Welcome"');
+  });
+
+  it('scopes to a selector when given', async () => {
+    const { page, locatorFn } = makeOutlinePage();
+    const human = await createHuman(page, { speed: 'instant' });
+    await human.outline('#form');
+    expect(locatorFn).toHaveBeenCalledWith('#form');
+  });
+
+  it('does not fire plugin actions (inspection only)', async () => {
+    const { page } = makeOutlinePage();
+    const before = vi.fn();
+    const human = await createHuman(page, {
+      speed: 'instant',
+      plugins: [{ name: 't', beforeAction: before }],
+    });
+    await human.outline();
+    expect(before).not.toHaveBeenCalled();
+  });
+});
