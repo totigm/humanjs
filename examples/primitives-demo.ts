@@ -3,18 +3,18 @@
  * sequence on one page so a viewer can see them work visually (the form
  * primitives — doubleClick / check / selectOption / upload — aren't shown here):
  *
- *    1. hover       — cursor moves to a target, tooltip appears via :hover
- *    2. click       — basic Bezier-path click on a button
- *    3. rightClick  — context-menu click, custom menu appears
- *    4. drag        — selector → selector card move, then selector → Point slider
+ *    1. hover        — cursor moves to a target, tooltip appears via :hover
+ *    2. click        — basic Bezier-path click on a button
+ *    3. rightClick   — context-menu click, custom menu appears
+ *    4. drag         — selector → selector card move, then selector → Point slider
  *    5. type & clear — per-key typing into an input, then select-all + delete and retype
- *    6. press       — Mod+S triggers a Save indicator (cursor position irrelevant)
- *    7. paste       — long string lands in a textarea via insertText (no rhythm).
- *                     The paste section deliberately lives below the fold so
- *                     this step exercises the auto-scroll path before typing.
- *    8. read        — humanized cursor scan across prose during the dwell
- *    9. move        — pure positional motion to a Point, no element under cursor
- *   10. scroll      — humanized scroll all the way down to a destination
+ *    6. press        — Mod+S triggers a Save indicator (cursor position irrelevant)
+ *    7. paste        — long string lands in a textarea via insertText (no rhythm).
+ *                      The paste section deliberately lives below the fold so
+ *                      this step exercises the auto-scroll path before typing.
+ *    8. read         — humanized cursor scan across prose during the dwell
+ *    9. move         — pure positional motion to a Point, no element under cursor
+ *   10. scroll       — humanized scroll all the way down to a destination
  *
  * Run with:
  *   pnpm demo:primitives
