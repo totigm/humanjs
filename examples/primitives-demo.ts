@@ -1,19 +1,21 @@
 /**
- * HumanJS primitives demo — exercises every Human primitive in sequence
- * on one page so a viewer can see them all work visually:
+ * HumanJS primitives demo — walks through the core humanized primitives in
+ * sequence on one page so a viewer can see them work visually (the form
+ * primitives — doubleClick / check / selectOption / upload — aren't shown here):
  *
  *    1. hover       — cursor moves to a target, tooltip appears via :hover
  *    2. click       — basic Bezier-path click on a button
  *    3. rightClick  — context-menu click, custom menu appears
  *    4. drag        — selector → selector card move, then selector → Point slider
  *    5. type        — humanized per-key rhythm into an input
- *    6. press       — Mod+S triggers a Save indicator (cursor position irrelevant)
- *    7. paste       — long string lands in a textarea via insertText (no rhythm).
+ *    6. clear       — select-all + delete to wipe the field, then retype
+ *    7. press       — Mod+S triggers a Save indicator (cursor position irrelevant)
+ *    8. paste       — long string lands in a textarea via insertText (no rhythm).
  *                     The paste section deliberately lives below the fold so
  *                     this step exercises the auto-scroll path before typing.
- *    8. read        — humanized cursor scan across prose during the dwell
- *    9. move        — pure positional motion to a Point, no element under cursor
- *   10. scroll      — humanized scroll all the way down to a destination
+ *    9. read        — humanized cursor scan across prose during the dwell
+ *   10. move        — pure positional motion to a Point, no element under cursor
+ *   11. scroll      — humanized scroll all the way down to a destination
  *
  * Run with:
  *   pnpm demo:primitives
@@ -489,7 +491,7 @@ const DEMO_HTML = /* html */ `
         <p class="read-passage" style="font-size: 14px; color: #777;">The next beat moves the cursor to a free coordinate — no element under it. Pure positioning, the way you'd place the cursor before a keyboard shortcut or between sections of a demo.</p>
       </div>
 
-      <!-- Spacer that pushes step 10 below the fold so the scroll motion is observable. -->
+      <!-- Spacer that pushes step 11 below the fold so the scroll motion is observable. -->
       <div class="scroll-spacer">scroll down to see the next step</div>
 
       <!-- 10. Scroll -->
@@ -634,7 +636,7 @@ async function main() {
 
   console.log(`Personality: ${personality}`);
   console.log(
-    'Demoing: hover → click → rightClick → drag → type → press → paste → read → move → scroll\n',
+    'Demoing: hover → click → rightClick → drag → type → clear → press → paste → read → move → scroll\n',
   );
 
   const browser = await chromium.launch({ headless: false });
@@ -693,42 +695,51 @@ async function main() {
     await human.type('#type-input', 'demo@humanjs.dev');
     await human.sleep(900);
 
-    // 6. Press — Mod+S triggers the page's save handler, indicator flashes.
-    // The input from step 5 is still focused; cursor position is irrelevant
-    // to which element receives a key press — only focus matters.
-    console.log('6. press → Mod+S triggers Save (against the focused input)');
+    // 6. Clear — wipe the field with a humanized select-all + delete gesture,
+    // then retype. The realistic "edit an existing value" flow: watch the text
+    // highlight (select-all) and vanish before the corrected value types in.
+    console.log('6. clear → wipe the field, then retype the corrected value');
+    await human.clear('#type-input');
+    await human.sleep(700);
+    await human.type('#type-input', 'gonzalo@humanjs.dev');
+    await human.sleep(900);
+
+    // 7. Press — Mod+S triggers the page's save handler, indicator flashes.
+    // The input from the previous step is still focused; cursor position is
+    // irrelevant to which element receives a key press — only focus matters.
+    console.log('7. press → Mod+S triggers Save (against the focused input)');
     await human.press('Mod+S');
     await human.sleep(2000);
 
-    // 7. Paste — the paste section lives below an 820px spacer, so its
+    // 8. Paste — the paste section lives below an 820px spacer, so its
     // textarea sits well below the fold when this step starts. The
     // auto-scroll path inside the locator resolver should bring the
     // textarea into view *before* the cursor walk — without it, the
     // cursor would move to an off-viewport coordinate and the paste would
     // silently miss the field.
-    console.log('7. paste → auto-scroll brings the textarea into view, then pastes');
+    console.log('8. paste → auto-scroll brings the textarea into view, then pastes');
     await human.paste('#paste-target', LONG_PASTE_VALUE);
     await human.sleep(900);
 
-    // 8. Read — humanized cursor scan across the prose during the dwell.
+    // 9. Read — humanized cursor scan across the prose during the dwell.
     // `read` auto-detects 'prose' from the <p> tag and uses the personality's
     // WPM × jitter math for the dwell duration.
-    console.log('8. read → dwell on the passage with cursor scan');
+    console.log('9. read → dwell on the passage with cursor scan');
     await human.read('#read-passage');
     await human.sleep(800);
 
-    // 9. Move — pure positional motion to a Point with no element under it.
+    // 10. Move — pure positional motion to a Point with no element under it.
     // Parks the cursor in dead space above the scroll spacer. Watch the
     // cursor settle without any element-bound interaction firing.
-    console.log('9. move → cursor to a point in dead space');
+    console.log('10. move → cursor to a point in dead space');
     await human.move({ x: 460, y: 540 });
     await human.sleep(1200);
 
-    // 10. Scroll — humanized scroll to the destination at the bottom of the
+    // 11. Scroll — humanized scroll to the destination at the bottom of the
     // page. Multi-segment wheel motion with mid-scroll pauses, not a single
     // jumpcut. The destination block highlights when it scrolls into view
     // (IntersectionObserver in the page script), giving a visible payoff.
-    console.log('10. scroll → to the destination at the bottom');
+    console.log('11. scroll → to the destination at the bottom');
     await human.scroll('#scroll-destination');
     await human.sleep(2500);
 
