@@ -78,6 +78,7 @@ await human.move(target);                 // selector | Locator | Point — posi
 await human.drag(from, to);               // each endpoint: selector | Locator | Point
 await human.type(selector, value);        // click, then realistic typing rhythm
 await human.paste(selector, value);       // Cmd-V style (no per-char timing)
+await human.clear(selector);              // wipe a field: select-all + delete (pair with type to replace)
 await human.check(selector);              // tick a checkbox/radio (clicks only if needed)
 await human.uncheck(selector);            // untick a checkbox
 await human.selectOption(selector, value);// native <select> — cursor moves to it, then sets value

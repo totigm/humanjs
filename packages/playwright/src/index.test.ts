@@ -1693,3 +1693,52 @@ describe('human.outline', () => {
     expect(before).not.toHaveBeenCalled();
   });
 });
+
+describe('human.clear', () => {
+  function makeClearPage() {
+    const locator = {
+      boundingBox: vi.fn().mockResolvedValue({ x: 100, y: 200, width: 120, height: 30 }),
+      scrollIntoViewIfNeeded: vi.fn().mockResolvedValue(undefined),
+      focus: vi.fn().mockResolvedValue(undefined),
+      clear: vi.fn().mockResolvedValue(undefined),
+      click: vi.fn().mockResolvedValue(undefined),
+    };
+    const press = vi.fn().mockResolvedValue(undefined);
+    const mouseClick = vi.fn().mockResolvedValue(undefined);
+    const page = {
+      locator: vi.fn(() => locator),
+      evaluate: vi.fn().mockResolvedValue(0),
+      keyboard: { press, insertText: vi.fn().mockResolvedValue(undefined) },
+      mouse: {
+        move: vi.fn().mockResolvedValue(undefined),
+        click: mouseClick,
+        wheel: vi.fn().mockResolvedValue(undefined),
+        down: vi.fn().mockResolvedValue(undefined),
+        up: vi.fn().mockResolvedValue(undefined),
+      },
+      viewportSize: () => ({ width: 1280, height: 720 }),
+    } as unknown as Page;
+    return { page, locator, press, mouseClick };
+  }
+
+  it('focuses, selects all, then deletes (humanized gesture)', async () => {
+    const { page, locator, press, mouseClick } = makeClearPage();
+    const human = await createHuman(page, { speed: 'fast' });
+    await human.clear('#name');
+    expect(mouseClick).toHaveBeenCalledTimes(1); // implicit focus click
+    expect(locator.focus).toHaveBeenCalled();
+    const chords = press.mock.calls.map((c) => c[0]);
+    expect(chords[0]).toMatch(/^(Meta|Control)\+A$/); // platform select-all
+    expect(chords[chords.length - 1]).toBe('Delete');
+    expect(locator.clear).not.toHaveBeenCalled();
+  });
+
+  it('instant mode uses native locator.clear() with no gesture', async () => {
+    const { page, locator, press, mouseClick } = makeClearPage();
+    const human = await createHuman(page, { speed: 'instant' });
+    await human.clear('#name');
+    expect(locator.clear).toHaveBeenCalledTimes(1);
+    expect(press).not.toHaveBeenCalled();
+    expect(mouseClick).not.toHaveBeenCalled();
+  });
+});

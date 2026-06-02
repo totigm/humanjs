@@ -1,7 +1,7 @@
 import { type Personality, planTypeKeystrokes, type Rng } from '@humanjs/core';
 import type { Locator, Page } from 'playwright';
 import type { Speed } from '../index';
-import { sleep, speedModeFactor } from '../internal/timing';
+import { computeDwellTime, sleep, speedModeFactor } from '../internal/timing';
 
 /** Runtime dependencies for a humanized keyboard action. */
 export interface KeyboardContext {
@@ -120,6 +120,45 @@ export async function executePaste(
   await locator.focus();
   await ctx.page.keyboard.insertText(value);
   return { characters: value.length };
+}
+
+/**
+ * Clears a text field the way a person does: select-all, a beat, then delete —
+ * a real keyboard gesture, not a programmatic value reset. The implicit click
+ * that focuses the field is driven by the caller (`human.clear` in the
+ * factory), same pattern as `executeType` / `executePaste`, so this executor
+ * is keyboard-only.
+ *
+ * The select-all chord is platform-aware (`Meta+A` on macOS, `Control+A`
+ * elsewhere) via the same resolver `human.press` uses, then `Delete` clears the
+ * selection. Works for inputs, textareas, and contenteditable.
+ *
+ * In `speed: 'instant'`, delegates to Playwright's native `locator.clear()`
+ * (focus + actionability + value reset) — no visible gesture, same as the rest
+ * of instant mode.
+ */
+export async function executeClear(target: Locator | string, ctx: KeyboardContext): Promise<void> {
+  const locator = typeof target === 'string' ? ctx.page.locator(target) : target;
+
+  if (ctx.speed === 'instant') {
+    await locator.clear();
+    return;
+  }
+
+  await locator.focus();
+  // Select all, then delete the selection — the human "wipe the field" gesture.
+  await ctx.page.keyboard.press(resolveChord('Mod+A'));
+  // A short beat so the selection visibly registers before it's deleted,
+  // scaled by personality + speed like the other humanized dwells.
+  const beatMs = computeDwellTime(
+    ctx.personality.dwell.preClickMs,
+    ctx.personality.dwell.preClickJitter,
+    ctx.personality,
+    ctx.speed,
+    ctx.rng,
+  );
+  if (beatMs > 0) await sleep(beatMs);
+  await ctx.page.keyboard.press('Delete');
 }
 
 /**

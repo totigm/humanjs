@@ -60,6 +60,7 @@ export interface PluginContext {
  */
 export type KnownActionType =
   | 'check'
+  | 'clear'
   | 'click'
   | 'doubleClick'
   | 'drag'

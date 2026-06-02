@@ -18,7 +18,7 @@ import {
   type SelectOptionValues,
   type UploadFiles,
 } from './forms';
-import { executePaste, executePress, executeType, type KeyOrChord } from './keyboard';
+import { executeClear, executePaste, executePress, executeType, type KeyOrChord } from './keyboard';
 import { executeClick, executeDrag, executeHover, executeMove, type MouseTarget } from './mouse';
 import { executeRead, type ReadOptions, type ReadResult, type ReadTarget } from './reading';
 import {
@@ -253,6 +253,19 @@ export interface Human {
    * by nature.
    */
   paste(target: Locator | string, value: string): Promise<void>;
+  /**
+   * Clear a text field `target` (input, textarea, or contenteditable) with a
+   * humanized gesture: click to focus, **select-all**, a beat, then **delete**
+   * — the real keyboard motion a person uses to wipe a field before retyping,
+   * not a silent value reset. Fires the keydown/up + `input` events the page
+   * expects.
+   *
+   * Pair with `type()` to edit an existing value:
+   * `await human.clear('#name'); await human.type('#name', 'New');`
+   *
+   * In `speed: 'instant'`, delegates to Playwright's native `locator.clear()`.
+   */
+  clear(target: Locator | string): Promise<void>;
   /**
    * Tick a checkbox or radio `target`. Moves the cursor to the control and
    * clicks it with the same humanized motion as `click()` — but only when
@@ -833,6 +846,20 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
           await executePaste(target, value, { page, personality, rng, speed });
         },
         inputValue !== undefined ? { inputValue } : undefined,
+      );
+    },
+    async clear(target) {
+      await performAction(
+        { type: 'clear', params: { target: describeMouseTarget(target) } },
+        async () => {
+          // Implicit click to focus the field first — same pattern as type/paste
+          // (a real user clicks into a field before wiping it). Skipped in
+          // instant mode, where executeClear uses native locator.clear().
+          if (speed !== 'instant') {
+            await executeClick(target, mouseCtx());
+          }
+          await executeClear(target, { page, personality, rng, speed });
+        },
       );
     },
     async check(target) {

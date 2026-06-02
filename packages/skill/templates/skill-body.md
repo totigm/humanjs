@@ -94,6 +94,7 @@ All await; selectors are strings or Playwright `Locator`s (`move`/`drag` also ac
 | `human.drag(from, to)` | Humanized drag; endpoints are selector / Locator / Point. |
 | `human.type(target, value)` | Click to focus, then realistic typing rhythm (+ optional typos/backspace). |
 | `human.paste(target, value)` | Cmd-V style insert — no per-char timing. |
+| `human.clear(target)` | Wipe a field — select-all + delete. Use before `type` to replace a value. |
 | `human.check(target)` / `human.uncheck(target)` | Tick/untick a checkbox or radio — clicks only if the state needs to change. |
 | `human.selectOption(target, values)` | Choose option(s) in a native `<select>` (cursor moves to it, then sets the value). |
 | `human.upload(target, files)` | Attach file(s) to a file input (no OS dialog). |
