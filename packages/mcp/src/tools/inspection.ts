@@ -86,6 +86,27 @@ export function registerInspectionTools(server: McpServer, ctx: ToolContext): vo
   );
 
   server.registerTool(
+    'human_outline',
+    {
+      title: 'Page outline (accessibility tree)',
+      description:
+        'Returns a compact accessibility-tree outline of the page (or a region) — every interactive element and landmark by its ARIA role + accessible name, as YAML (e.g. `- button "Sign in"`, `- textbox "Email"`). The most token-efficient way to see what is actionable and pick a selector: the names map directly to getByRole / accessible-name selectors. Prefer this over human_get_html for "what can I click or fill"; use human_screenshot when you need the visual layout.',
+      inputSchema: {
+        selector: z
+          .string()
+          .optional()
+          .describe('Optional region selector to scope the outline. Omit for the whole page.'),
+        session: sessionArg,
+      },
+    },
+    async ({ selector, session }) => {
+      const { human } = await ctx.sessions.get(session);
+      const text = await human.outline(selector);
+      return { content: [{ type: 'text', text }] };
+    },
+  );
+
+  server.registerTool(
     'human_get_text',
     {
       title: "Get an element's text",
