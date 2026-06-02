@@ -9,5 +9,8 @@ export default defineConfig({
   clean: true,
   sourcemap: true,
   treeshake: true,
-  splitting: false,
+  // Code splitting extracts the shared library code (createHuman + deps) into a
+  // chunk both entries import, instead of inlining a full copy into the `/test`
+  // entry. Dedupes both ESM and CJS output — keeps the package tarball lean.
+  splitting: true,
 });
