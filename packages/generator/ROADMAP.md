@@ -8,7 +8,7 @@ The first published release. Milestones, each independently testable:
 
 1. **Scaffold** — package shell (mirrors `@humanjs/mcp`) + additive `generateHumanJS` / `generatePlaywrightTest` export from `@humanjs/playwright`. _(done)_
 2. **CLI + browser launch + local server** — `npx @humanjs/generator <url>` opens a real Chromium window and a localhost-only dashboard (HTTP + WebSocket) that reports "connected". _(done)_
-3. **Capture + ranked selector inference** — an injected content script records click / type / scroll / navigation as `TimelineEvent`s and streams them live. `selectors.ts` ranks candidates (ARIA role + accessible name → label → text → test id → CSS → XPath) and is unit-tested against a fixture DOM.
+3. **Capture + ranked selector inference** — an injected content script records click / type / scroll / navigation as `TimelineEvent`s and streams them live. `selectors.ts` ranks candidates (ARIA role + accessible name → label → text → test id → CSS → XPath) and is unit-tested against a fixture DOM. _(done)_
 4. **Export layer** — curated `Timeline` → `.spec.ts` / `.ts` via the shared codegen, including **assertion rendering** and **secret → `process.env.*` substitution**. e2e: record a fixture flow, export, run the generated spec.
 5. **Full editor UI** (Vite + React SPA, bundled into the package):
    - delete / reorder / relabel steps, edit captured text

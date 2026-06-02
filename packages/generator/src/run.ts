@@ -1,30 +1,51 @@
+import type { TimelineEvent } from '@humanjs/playwright';
 import { chromium } from 'playwright';
+import { attachCapture } from './capture/attach';
+import type { CapturedAction } from './capture/types';
 import { openInBrowser } from './open-browser';
 import type { ServerMessage } from './protocol';
 import { createDashboardServer } from './server';
 
 /**
  * Launch a recording session: start the local dashboard, open a real Chromium
- * window at `targetUrl`, and keep both alive until the user closes the browser
- * or interrupts the process.
+ * window at `targetUrl`, capture the interactions performed there, and stream
+ * them to the dashboard as a live timeline. Runs until the user closes the
+ * browser or interrupts the process.
  *
- * This is the milestone-2 skeleton — capture and export wire into the same
- * dashboard channel in later milestones.
+ * The captured timeline is held in memory; editing and export wire into the
+ * same buffer in later milestones.
  */
 export async function start(targetUrl: string): Promise<void> {
   const server = await createDashboardServer();
+  const timeline: TimelineEvent[] = [];
+  const startedAt = Date.now();
 
-  // Greet each client as it connects so a late-opening tab still learns which
-  // site is being recorded.
   server.wss.on('connection', (socket) => {
     const hello: ServerMessage = { type: 'hello', targetUrl };
     socket.send(JSON.stringify(hello));
+    // Replay the timeline so far so a late-opening dashboard isn't empty.
+    for (const event of timeline) {
+      socket.send(JSON.stringify({ type: 'event', event } satisfies ServerMessage));
+    }
   });
 
+  const onAction = (action: CapturedAction): void => {
+    const event: TimelineEvent = {
+      type: action.type,
+      params: action.params,
+      tMs: Date.now() - startedAt,
+      durationMs: 0,
+      ...(action.inputValue === undefined ? {} : { inputValue: action.inputValue }),
+    };
+    timeline.push(event);
+    server.broadcast({ type: 'event', event });
+  };
+
   const browser = await chromium.launch({ headless: false });
-  // `viewport: null` lets the page fill the real window — this is a live
-  // session a person drives, not a fixed-size automated run.
+  // `viewport: null` lets the page fill the real window — a person drives this.
   const context = await browser.newContext({ viewport: null });
+  // Attach capture before the first page exists so the init script applies.
+  await attachCapture(context, onAction);
   const page = await context.newPage();
 
   let closing = false;
@@ -37,7 +58,6 @@ export async function start(targetUrl: string): Promise<void> {
   };
   process.on('SIGINT', () => void shutdown());
   process.on('SIGTERM', () => void shutdown());
-  // Quitting the Chromium window ends the session too.
   browser.on('disconnected', () => void shutdown());
 
   openInBrowser(server.url);

@@ -33,6 +33,11 @@ export const PLACEHOLDER_HTML = `<!doctype html>
       .dot { width: 9px; height: 9px; border-radius: 50%; background: #555; transition: background 0.2s; }
       .dot.on { background: #10b981; box-shadow: 0 0 10px #10b981; }
       .target { margin-top: 0.5rem; word-break: break-all; }
+      ol { margin: 1rem 0 0; padding-left: 0; list-style: none; font-size: 0.85rem; }
+      ol li { padding: 0.35rem 0; border-top: 1px solid #1a1a1a; display: flex; gap: 0.6rem; }
+      ol li .kind { color: #10b981; min-width: 5.5rem; }
+      ol li .detail { color: #c9c9c9; word-break: break-all; }
+      .empty { color: #6a6a6a; }
       footer { margin-top: 1.75rem; font-size: 0.8rem; }
     </style>
   </head>
@@ -42,12 +47,40 @@ export const PLACEHOLDER_HTML = `<!doctype html>
       <p class="muted">Local dashboard &mdash; placeholder for the v0.1 timeline editor.</p>
       <div class="row"><span id="dot" class="dot"></span><span id="status">connecting&hellip;</span></div>
       <p class="muted target" id="target"></p>
-      <footer class="muted">Interact with the Chromium window to record. This view becomes the live, editable timeline.</footer>
+      <ol id="events"><li class="empty">No steps captured yet &mdash; interact with the Chromium window.</li></ol>
+      <footer class="muted">This view becomes the live, editable timeline.</footer>
     </main>
     <script>
       var dot = document.getElementById('dot');
       var status = document.getElementById('status');
       var target = document.getElementById('target');
+      var events = document.getElementById('events');
+      var count = 0;
+
+      function detailFor(ev) {
+        var p = ev.params || {};
+        if (typeof ev.inputValue === 'string') return (p.target || '') + ' = ' + JSON.stringify(ev.inputValue);
+        if (p.key) return String(p.key);
+        if (p.url) return String(p.url);
+        if (typeof p.values !== 'undefined') return (p.target || '') + ' -> ' + JSON.stringify(p.values);
+        return String(p.target || '');
+      }
+
+      function addEvent(ev) {
+        if (count === 0) events.innerHTML = '';
+        count += 1;
+        var li = document.createElement('li');
+        var kind = document.createElement('span');
+        kind.className = 'kind';
+        kind.textContent = ev.type;
+        var detail = document.createElement('span');
+        detail.className = 'detail';
+        detail.textContent = detailFor(ev);
+        li.appendChild(kind);
+        li.appendChild(detail);
+        events.appendChild(li);
+      }
+
       var ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
       ws.onopen = function () { dot.classList.add('on'); status.textContent = 'connected'; };
       ws.onclose = function () { dot.classList.remove('on'); status.textContent = 'disconnected'; };
@@ -55,6 +88,7 @@ export const PLACEHOLDER_HTML = `<!doctype html>
         try {
           var msg = JSON.parse(event.data);
           if (msg.type === 'hello') { target.textContent = 'Recording: ' + msg.targetUrl; }
+          else if (msg.type === 'event') { addEvent(msg.event); }
         } catch (_) { /* ignore non-JSON frames */ }
       };
     </script>
