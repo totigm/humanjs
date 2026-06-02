@@ -268,7 +268,7 @@ const DEMO_HTML = /* html */ `
         transition: left 0.08s linear;
       }
 
-      /* 5. Type */
+      /* 5. Type & clear */
       .text-input {
         width: 100%;
         padding: 14px 16px;
@@ -455,7 +455,7 @@ const DEMO_HTML = /* html */ `
         </div>
       </div>
 
-      <!-- 5. Type -->
+      <!-- 5. Type & clear -->
       <div class="block">
         <div class="label"><span class="num">5</span> type &amp; clear</div>
         <input id="type-input" class="text-input" placeholder="email" autocomplete="off" spellcheck="false" />
