@@ -67,7 +67,11 @@
   "dependencies": {
     "@humanjs/core": "workspace:*",
     "@humanjs/playwright": "workspace:*",
-    "playwright": "^1.60.0"
+    "playwright": "^1.60.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.12"
   },
   "publishConfig": {
     "access": "public"

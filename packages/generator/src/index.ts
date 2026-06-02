@@ -6,24 +6,30 @@
  * accessible-name-first selectors), shows a live, editable timeline in a local
  * dashboard, and exports a clean humanized Playwright test.
  *
- * This is the v0.1 build-out. The CLI shell here parses arguments and reports
- * intent; the browser launch, capture script, local dashboard, and export
- * pipeline land across the following milestones (see ROADMAP.md).
+ * Milestone 2: the CLI launches the browser and the local dashboard server and
+ * wires the WebSocket channel. Capture, the editor UI, and export land across
+ * the following milestones (see ROADMAP.md).
  */
+
+import { start } from './run';
+import { normalizeUrl } from './url';
 
 const USAGE = 'Usage: npx @humanjs/generator <url>';
 
-function main(argv: readonly string[]): void {
-  const [url] = argv;
+async function main(argv: readonly string[]): Promise<void> {
+  const [rawUrl] = argv;
 
-  if (!url || url === '--help' || url === '-h') {
-    // No URL (or an explicit help flag) — print usage. Exit 0 for --help,
-    // exit 1 for a missing-argument error.
+  if (!rawUrl || rawUrl === '--help' || rawUrl === '-h') {
+    // No URL (or an explicit help flag): print usage. Exit 0 for --help, 1 for
+    // a missing-argument error.
     console.log(USAGE);
-    process.exit(url ? 0 : 1);
+    process.exit(rawUrl ? 0 : 1);
   }
 
-  console.log(`@humanjs/generator: launching ${url} … (not yet implemented)`);
+  await start(normalizeUrl(rawUrl));
 }
 
-main(process.argv.slice(2));
+main(process.argv.slice(2)).catch((error: unknown) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+});
