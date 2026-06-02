@@ -27,11 +27,30 @@ export function Select({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [dropUp, setDropUp] = useState(false);
   const [active, setActive] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
 
   const current = options.find((o) => o.value === value);
   const display = current?.label ?? current?.value ?? placeholder ?? '';
+
+  // Open downward when there's room, otherwise upward — measured against the
+  // trigger's position at open time.
+  const openMenu = (): void => {
+    const rect = ref.current?.getBoundingClientRect();
+    if (rect) {
+      const panel = Math.min(256, options.length * 33 + 8);
+      const below = window.innerHeight - rect.bottom;
+      setDropUp(below < panel + 8 && rect.top > below);
+    }
+    setActive(
+      Math.max(
+        0,
+        options.findIndex((o) => o.value === value),
+      ),
+    );
+    setOpen(true);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -53,7 +72,7 @@ export function Select({
     } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
       if (!open) {
-        setOpen(true);
+        openMenu();
         return;
       }
       setActive((a) => {
@@ -66,13 +85,7 @@ export function Select({
       if (opt) choose(opt.value);
     } else if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      setActive(
-        Math.max(
-          0,
-          options.findIndex((o) => o.value === value),
-        ),
-      );
-      setOpen(true);
+      openMenu();
     }
   };
 
@@ -84,7 +97,7 @@ export function Select({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={ariaLabel}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => (open ? setOpen(false) : openMenu())}
         onKeyDown={onKeyDown}
       >
         <span className="select-value">{display}</span>
@@ -95,11 +108,11 @@ export function Select({
       <AnimatePresence>
         {open && (
           <motion.ul
-            className="select-list"
+            className={`select-list${dropUp ? ' drop-up' : ''}`}
             aria-label={ariaLabel}
-            initial={{ opacity: 0, y: -4 }}
+            initial={{ opacity: 0, y: dropUp ? 4 : -4 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
+            exit={{ opacity: 0, y: dropUp ? 4 : -4 }}
             transition={{ duration: 0.12, ease: 'easeOut' }}
           >
             {options.map((o, i) => (

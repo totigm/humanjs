@@ -2,8 +2,8 @@ import { Reorder, useDragControls } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import type { AssertKind, ClientMessage, Step } from '../../src/protocol';
 import { type Generator, useGenerator } from './api';
+import { CodePreview } from './components/CodePreview';
 import { Select } from './components/Select';
-import { highlightTs } from './highlight';
 
 const ASSERT_KINDS: AssertKind[] = ['visible', 'text', 'url'];
 
@@ -288,10 +288,7 @@ export function App() {
         <header className="preview-head">
           <span className="muted">Live preview · spec</span>
         </header>
-        <pre className="code">
-          {/* biome-ignore lint/security/noDangerouslySetInnerHtml: generated code, fully HTML-escaped by highlightTs */}
-          <code dangerouslySetInnerHTML={{ __html: highlightTs(state.code) }} />
-        </pre>
+        <CodePreview code={state.code} />
       </section>
     </div>
   );
