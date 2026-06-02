@@ -1,11 +1,10 @@
 /**
- * Embedded dashboard served until the Vite + React SPA is built into
- * `dist/dashboard/` (milestone 5). It exists so the HTTP + WebSocket transport
- * is exercisable end-to-end now: it opens the channel and reflects connection
- * state and the `hello` handshake.
+ * Fallback dashboard served when the built Vite + React editor isn't present in
+ * `dist/dashboard/`. It's a read-only view of the live timeline + code preview
+ * over the same `state` protocol, with Export buttons — enough to exercise the
+ * pipeline without the full editor.
  *
- * Kept as a single self-contained string — no external assets, no nested
- * backticks (they'd close this template literal).
+ * Single self-contained string — no external assets, no nested backticks.
  */
 export const PLACEHOLDER_HTML = `<!doctype html>
 <html lang="en">
@@ -17,15 +16,11 @@ export const PLACEHOLDER_HTML = `<!doctype html>
       :root { color-scheme: dark; }
       * { box-sizing: border-box; }
       body {
-        margin: 0;
-        min-height: 100vh;
-        display: grid;
-        place-items: center;
-        background: #050505;
-        color: #e7e7e7;
+        margin: 0; min-height: 100vh; display: grid; place-items: center;
+        background: #050505; color: #e7e7e7;
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       }
-      main { width: min(560px, 90vw); padding: 2rem; }
+      main { width: min(620px, 92vw); padding: 2rem; }
       h1 { font-size: 1.25rem; margin: 0 0 0.25rem; letter-spacing: 0.02em; }
       .accent { color: #10b981; }
       .muted { color: #8a8a8a; }
@@ -56,7 +51,7 @@ export const PLACEHOLDER_HTML = `<!doctype html>
   <body>
     <main>
       <h1><span class="accent">HumanJS</span> Generator</h1>
-      <p class="muted">Local dashboard &mdash; placeholder for the v0.1 timeline editor.</p>
+      <p class="muted">Local dashboard &mdash; read-only fallback view.</p>
       <div class="row"><span id="dot" class="dot"></span><span id="status">connecting&hellip;</span></div>
       <p class="muted target" id="target"></p>
       <ol id="events"><li class="empty">No steps captured yet &mdash; interact with the Chromium window.</li></ol>
@@ -66,7 +61,7 @@ export const PLACEHOLDER_HTML = `<!doctype html>
         <span id="saved" class="saved"></span>
       </div>
       <pre class="code" id="code"></pre>
-      <footer class="muted">This view becomes the live, editable timeline.</footer>
+      <footer class="muted">The full editor (drag, relabel, selector picker, assertions) loads here once built.</footer>
     </main>
     <script>
       var dot = document.getElementById('dot');
@@ -75,7 +70,6 @@ export const PLACEHOLDER_HTML = `<!doctype html>
       var events = document.getElementById('events');
       var code = document.getElementById('code');
       var saved = document.getElementById('saved');
-      var count = 0;
 
       function detailFor(ev) {
         var p = ev.params || {};
@@ -83,23 +77,30 @@ export const PLACEHOLDER_HTML = `<!doctype html>
         if (p.from) return p.from + ' -> ' + p.to;
         if (p.key) return String(p.key);
         if (p.url) return String(p.url);
+        if (p.kind) return p.kind + (p.target ? ' ' + p.target : '') + (p.value ? ' ' + JSON.stringify(p.value) : '');
         if (typeof p.values !== 'undefined') return (p.target || '') + ' -> ' + JSON.stringify(p.values);
         return String(p.target || '');
       }
 
-      function addEvent(ev) {
-        if (count === 0) events.innerHTML = '';
-        count += 1;
-        var li = document.createElement('li');
-        var kind = document.createElement('span');
-        kind.className = 'kind';
-        kind.textContent = ev.type;
-        var detail = document.createElement('span');
-        detail.className = 'detail';
-        detail.textContent = detailFor(ev);
-        li.appendChild(kind);
-        li.appendChild(detail);
-        events.appendChild(li);
+      function renderSteps(steps) {
+        events.innerHTML = '';
+        if (!steps.length) {
+          events.innerHTML = '<li class="empty">No steps captured yet &mdash; interact with the Chromium window.</li>';
+          return;
+        }
+        for (var i = 0; i < steps.length; i++) {
+          var ev = steps[i];
+          var li = document.createElement('li');
+          var kind = document.createElement('span');
+          kind.className = 'kind';
+          kind.textContent = ev.type;
+          var detail = document.createElement('span');
+          detail.className = 'detail';
+          detail.textContent = detailFor(ev);
+          li.appendChild(kind);
+          li.appendChild(detail);
+          events.appendChild(li);
+        }
       }
 
       var ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
@@ -108,10 +109,13 @@ export const PLACEHOLDER_HTML = `<!doctype html>
       ws.onmessage = function (event) {
         try {
           var msg = JSON.parse(event.data);
-          if (msg.type === 'hello') { target.textContent = 'Recording: ' + msg.targetUrl; }
-          else if (msg.type === 'event') { addEvent(msg.event); }
-          else if (msg.type === 'code') { code.textContent = msg.code; }
-          else if (msg.type === 'exported') { saved.textContent = 'Saved ' + msg.path; }
+          if (msg.type === 'state') {
+            target.textContent = 'Recording: ' + msg.targetUrl;
+            renderSteps(msg.steps || []);
+            code.textContent = msg.code || '';
+          } else if (msg.type === 'exported') {
+            saved.textContent = 'Saved ' + msg.path;
+          }
         } catch (_) { /* ignore non-JSON frames */ }
       };
 

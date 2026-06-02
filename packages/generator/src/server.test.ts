@@ -35,12 +35,12 @@ describe('createDashboardServer', () => {
     const client = new WebSocket(wsUrl);
 
     const received = await new Promise<string>((resolve, reject) => {
-      client.on('open', () => server.broadcast({ type: 'hello', targetUrl: 'https://x.test' }));
+      client.on('open', () => server.broadcast({ type: 'exported', path: '/tmp/out.spec.ts' }));
       client.on('message', (data) => resolve(data.toString()));
       client.on('error', reject);
     });
     client.close();
 
-    expect(JSON.parse(received)).toEqual({ type: 'hello', targetUrl: 'https://x.test' });
+    expect(JSON.parse(received)).toEqual({ type: 'exported', path: '/tmp/out.spec.ts' });
   });
 });

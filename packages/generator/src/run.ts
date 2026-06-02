@@ -1,13 +1,15 @@
 import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import type { TimelineEvent } from '@humanjs/playwright';
 import { chromium } from 'playwright';
 import { attachCapture } from './capture/attach';
-import type { CapturedAction } from './capture/types';
 import { type ExportFormat, generateCode } from './export';
 import { openInBrowser } from './open-browser';
 import type { ClientMessage, ServerMessage } from './protocol';
 import { createDashboardServer } from './server';
+import { TimelineStore } from './timeline-store';
+
+/** Built-in personalities the dashboard switcher offers. */
+const PERSONALITIES = ['careful', 'fast', 'distracted', 'precise'] as const;
 
 /** Default output filenames per format, written to the CLI's working directory. */
 const OUTPUT_FILE: Record<ExportFormat, string> = {
@@ -17,66 +19,88 @@ const OUTPUT_FILE: Record<ExportFormat, string> = {
 
 /**
  * Launch a recording session: start the local dashboard, open a real Chromium
- * window at `targetUrl`, capture the interactions performed there, stream them
- * to the dashboard as a live timeline with a live code preview, and write a
- * `.spec.ts` / `.ts` when the user exports. Runs until the user closes the
- * browser or interrupts the process.
+ * window at `targetUrl`, capture interactions into an editable timeline, and let
+ * the dashboard curate it (delete / reorder / relabel / edit / pick selectors /
+ * add assertions / mark secrets / switch personality) with a live code preview,
+ * then export a `.spec.ts` / `.ts`. Runs until the browser closes or the
+ * process is interrupted.
  */
 export async function start(targetUrl: string): Promise<void> {
   const server = await createDashboardServer();
-  const timeline: TimelineEvent[] = [];
-  const startedAt = Date.now();
+  const store = new TimelineStore();
+  let personality = 'careful';
 
-  // The live preview is always the spec form (the runnable test). Export lets
-  // the user pick spec or standalone script.
-  const previewCode = (): string => generateCode(timeline, { format: 'spec' });
+  const previewCode = (): string => generateCode(store.list(), { format: 'spec', personality });
 
-  const sendInitial = (socket: { send(data: string): void }): void => {
-    socket.send(JSON.stringify({ type: 'hello', targetUrl } satisfies ServerMessage));
-    for (const event of timeline) {
-      socket.send(JSON.stringify({ type: 'event', event } satisfies ServerMessage));
-    }
-    socket.send(JSON.stringify({ type: 'code', code: previewCode() } satisfies ServerMessage));
-  };
+  const stateMessage = (): ServerMessage => ({
+    type: 'state',
+    targetUrl,
+    steps: store.list(),
+    personality,
+    personalities: [...PERSONALITIES],
+    code: previewCode(),
+  });
+
+  const broadcastState = (): void => server.broadcast(stateMessage());
 
   const exportTimeline = async (format: ExportFormat): Promise<void> => {
     const path = resolve(process.cwd(), OUTPUT_FILE[format]);
-    await writeFile(path, generateCode(timeline, { format }), 'utf8');
+    await writeFile(path, generateCode(store.list(), { format, personality }), 'utf8');
     server.broadcast({ type: 'exported', path });
     console.log(`  Exported ${format === 'spec' ? 'test' : 'script'} → ${path}`);
   };
 
+  const handleCommand = (message: ClientMessage): void => {
+    switch (message.type) {
+      case 'delete':
+        store.delete(message.id);
+        break;
+      case 'move':
+        store.move(message.id, message.toIndex);
+        break;
+      case 'update':
+        store.update(message.id, message.patch);
+        break;
+      case 'addAssert':
+        store.addAssert(message.afterId, message.kind, message.target, message.value);
+        break;
+      case 'setPersonality':
+        if ((PERSONALITIES as readonly string[]).includes(message.personality)) {
+          personality = message.personality;
+        }
+        break;
+      case 'export':
+        void exportTimeline(message.format);
+        return; // export replies with `exported`, not a state refresh
+    }
+    broadcastState();
+  };
+
   server.wss.on('connection', (socket) => {
-    sendInitial(socket);
+    socket.send(JSON.stringify(stateMessage()));
     socket.on('message', (data) => {
-      let message: ClientMessage;
       try {
-        message = JSON.parse(data.toString());
+        handleCommand(JSON.parse(data.toString()) as ClientMessage);
       } catch {
-        return;
+        // Ignore malformed frames.
       }
-      if (message.type === 'export') void exportTimeline(message.format);
     });
   });
-
-  const onAction = (action: CapturedAction): void => {
-    const event: TimelineEvent = {
-      type: action.type,
-      params: action.params,
-      tMs: Date.now() - startedAt,
-      durationMs: 0,
-      ...(action.inputValue === undefined ? {} : { inputValue: action.inputValue }),
-    };
-    timeline.push(event);
-    server.broadcast({ type: 'event', event });
-    server.broadcast({ type: 'code', code: previewCode() });
-  };
 
   const browser = await chromium.launch({ headless: false });
   // `viewport: null` lets the page fill the real window — a person drives this.
   const context = await browser.newContext({ viewport: null });
   // Attach capture before the first page exists so the init script applies.
-  await attachCapture(context, onAction);
+  await attachCapture(context, (action) => {
+    store.append({
+      type: action.type,
+      params: action.params,
+      tMs: 0,
+      durationMs: 0,
+      ...(action.inputValue === undefined ? {} : { inputValue: action.inputValue }),
+    });
+    broadcastState();
+  });
   const page = await context.newPage();
 
   let closing = false;
