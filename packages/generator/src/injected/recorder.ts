@@ -10,6 +10,10 @@ declare global {
   }
 }
 
+/** Text-like input types whose value we capture as a `type` action. */
+const TEXT_INPUT_TYPES = new Set(['text', 'email', 'tel', 'url', 'search', 'password', 'number']);
+
+/** Non-printable keys worth recording as a `press` when NOT editing a field. */
 const NAV_KEYS = new Set([
   'Enter',
   'Tab',
@@ -26,8 +30,14 @@ const NAV_KEYS = new Set([
   'PageDown',
 ]);
 
+/** Keys still meaningful as a `press` while a field is focused. */
+const COMMAND_KEYS = new Set(['Enter', 'Tab', 'Escape']);
+
 const ACTIONABLE =
   'a[href],button,input,select,textarea,label,summary,[role],[contenteditable=""],[contenteditable="true"],[onclick]';
+
+/** Min pointer travel (px) before a press-drag-release counts as a drag, not a click. */
+const DRAG_THRESHOLD = 10;
 
 function emit(action: CapturedAction): void {
   try {
@@ -53,26 +63,66 @@ function isEditable(el: Element | null): boolean {
   return el instanceof HTMLElement && el.isContentEditable;
 }
 
-function emitType(el: HTMLInputElement | HTMLTextAreaElement): void {
-  const isPassword = el instanceof HTMLInputElement && el.type === 'password';
-  emit({
-    type: 'type',
-    params: targetParams(el),
-    // Passwords are masked: omit the value entirely (mirrors the recorder).
-    inputValue: isPassword ? undefined : el.value,
-  });
+interface PendingType {
+  readonly params: Record<string, unknown>;
+  readonly value: string;
+  readonly masked: boolean;
 }
 
 export function installRecorder(): void {
   if (window.__humanjsRecording) return;
   window.__humanjsRecording = true;
 
+  // --- Text input: capture via `input` (reliable on SPA fields), debounced,
+  // and flushed before any other action so [type, click] order is preserved.
+  let pendingType: PendingType | null = null;
+  let typeTimer: ReturnType<typeof setTimeout> | undefined;
+
+  function flushType(): void {
+    clearTimeout(typeTimer);
+    if (!pendingType) return;
+    const { params, value, masked } = pendingType;
+    pendingType = null;
+    emit({ type: 'type', params, inputValue: masked ? undefined : value });
+  }
+
+  /** Flush any pending typed value, then emit a discrete action in order. */
+  function emitAction(action: CapturedAction): void {
+    flushType();
+    emit(action);
+  }
+
+  document.addEventListener(
+    'input',
+    (event) => {
+      const el = event.target;
+      let value: string | null = null;
+      let masked = false;
+      if (el instanceof HTMLInputElement && TEXT_INPUT_TYPES.has(el.type)) {
+        value = el.value;
+        masked = el.type === 'password';
+      } else if (el instanceof HTMLTextAreaElement) {
+        value = el.value;
+      } else if (el instanceof HTMLElement && el.isContentEditable) {
+        value = el.textContent ?? '';
+      }
+      if (value === null || !(el instanceof Element)) return;
+      pendingType = { params: targetParams(el), value, masked };
+      clearTimeout(typeTimer);
+      typeTimer = setTimeout(flushType, 500);
+    },
+    true,
+  );
+
+  // Leaving a field commits its value immediately (before the next interaction).
+  document.addEventListener('focusout', () => flushType(), true);
+
   document.addEventListener(
     'click',
     (event) => {
       if (event.button !== 0) return;
       const el = resolveActionable(event.target);
-      if (el) emit({ type: 'click', params: targetParams(el) });
+      if (el) emitAction({ type: 'click', params: targetParams(el) });
     },
     true,
   );
@@ -81,28 +131,26 @@ export function installRecorder(): void {
     'contextmenu',
     (event) => {
       const el = resolveActionable(event.target);
-      if (el) emit({ type: 'rightClick', params: targetParams(el) });
+      if (el) emitAction({ type: 'rightClick', params: targetParams(el) });
     },
     true,
   );
 
+  // Checkboxes, radios, and <select> commit reliably on `change`. Text inputs
+  // are handled by the `input` listener above.
   document.addEventListener(
     'change',
     (event) => {
       const el = event.target;
       if (el instanceof HTMLInputElement) {
         if (el.type === 'checkbox') {
-          emit({ type: el.checked ? 'check' : 'uncheck', params: targetParams(el) });
-        } else if (el.type === 'radio') {
-          if (el.checked) emit({ type: 'check', params: targetParams(el) });
-        } else {
-          emitType(el);
+          emitAction({ type: el.checked ? 'check' : 'uncheck', params: targetParams(el) });
+        } else if (el.type === 'radio' && el.checked) {
+          emitAction({ type: 'check', params: targetParams(el) });
         }
-      } else if (el instanceof HTMLTextAreaElement) {
-        emitType(el);
       } else if (el instanceof HTMLSelectElement) {
         const values = Array.from(el.selectedOptions, (option) => option.value);
-        emit({ type: 'selectOption', params: { ...targetParams(el), values } });
+        emitAction({ type: 'selectOption', params: { ...targetParams(el), values } });
       }
     },
     true,
@@ -114,25 +162,88 @@ export function installRecorder(): void {
       const key = event.key;
       if (key === 'Shift' || key === 'Control' || key === 'Alt' || key === 'Meta') return;
 
-      const chord = event.metaKey || event.ctrlKey;
-      const printable = key.length === 1;
+      const editing = isEditable(event.target as Element);
 
-      // Plain typing into a field is captured on `change` — don't also record
-      // every character as a press.
-      if (!chord && printable && isEditable(event.target as Element)) return;
-
-      if (chord) {
+      if (event.metaKey || event.ctrlKey) {
         const parts = ['Mod'];
         if (event.shiftKey) parts.push('Shift');
         if (event.altKey) parts.push('Alt');
-        parts.push(printable ? key.toUpperCase() : key);
-        emit({ type: 'press', params: { key: parts.join('+') } });
+        parts.push(key.length === 1 ? key.toUpperCase() : key);
+        emitAction({ type: 'press', params: { key: parts.join('+') } });
+        return;
+      }
+
+      // Plain character typing is captured as `type` — never as a press.
+      if (key.length === 1) return;
+
+      if (editing) {
+        // Inside a field, only submit/cancel/next-field keys are meaningful;
+        // Backspace / Delete / arrows are editing noise.
+        if (COMMAND_KEYS.has(key)) emitAction({ type: 'press', params: { key } });
       } else if (NAV_KEYS.has(key)) {
-        emit({ type: 'press', params: { key } });
+        emitAction({ type: 'press', params: { key } });
       }
     },
     true,
   );
+
+  // --- Drag: native HTML5 DnD plus pointer-based drags (sortables, sliders).
+  let dndSource: Element | null = null;
+  document.addEventListener('dragstart', (e) => {
+    dndSource = resolveActionable(e.target);
+  });
+  document.addEventListener('drop', (e) => {
+    if (dndSource) emitDrag(dndSource, resolveActionable(e.target));
+    dndSource = null;
+  });
+  document.addEventListener('dragend', () => {
+    dndSource = null;
+  });
+
+  let pointerStart: { x: number; y: number; el: Element | null } | null = null;
+  document.addEventListener(
+    'pointerdown',
+    (event) => {
+      if (event.button !== 0) return;
+      pointerStart = { x: event.clientX, y: event.clientY, el: resolveActionable(event.target) };
+    },
+    true,
+  );
+  document.addEventListener(
+    'pointerup',
+    (event) => {
+      const start = pointerStart;
+      pointerStart = null;
+      if (!start) return;
+      const distance = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+      if (distance < DRAG_THRESHOLD) return; // a click, not a drag
+      // A non-empty selection means the user was selecting text, not dragging.
+      if ((window.getSelection()?.toString().length ?? 0) > 0) return;
+      emitDrag(start.el, resolveActionable(event.target), event.clientX, event.clientY);
+    },
+    true,
+  );
+  document.addEventListener(
+    'pointercancel',
+    () => {
+      pointerStart = null;
+    },
+    true,
+  );
+
+  function emitDrag(fromEl: Element | null, toEl: Element | null, x?: number, y?: number): void {
+    if (!fromEl) return;
+    const from = inferSelectors(fromEl);
+    const to = toEl ? inferSelectors(toEl) : [];
+    const toTarget =
+      to[0] ??
+      (x !== undefined && y !== undefined ? `point(${Math.round(x)}, ${Math.round(y)})` : '');
+    if (!from[0] || !toTarget) return;
+    emitAction({
+      type: 'drag',
+      params: { from: from[0], to: toTarget, fromCandidates: from, toCandidates: to },
+    });
+  }
 
   let scrollTimer: ReturnType<typeof setTimeout> | undefined;
   window.addEventListener(

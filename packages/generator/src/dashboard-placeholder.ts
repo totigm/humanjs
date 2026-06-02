@@ -60,6 +60,7 @@ export const PLACEHOLDER_HTML = `<!doctype html>
       function detailFor(ev) {
         var p = ev.params || {};
         if (typeof ev.inputValue === 'string') return (p.target || '') + ' = ' + JSON.stringify(ev.inputValue);
+        if (p.from) return p.from + ' -> ' + p.to;
         if (p.key) return String(p.key);
         if (p.url) return String(p.url);
         if (typeof p.values !== 'undefined') return (p.target || '') + ' -> ' + JSON.stringify(p.values);
