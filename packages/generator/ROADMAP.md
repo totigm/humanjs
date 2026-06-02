@@ -10,11 +10,11 @@ The first published release. Milestones, each independently testable:
 2. **CLI + browser launch + local server** — `npx @humanjs/generator <url>` opens a real Chromium window and a localhost-only dashboard (HTTP + WebSocket) that reports "connected". _(done)_
 3. **Capture + ranked selector inference** — an injected content script records click / type / scroll / navigation as `TimelineEvent`s and streams them live. `selectors.ts` ranks candidates (ARIA role + accessible name → label → text → test id → CSS → XPath) and is unit-tested against a fixture DOM. _(done)_
 4. **Export layer** — curated `Timeline` → `.spec.ts` / `.ts` via the shared codegen, including **assertion rendering** and **secret → `process.env.*` substitution**. e2e: record a fixture flow, export, run the generated spec. _(done)_ The placeholder dashboard now shows a live code preview and Export buttons; the codegen learned to render explicit `assert` events (`@humanjs/playwright`).
-5. **Full editor UI** (Vite + React SPA, bundled into the package):
-   - delete / reorder / relabel steps, edit captured text
+5. **Full editor UI** (Vite + React SPA, bundled into the package) — _(done)_
+   - delete / reorder (drag) / relabel steps, edit captured text
    - per-step **selector picker** (choose among ranked candidates)
    - **point-and-add assertions** (`toBeVisible` / `toHaveText` / `toHaveURL`)
-   - **secret-field toggle** (emit `process.env.X` + a "set this" note)
+   - **secret-field toggle** (emit `process.env.X`)
    - **personality switcher** (`careful` / `fast` / `distracted` / `precise`)
    - **live code preview** — regenerated on every timeline mutation
 6. **Polish + README + DESIGN cross-link**, then a `minor` changeset to publish `0.1.0`.

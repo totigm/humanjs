@@ -39,14 +39,22 @@ export interface DashboardServer {
   close(): Promise<void>;
 }
 
+export interface DashboardServerOptions {
+  /** Directory of built dashboard assets to serve. Defaults to `dist/dashboard`. */
+  readonly dashboardDir?: string;
+}
+
 /**
  * Start the local dashboard server, bound to loopback on an OS-assigned port.
  * Serves the built dashboard (or the placeholder) over HTTP and upgrades
  * WebSocket connections on the same port.
  */
-export async function createDashboardServer(): Promise<DashboardServer> {
+export async function createDashboardServer(
+  options: DashboardServerOptions = {},
+): Promise<DashboardServer> {
+  const dashboardDir = options.dashboardDir ?? DASHBOARD_DIR;
   const http = createServer((req, res) => {
-    void serve(req.url ?? '/', res);
+    void serve(dashboardDir, req.url ?? '/', res);
   });
   const wss = new WebSocketServer({ server: http });
 
@@ -80,13 +88,13 @@ export async function createDashboardServer(): Promise<DashboardServer> {
   };
 }
 
-async function serve(rawUrl: string, res: ServerResponse): Promise<void> {
+async function serve(dashboardDir: string, rawUrl: string, res: ServerResponse): Promise<void> {
   const pathname = rawUrl.split('?')[0] ?? '/';
   const relative = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
-  const filePath = normalize(join(DASHBOARD_DIR, relative));
+  const filePath = normalize(join(dashboardDir, relative));
 
-  // Path-traversal guard: the resolved file must stay inside DASHBOARD_DIR.
-  if (filePath !== DASHBOARD_DIR && !filePath.startsWith(DASHBOARD_DIR + sep)) {
+  // Path-traversal guard: the resolved file must stay inside the dashboard dir.
+  if (filePath !== dashboardDir && !filePath.startsWith(dashboardDir + sep)) {
     res.writeHead(403).end('Forbidden');
     return;
   }

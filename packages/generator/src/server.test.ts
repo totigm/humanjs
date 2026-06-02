@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
 import type { DashboardServer } from './server';
@@ -42,5 +45,43 @@ describe('createDashboardServer', () => {
     client.close();
 
     expect(JSON.parse(received)).toEqual({ type: 'exported', path: '/tmp/out.spec.ts' });
+  });
+});
+
+describe('createDashboardServer with a built dashboard', () => {
+  let dir: string;
+  let server: DashboardServer;
+
+  beforeEach(async () => {
+    dir = mkdtempSync(join(tmpdir(), 'humanjs-dash-'));
+    mkdirSync(join(dir, 'assets'));
+    writeFileSync(
+      join(dir, 'index.html'),
+      '<!doctype html><title>app</title><div id="root"></div>',
+    );
+    writeFileSync(join(dir, 'assets', 'app.js'), 'console.log(1)');
+    server = await createDashboardServer({ dashboardDir: dir });
+  });
+
+  afterEach(async () => {
+    await server.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('serves the built index.html at the root', async () => {
+    const res = await fetch(server.url);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain('id="root"');
+  });
+
+  it('serves built assets with the right content type', async () => {
+    const res = await fetch(`${server.url}/assets/app.js`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('javascript');
+  });
+
+  it('rejects path traversal out of the dashboard dir', async () => {
+    const res = await fetch(`${server.url}/..%2f..%2fpackage.json`);
+    expect(res.status).toBe(404);
   });
 });
