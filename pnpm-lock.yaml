@@ -111,6 +111,18 @@ importers:
 
   packages/core: {}
 
+  packages/generator:
+    dependencies:
+      '@humanjs/core':
+        specifier: workspace:*
+        version: link:../core
+      '@humanjs/playwright':
+        specifier: workspace:*
+        version: link:../playwright
+      playwright:
+        specifier: ^1.60.0
+        version: 1.60.0
+
   packages/mcp:
     dependencies:
       '@humanjs/core':

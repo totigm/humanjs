@@ -7,6 +7,7 @@ import type { CaptureResult } from './capture';
 import { generateHumanJS, generatePlaywrightTest, type PlaywrightTestOptions } from './codegen';
 
 export type { PlaywrightTestOptions } from './codegen';
+export { generateHumanJS, generatePlaywrightTest } from './codegen';
 
 // Safety net for captured-frame temp dirs: every live Recording registers
 // its dir here, and a single lazy `process.on('exit')` handler sweeps

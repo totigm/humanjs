@@ -102,6 +102,8 @@ export type { ReadOptions, ReadResult, ReadTarget } from './reading';
 export {
   type FfmpegPreset,
   type FfmpegTune,
+  generateHumanJS,
+  generatePlaywrightTest,
   type PlaywrightTestOptions,
   Recording,
   type RecordingQuality,
