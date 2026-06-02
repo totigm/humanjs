@@ -54,6 +54,28 @@ await human.type('input[name="email"]', 'gonzalo@example.com');
 
 Pass a `seed` and every random decision (path curvature, typo placement, keystroke jitter) becomes reproducible. Same seed + same personality + same value = same keystrokes.
 
+### Playwright Test fixture
+
+Writing `@playwright/test` specs? Import from the `@humanjs/playwright/test` subpath instead of constructing a `Human` in every test. It extends Playwright's `test` with a `human` fixture — seeded from the test title (deterministic per test) and instant in CI / humanized locally:
+
+```ts
+import { test, expect } from '@humanjs/playwright/test';
+
+test('checkout flow', async ({ human, page }) => {
+  await human.goto('/');
+  await human.click('Buy now');
+  await expect(page).toHaveURL(/checkout/);
+});
+```
+
+Customize per file (or per project via `playwright.config.ts` `use`) with the `humanOptions` option:
+
+```ts
+test.use({ humanOptions: { personality: 'distracted', speed: 'human' } });
+```
+
+Requires `@playwright/test` (an optional peer — you already have it to run the tests).
+
 ### Primitives
 
 The full `Human` surface, at a glance. Each one fires real DOM events through Playwright; the humanization wraps the timing and the path, not the dispatch.

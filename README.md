@@ -161,24 +161,36 @@ Click through your app, pick a personality, export to clean Playwright + HumanJS
 
 ## In tests
 
+Use the `@humanjs/playwright/test` fixture — it extends Playwright's `test` with a ready-to-use `human`, seeded from the test title and instant in CI, humanized locally. No boilerplate:
+
 ```ts
-import { test, expect } from '@playwright/test';
-import { createHuman } from '@humanjs/playwright';
+import { test, expect } from '@humanjs/playwright/test';
 
-test('checkout flow', async ({ page }) => {
-  const human = await createHuman(page, {
-    personality: 'careful',
-    seed: test.info().title,
-    speed: process.env.CI ? 'instant' : 'human',
-  });
-
+test('checkout flow', async ({ human, page }) => {
   await human.goto('/');
   await human.click('Buy now');
   await expect(page).toHaveURL(/checkout/);
 });
 ```
 
-The `seed` makes runs deterministic. `speed: 'instant'` in CI keeps your test suite fast.
+The seed (the test title) makes runs deterministic; `speed: 'instant'` in CI keeps the suite fast, full humanization runs locally. Customize per file or project: `test.use({ humanOptions: { personality: 'distracted' } })`.
+
+Prefer to wire it yourself? Create the human explicitly:
+
+```ts
+import { test, expect } from '@playwright/test';
+import { createHuman } from '@humanjs/playwright';
+
+test('checkout flow', async ({ page }) => {
+  const human = await createHuman(page, {
+    seed: test.info().title,
+    speed: process.env.CI ? 'instant' : 'human',
+  });
+  await human.goto('/');
+  await human.click('Buy now');
+  await expect(page).toHaveURL(/checkout/);
+});
+```
 
 ## Compared to alternatives
 
