@@ -206,6 +206,11 @@ export function App() {
   const { state, connected, exportedPath, send } = useGenerator();
   const [order, setOrder] = useState<Step[]>([]);
   const dragging = useRef(false);
+  const editorRef = useRef<HTMLElement>(null);
+  // Stick to the bottom as steps stream in — but only if the user is already
+  // there. If they scrolled up to inspect a step, leave them be.
+  const stickBottom = useRef(true);
+  const stepCount = state?.steps.length ?? 0;
 
   // Mirror the server's step order locally so framer-motion can animate
   // reordering. Don't clobber the local order mid-drag (the server echoes our
@@ -213,6 +218,12 @@ export function App() {
   useEffect(() => {
     if (state && !dragging.current) setOrder([...state.steps]);
   }, [state]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fire on step-count change to autoscroll
+  useEffect(() => {
+    const el = editorRef.current;
+    if (el && stickBottom.current) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+  }, [stepCount]);
 
   if (!state) {
     return (
@@ -227,7 +238,14 @@ export function App() {
 
   return (
     <div className="layout">
-      <section className="editor">
+      <section
+        className="editor"
+        ref={editorRef}
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          stickBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+        }}
+      >
         <header className="topbar">
           <h1>
             <span className="accent">HumanJS</span> Generator

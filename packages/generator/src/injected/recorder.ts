@@ -78,6 +78,11 @@ export function installRecorder(): void {
   let pendingType: PendingType | null = null;
   let typeTimer: ReturnType<typeof setTimeout> | undefined;
 
+  // A pointer-drag (e.g. a carousel/slider) often fires a trailing `click` on
+  // release. When we record a drag, swallow that follow-up click so it isn't
+  // captured as a separate step.
+  let suppressNextClick = false;
+
   function flushType(): void {
     clearTimeout(typeTimer);
     if (!pendingType) return;
@@ -121,6 +126,10 @@ export function installRecorder(): void {
     'click',
     (event) => {
       if (event.button !== 0) return;
+      if (suppressNextClick) {
+        suppressNextClick = false;
+        return;
+      }
       const el = resolveActionable(event.target);
       if (el) emitAction({ type: 'click', params: targetParams(el) });
     },
@@ -243,6 +252,12 @@ export function installRecorder(): void {
       type: 'drag',
       params: { from: from[0], to: toTarget, fromCandidates: from, toCandidates: to },
     });
+    // Swallow the click some draggable widgets fire on release. Cleared on a
+    // short timer so a later genuine click isn't lost if none follows.
+    suppressNextClick = true;
+    setTimeout(() => {
+      suppressNextClick = false;
+    }, 400);
   }
 
   let scrollTimer: ReturnType<typeof setTimeout> | undefined;
