@@ -104,11 +104,15 @@ input::placeholder {
   overflow: auto;
   padding: 1.25rem 1.5rem;
   border-right: 1px solid var(--line);
+  /* Let the column hold its 1fr track instead of growing to fit wide content. */
+  min-width: 0;
 }
 .preview {
   display: flex;
   flex-direction: column;
   background: var(--panel);
+  /* Same — long selector lines scroll inside .code-lines, not push the layout. */
+  min-width: 0;
 }
 .preview-head {
   padding: 0.75rem 1rem;
