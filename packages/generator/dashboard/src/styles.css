@@ -128,7 +128,13 @@ input::placeholder {
   color: #cfcfcf;
 }
 .code-line {
-  white-space: pre;
+  /* Soft-wrap long generated lines (giant selectors) instead of scrolling
+     sideways — a read-only preview reads better top-to-bottom. The padding +
+     negative indent give wrapped continuations a hanging indent. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding-left: 2ch;
+  text-indent: -2ch;
   min-height: 1.55em;
 }
 

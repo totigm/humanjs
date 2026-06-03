@@ -221,8 +221,14 @@ export function App() {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: fire on step-count change to autoscroll
   useEffect(() => {
-    const el = editorRef.current;
-    if (el && stickBottom.current) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    if (!stickBottom.current) return;
+    // Wait for the new row to lay out (framer-motion is mid-animation on the
+    // same frame) before measuring scrollHeight, or we stop just short.
+    const id = requestAnimationFrame(() => {
+      const el = editorRef.current;
+      if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    });
+    return () => cancelAnimationFrame(id);
   }, [stepCount]);
 
   if (!state) {
