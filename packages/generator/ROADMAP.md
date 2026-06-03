@@ -17,7 +17,7 @@ The first published release. Milestones, each independently testable:
    - **secret-field toggle** (emit `process.env.X`)
    - **personality switcher** (`careful` / `fast` / `distracted` / `precise`)
    - **live code preview** — regenerated on every timeline mutation
-6. **Polish + README + DESIGN cross-link**, then a `minor` changeset to publish `0.1.0`.
+6. **Polish + README + DESIGN cross-link**, then a `minor` changeset to publish `0.1.0`. _(done)_
 
 ## v0.2+ (deferred follow-ups)
 

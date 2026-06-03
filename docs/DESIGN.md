@@ -126,7 +126,9 @@ rec.toTimeline('checkout.json');       // structured analysis data
 
 Three output formats because three audiences want different things: marketers want video, engineers want test code, agent builders want structured timelines for analysis.
 
-### Generator (`@humanjs/generator`, v2)
+### Generator (`@humanjs/generator`)
+
+> **Shipping as of `0.1.0`.** See the package [README](../packages/generator/README.md) for usage and the [ROADMAP](../packages/generator/ROADMAP.md) for what's next. The design below is the original plan, now realized.
 
 A standalone CLI — not an iframe-based recorder. (Iframe-based recorders are blocked by `X-Frame-Options` on most real sites; the pattern doesn't scale.)
 
@@ -145,8 +147,9 @@ Differentiation from Playwright Codegen:
 - Edit-before-export UI (Playwright Codegen has none)
 - Better selector inference: roles + accessible names + test IDs before CSS / XPath
 - Annotations preserved in generated code
+- Point-and-add assertions (`toBeVisible` / `toHaveText` / `toHaveURL`) and secret fields exported as `process.env.*`
 
-The generator is explicitly v2. Shipping it before v1 core is stable would split focus and slow both.
+It was deliberately held until v1 core was stable so the two didn't split focus. The editor (Vite + React) is bundled into the package and served by the CLI on a loopback port; the curated timeline runs through `@humanjs/playwright`'s codegen, so generated specs stay in lockstep with the library.
 
 ## Personalities — design rationale
 
