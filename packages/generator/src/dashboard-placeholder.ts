@@ -17,31 +17,31 @@ export const PLACEHOLDER_HTML = `<!doctype html>
       * { box-sizing: border-box; }
       body {
         margin: 0; min-height: 100vh; display: grid; place-items: center;
-        background: #050505; color: #e7e7e7;
+        background: #060604; color: #f0ece5;
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       }
       main { width: min(620px, 92vw); padding: 2rem; }
       h1 { font-size: 1.25rem; margin: 0 0 0.25rem; letter-spacing: 0.02em; }
-      .accent { color: #10b981; }
-      .muted { color: #8a8a8a; }
+      .accent { color: #f5a55c; }
+      .muted { color: #8a857c; }
       .row { display: flex; align-items: center; gap: 0.6rem; margin: 1.25rem 0 0.5rem; }
       .dot { width: 9px; height: 9px; border-radius: 50%; background: #555; transition: background 0.2s; }
-      .dot.on { background: #10b981; box-shadow: 0 0 10px #10b981; }
+      .dot.on { background: #f5a55c; box-shadow: 0 0 10px #f5a55c; }
       .target { margin-top: 0.5rem; word-break: break-all; }
       ol { margin: 1rem 0 0; padding-left: 0; list-style: none; font-size: 0.85rem; }
       ol li { padding: 0.35rem 0; border-top: 1px solid #1a1a1a; display: flex; gap: 0.6rem; }
-      ol li .kind { color: #10b981; min-width: 5.5rem; }
+      ol li .kind { color: #f5a55c; min-width: 5.5rem; }
       ol li .detail { color: #c9c9c9; word-break: break-all; }
       .empty { color: #6a6a6a; }
       .bar { display: flex; align-items: center; gap: 0.6rem; margin-top: 1.5rem; flex-wrap: wrap; }
       button {
-        font: inherit; font-size: 0.8rem; color: #050505; background: #10b981;
+        font: inherit; font-size: 0.8rem; color: #060604; background: #f5a55c;
         border: 0; border-radius: 6px; padding: 0.45rem 0.8rem; cursor: pointer;
       }
-      button:hover { background: #34d399; }
-      .saved { color: #10b981; font-size: 0.8rem; }
+      button:hover { background: #ffb87a; }
+      .saved { color: #f5a55c; font-size: 0.8rem; }
       pre.code {
-        margin-top: 1rem; padding: 1rem; background: #0a0a0a; border: 1px solid #1a1a1a;
+        margin-top: 1rem; padding: 1rem; background: #0c0b0a; border: 1px solid #1a1a1a;
         border-radius: 8px; overflow: auto; max-height: 320px; font-size: 0.8rem;
         color: #cfcfcf; white-space: pre; line-height: 1.5;
       }

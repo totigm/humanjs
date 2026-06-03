@@ -1,18 +1,22 @@
 :root {
   color-scheme: dark;
-  --bg: #050505;
-  --panel: #0a0a0a;
-  --line: #1a1a1a;
-  --text: #e7e7e7;
-  --muted: #8a8a8a;
-  --accent: #10b981;
-  --accent-bright: #34d399;
+  /* Matches humanjs.dev (apps/web/app/globals.css) — warm dark + orange accent. */
+  --bg: #060604;
+  --panel: #0c0b0a;
+  --elevated: #110f0d;
+  --line: rgba(245, 230, 215, 0.1);
+  --field: #151310;
+  --field-hover: #1b1813;
+  --text: #f0ece5;
+  --muted: #8a857c;
+  --accent: #f5a55c;
+  --accent-bright: #ffb87a;
 }
 
 * {
   box-sizing: border-box;
   scrollbar-width: thin;
-  scrollbar-color: #242424 transparent;
+  scrollbar-color: #2a2620 transparent;
 }
 ::-webkit-scrollbar {
   width: 10px;
@@ -22,12 +26,12 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #242424;
+  background: #2a2620;
   border: 2px solid var(--bg);
   border-radius: 6px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #333;
+  background: #38322a;
 }
 
 body {
@@ -54,7 +58,7 @@ h1 {
 button {
   font: inherit;
   font-size: 0.8rem;
-  color: #050505;
+  color: #1a1410;
   background: var(--accent);
   border: 0;
   border-radius: 6px;
@@ -85,13 +89,13 @@ input {
   font: inherit;
   font-size: 0.8rem;
   color: var(--text);
-  background: #111;
+  background: var(--field);
   border: 1px solid var(--line);
   border-radius: 5px;
   padding: 0.3rem 0.4rem;
 }
 input::placeholder {
-  color: #5a5a5a;
+  color: #6a655c;
 }
 
 /* Layout */
@@ -246,7 +250,7 @@ li.step {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  background: #111;
+  background: var(--field);
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: 5px;
@@ -254,8 +258,8 @@ li.step {
   max-width: 22rem;
 }
 .select-btn:hover {
-  background: #161616;
-  border-color: #2a2a2a;
+  background: var(--field-hover);
+  border-color: var(--accent);
 }
 .select-value {
   overflow: hidden;
@@ -279,7 +283,7 @@ li.step {
   margin: 0;
   padding: 0.25rem;
   list-style: none;
-  background: #0d0d0d;
+  background: var(--elevated);
   border: 1px solid var(--line);
   border-radius: 8px;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
@@ -308,8 +312,8 @@ li.step {
 }
 .select-opt:hover,
 .select-opt.is-active {
-  background: #18181b;
-  color: #d7d7d7;
+  background: var(--field-hover);
+  color: var(--text);
 }
 .select-opt.is-selected {
   color: var(--accent);
