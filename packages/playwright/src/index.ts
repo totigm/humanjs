@@ -20,6 +20,7 @@ import {
 } from './forms';
 import { executeClear, executePaste, executePress, executeType, type KeyOrChord } from './keyboard';
 import { executeClick, executeDrag, executeHover, executeMove, type MouseTarget } from './mouse';
+import { type InstallMouseHelperOptions, installMouseHelper } from './mouse-helper';
 import { executeRead, type ReadOptions, type ReadResult, type ReadTarget } from './reading';
 import {
   getCaptureSettingsForQuality,
@@ -132,6 +133,14 @@ export interface CreateHumanOptions {
   readonly speed?: Speed;
   /** Plugins installed on this session, invoked in registration order. */
   readonly plugins?: readonly HumanPlugin[];
+  /**
+   * Visual cursor overlay ({@link installMouseHelper}) so humanized motion is
+   * visible in headed runs and recordings. **On by default.** Pass `false` to
+   * opt out — do this for `speed: 'instant'` / CI, where there's no motion to
+   * show and the injected cursor would land in test DOM and screenshots. Pass
+   * an options object to style it (color, size, …).
+   */
+  readonly cursor?: boolean | InstallMouseHelperOptions;
   /**
    * Starting cursor position used as the origin of the first humanized path.
    * Defaults to `{ x: 0, y: 0 }`. Set this if you've already moved the cursor
@@ -639,6 +648,16 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
   const context: PluginContext = { personality, rng };
   for (const plugin of plugins) {
     await plugin.install?.(context);
+  }
+
+  // Visual cursor overlay, on by default so humanized motion is visible in
+  // headed runs and recordings. Opt out with `cursor: false` (do this for
+  // `speed: 'instant'` / CI). Scoped to this page; idempotent, so a manual
+  // `installMouseHelper` or the MCP server's install is harmless on top. The
+  // capability check keeps it from touching partial page mocks in unit tests —
+  // a real Playwright `Page` always has `addInitScript`.
+  if (options.cursor !== false && typeof page.addInitScript === 'function') {
+    await installMouseHelper(page, typeof options.cursor === 'object' ? options.cursor : {});
   }
 
   // Each session can only produce one Recording — we can't run two
