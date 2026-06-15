@@ -39,6 +39,22 @@ const NAV_AFTER_GESTURE_MS = 2500;
 const NAV_INTENT = '__navIntent';
 
 /**
+ * A scroll-to-top within this window of a navigation is the framework's
+ * scroll-restoration (SPA routers reset to `(0,0)` on navigate), not a user
+ * scroll — drop it so the timeline isn't littered with no-op `scroll({to:0})`.
+ */
+const NAV_SCROLL_RESET_MS = 1500;
+
+/** Scroll offset of a `scroll` action if it targets the top of the page, else null. */
+function scrollTopOffset(action: CapturedAction): number | null {
+  if (action.type !== 'scroll') return null;
+  const match = /^to:(\d+)$/.exec(String(action.params.target ?? ''));
+  if (!match) return null;
+  const offset = Number(match[1]);
+  return offset <= 3 ? offset : null;
+}
+
+/**
  * Attach interaction capture to a browser context: expose the `__humanjsEmit`
  * binding the recorder calls, inject the recorder into every page, and report
  * main-frame navigations as `goto` actions. Each captured action is handed to
@@ -51,15 +67,18 @@ export async function attachCapture(
   context: BrowserContext,
   onAction: (action: CapturedAction) => void,
 ): Promise<void> {
-  // Timestamp of the last in-page gesture (or recorded action). Used to tell a
-  // user-driven navigation from one caused by an interaction we already logged.
+  // Timestamps used to tell user-driven steps from navigation side-effects.
   let lastGestureAt = 0;
+  let lastNavAt = 0;
 
   await context.exposeBinding('__humanjsEmit', (_source, action: unknown) => {
     if (!isCapturedAction(action)) return;
     lastGestureAt = Date.now();
     // Gesture pings only advance the clock — they aren't timeline steps.
     if (action.type === NAV_INTENT) return;
+    // Drop the scroll-to-top a SPA router fires right after navigating — it's
+    // scroll-restoration, not a user scroll, and would replay as a no-op.
+    if (scrollTopOffset(action) !== null && Date.now() - lastNavAt < NAV_SCROLL_RESET_MS) return;
     onAction(action);
   });
   await context.addInitScript({ content: loadInjectedScript() });
@@ -73,6 +92,7 @@ export async function attachCapture(
       const url = frame.url();
       if (!url || url === 'about:blank' || url === lastUrl) return;
       lastUrl = url;
+      lastNavAt = Date.now();
       // Skip navigations that are the consequence of a just-recorded gesture
       // (clicked link, form submit, search-as-you-type) — replaying the gesture
       // navigates on its own; a `goto` here would double-navigate.
