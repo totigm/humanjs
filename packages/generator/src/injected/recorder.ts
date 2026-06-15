@@ -33,6 +33,19 @@ const NAV_KEYS = new Set([
 /** Keys still meaningful as a `press` while a field is focused. */
 const COMMAND_KEYS = new Set(['Enter', 'Tab', 'Escape']);
 
+/** Keys that scroll the page natively — their scroll is reproduced by the recorded press. */
+const SCROLL_KEYS = new Set([
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'PageUp',
+  'PageDown',
+  'Home',
+  'End',
+  ' ',
+]);
+
 const ACTIONABLE =
   'a[href],button,input,select,textarea,label,summary,[role],[contenteditable=""],[contenteditable="true"],[onclick]';
 
@@ -61,6 +74,44 @@ function isEditable(el: Element | null): boolean {
   if (!el) return false;
   if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return true;
   return el instanceof HTMLElement && el.isContentEditable;
+}
+
+/**
+ * Patch the page's programmatic scroll APIs so each call runs `mark()`. Lets the
+ * recorder distinguish a programmatic scroll (SPA scroll-restoration, gallery
+ * reset, anchor jump, scroll-to-top button) from a real user scroll. Every
+ * wrapper calls through to the original, so page behavior is unchanged.
+ */
+function patchProgrammaticScroll(mark: () => void): void {
+  type AnyFn = (...args: unknown[]) => unknown;
+  const wrapMethod = (holder: Record<string, unknown>, name: string): void => {
+    const original = holder[name];
+    if (typeof original !== 'function') return;
+    holder[name] = function (this: unknown, ...args: unknown[]) {
+      mark();
+      return (original as AnyFn).apply(this, args);
+    };
+  };
+
+  // `as unknown as Record`: we index these built-ins by scroll-method name.
+  const win = window as unknown as Record<string, unknown>;
+  const elementProto = Element.prototype as unknown as Record<string, unknown>;
+  for (const name of ['scroll', 'scrollTo', 'scrollBy']) wrapMethod(win, name);
+  for (const name of ['scroll', 'scrollTo', 'scrollBy', 'scrollIntoView'])
+    wrapMethod(elementProto, name);
+
+  for (const prop of ['scrollTop', 'scrollLeft'] as const) {
+    const descriptor = Object.getOwnPropertyDescriptor(Element.prototype, prop);
+    if (!descriptor?.configurable || typeof descriptor.set !== 'function') continue;
+    const originalSet = descriptor.set;
+    Object.defineProperty(Element.prototype, prop, {
+      ...descriptor,
+      set(this: Element, value: number) {
+        mark();
+        originalSet.call(this, value);
+      },
+    });
+  }
 }
 
 interface PendingType {
@@ -93,6 +144,17 @@ export function installRecorder(): void {
     lastPing = now;
     emit({ type: '__navIntent', params: {} });
   }
+
+  // Scroll provenance: a scroll is recorded unless we can attribute it to a
+  // programmatic call (patched scroll APIs stamp `lastProgrammaticAt`) or a
+  // scroll key (`lastScrollKeyAt`, reproduced by the recorded press). Everything
+  // else — wheel, trackpad, touch, AND dragging the scrollbar — is a real user
+  // scroll we keep.
+  let lastProgrammaticAt = 0;
+  let lastScrollKeyAt = 0;
+  patchProgrammaticScroll(() => {
+    lastProgrammaticAt = Date.now();
+  });
 
   function flushType(): void {
     clearTimeout(typeTimer);
@@ -185,6 +247,10 @@ export function installRecorder(): void {
 
       const editing = isEditable(event.target as Element);
 
+      // A scroll key reproduces its scroll on replay via the recorded press, so
+      // mark it to suppress the redundant scroll step it triggers.
+      if (!editing && SCROLL_KEYS.has(key)) lastScrollKeyAt = Date.now();
+
       if (event.metaKey || event.ctrlKey) {
         const parts = ['Mod'];
         if (event.shiftKey) parts.push('Shift');
@@ -273,23 +339,20 @@ export function installRecorder(): void {
     }, 400);
   }
 
-  // Only record scrolls the user physically drove (wheel / trackpad / touch).
-  // Programmatic scrolls — SPA scroll-restoration on navigation, a gallery
-  // resetting scroll on arrow keys, anchor jumps, scroll-to-top buttons — have
-  // no scroll input and are already reproduced by the action that caused them,
-  // so they aren't separate steps. (Keyboard scrolling is captured as the key
-  // press, which reproduces the scroll on replay.)
+  // Record real user scrolls (wheel / trackpad / touch / scrollbar drag) but
+  // not the programmatic ones — SPA scroll-restoration on navigation, a gallery
+  // resetting scroll on arrow keys, anchor jumps, scroll-to-top buttons — which
+  // are already reproduced by the action that caused them. A scroll is "real"
+  // unless it lands right after a patched programmatic call or a scroll key.
   let userScrolled = false;
-  const markUserScroll = (): void => {
-    userScrolled = true;
-  };
-  window.addEventListener('wheel', markUserScroll, { passive: true, capture: true });
-  window.addEventListener('touchmove', markUserScroll, { passive: true, capture: true });
-
   let scrollTimer: ReturnType<typeof setTimeout> | undefined;
   window.addEventListener(
     'scroll',
     () => {
+      const now = Date.now();
+      const programmatic = now - lastProgrammaticAt < 150;
+      const keyboard = now - lastScrollKeyAt < 600;
+      if (!programmatic && !keyboard) userScrolled = true;
       clearTimeout(scrollTimer);
       // Debounce: record where the scroll settled, not every frame.
       scrollTimer = setTimeout(() => {
