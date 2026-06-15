@@ -273,6 +273,19 @@ export function installRecorder(): void {
     }, 400);
   }
 
+  // Only record scrolls the user physically drove (wheel / trackpad / touch).
+  // Programmatic scrolls — SPA scroll-restoration on navigation, a gallery
+  // resetting scroll on arrow keys, anchor jumps, scroll-to-top buttons — have
+  // no scroll input and are already reproduced by the action that caused them,
+  // so they aren't separate steps. (Keyboard scrolling is captured as the key
+  // press, which reproduces the scroll on replay.)
+  let userScrolled = false;
+  const markUserScroll = (): void => {
+    userScrolled = true;
+  };
+  window.addEventListener('wheel', markUserScroll, { passive: true, capture: true });
+  window.addEventListener('touchmove', markUserScroll, { passive: true, capture: true });
+
   let scrollTimer: ReturnType<typeof setTimeout> | undefined;
   window.addEventListener(
     'scroll',
@@ -280,6 +293,8 @@ export function installRecorder(): void {
       clearTimeout(scrollTimer);
       // Debounce: record where the scroll settled, not every frame.
       scrollTimer = setTimeout(() => {
+        if (!userScrolled) return;
+        userScrolled = false;
         emit({ type: 'scroll', params: { target: `to:${Math.round(window.scrollY)}` } });
       }, 300);
     },
