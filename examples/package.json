@@ -14,8 +14,7 @@
     "record": "tsx record-demo.ts",
     "record-manual": "tsx record-manual-demo.ts",
     "scroll": "tsx scroll-demo.ts",
-    "type": "tsx type-demo.ts",
-    "recorder": "tsx humanjs-recording.ts"
+    "type": "tsx type-demo.ts"
   },
   "dependencies": {
     "@humanjs/playwright": "workspace:*",
