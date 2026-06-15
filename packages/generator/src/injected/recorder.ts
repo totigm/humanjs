@@ -83,6 +83,17 @@ export function installRecorder(): void {
   // captured as a separate step.
   let suppressNextClick = false;
 
+  // Throttled "a gesture happened" ping. Lets the CLI tell a navigation caused
+  // by interaction (clicked link, form submit, search-as-you-type) from a
+  // user-driven one (address bar) — only the latter becomes a `goto` step.
+  let lastPing = 0;
+  function pingNavIntent(): void {
+    const now = Date.now();
+    if (now - lastPing < 150) return;
+    lastPing = now;
+    emit({ type: '__navIntent', params: {} });
+  }
+
   function flushType(): void {
     clearTimeout(typeTimer);
     if (!pendingType) return;
@@ -168,6 +179,7 @@ export function installRecorder(): void {
   document.addEventListener(
     'keydown',
     (event) => {
+      pingNavIntent();
       const key = event.key;
       if (key === 'Shift' || key === 'Control' || key === 'Alt' || key === 'Meta') return;
 
@@ -213,6 +225,7 @@ export function installRecorder(): void {
   document.addEventListener(
     'pointerdown',
     (event) => {
+      pingNavIntent();
       if (event.button !== 0) return;
       pointerStart = { x: event.clientX, y: event.clientY, el: resolveActionable(event.target) };
     },
