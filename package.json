@@ -49,7 +49,7 @@
     "demo:record-manual": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples record-manual",
     "demo:scroll": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples scroll",
     "demo:type": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples type",
-    "demo:recorder": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples recorder"
+    "demo:generate": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples generate"
   },
   "commitlint": {
     "extends": [
