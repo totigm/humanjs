@@ -15,10 +15,6 @@ Visual recorder for [HumanJS](https://humanjs.dev) — record your clicks in a r
 npx @humanjs/generator https://your-app.com
 ```
 
-<!-- TODO: add an editor screenshot/GIF — once hosted, uncomment:
-![The HumanJS Generator editor — live timeline on the left, syntax-highlighted preview on the right](https://humanjs.dev/assets/generator.png)
--->
-
 It launches a real Chromium window and a local dashboard. You click through your flow; the dashboard shows a live, editable timeline next to a syntax-highlighted code preview. Curate the steps, pick a personality, and export a ready-to-commit `.spec.ts` that drives the page through HumanJS — so the generated test runs with humanized motion, not robotic jumps.
 
 > **Audience:** AI agent builders, QA engineers, and demo/tutorial creators. HumanJS is **not** a scraping, captcha-bypass, or "undetectable automation" tool — see the [non-goals](https://humanjs.dev).
