@@ -140,6 +140,18 @@ describe('generateHumanJS', () => {
     expect(out).toContain("await human.type('#email', 'a@b.com');");
     expect(out).toContain("await human.read('.passage');");
   });
+
+  it('drops explicit assert events from the standalone script', () => {
+    const out = generateHumanJS(
+      timeline([
+        ev('click', { target: '#go' }),
+        ev('assert', { kind: 'visible', target: '.banner' }),
+      ]),
+    );
+    expect(out).not.toContain('expect(');
+    expect(out).not.toContain('.banner');
+    expect(out).toContain("await human.click('#go');");
+  });
 });
 
 describe('generatePlaywrightTest', () => {
@@ -245,6 +257,21 @@ describe('generatePlaywrightTest', () => {
     expect(out).toContain("await human.goto('/login');");
     expect(out).toContain("await human.goto('/dashboard');");
     expect(out).toContain("// Set use.baseURL = 'https://app.example.com'");
+  });
+
+  it('renders explicit assert events (visible / text / url)', () => {
+    const out = generatePlaywrightTest(
+      timeline([
+        ev('assert', { kind: 'visible', target: '.banner' }),
+        ev('assert', { kind: 'text', target: 'h1', value: 'Welcome' }),
+        ev('assert', { kind: 'url', value: '/dashboard' }),
+      ]),
+    );
+    expect(out).toContain("import { expect, test } from '@humanjs/playwright/test';");
+    expect(out).toContain("test('recorded session', async ({ human, page }) => {");
+    expect(out).toContain("await expect(page.locator('.banner')).toBeVisible();");
+    expect(out).toContain("await expect(page.locator('h1')).toHaveText('Welcome');");
+    expect(out).toContain("await expect(page).toHaveURL('/dashboard');");
   });
 
   it('keeps absolute gotos when origins differ even with baseUrl', () => {

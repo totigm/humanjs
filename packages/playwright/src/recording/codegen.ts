@@ -152,6 +152,17 @@ function emitAction(e: TimelineEvent, opts: EmitOptions = {}): string {
       return '  await human.goBack();';
     case 'goForward':
       return '  await human.goForward();';
+    case 'assert': {
+      // An explicit assertion (e.g. added in the generator's editor). Test-only:
+      // `generateHumanJS` filters these out, since the standalone replay script
+      // has no `expect` / `page`.
+      const kind = String(p.kind ?? 'visible');
+      if (kind === 'url') return `  await expect(page).toHaveURL(${q(p.value)});`;
+      const { code } = targetArg(p.target);
+      if (kind === 'text')
+        return `  await expect(page.locator(${code})).toHaveText(${q(p.value)});`;
+      return `  await expect(page.locator(${code})).toBeVisible();`;
+    }
     default:
       return `  // unsupported action: ${e.type}`;
   }
@@ -170,7 +181,11 @@ export function generateHumanJS(timeline: Timeline): string {
   const imports = needsSleepImport(timeline)
     ? "import { chromium, createHuman, sleep } from '@humanjs/playwright';"
     : "import { chromium, createHuman } from '@humanjs/playwright';";
-  const body = timeline.events.map((e) => emitAction(e)).join('\n');
+  // Assertions are a test concept; the standalone replay script drops them.
+  const body = timeline.events
+    .filter((e) => e.type !== 'assert')
+    .map((e) => emitAction(e))
+    .join('\n');
   return `${imports}
 
 async function main() {

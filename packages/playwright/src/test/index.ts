@@ -63,6 +63,9 @@ export const test = base.extend<HumanFixtures & HumanOptions>({
       // the spread comes last.
       seed: testInfo.title,
       speed: process.env.CI ? 'instant' : 'human',
+      // No cursor overlay in CI (instant) so it never lands in test DOM or
+      // screenshots; shown locally where you actually watch the run.
+      cursor: !process.env.CI,
       ...humanOptions,
     });
     await use(human);
