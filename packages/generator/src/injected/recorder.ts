@@ -287,13 +287,25 @@ export function installRecorder(): void {
     dndSource = null;
   });
 
-  let pointerStart: { x: number; y: number; el: Element | null } | null = null;
+  let pointerStart: {
+    x: number;
+    y: number;
+    el: Element | null;
+    scrollX: number;
+    scrollY: number;
+  } | null = null;
   document.addEventListener(
     'pointerdown',
     (event) => {
       pingNavIntent();
       if (event.button !== 0) return;
-      pointerStart = { x: event.clientX, y: event.clientY, el: resolveActionable(event.target) };
+      pointerStart = {
+        x: event.clientX,
+        y: event.clientY,
+        el: resolveActionable(event.target),
+        scrollX: window.scrollX,
+        scrollY: window.scrollY,
+      };
     },
     true,
   );
@@ -305,6 +317,13 @@ export function installRecorder(): void {
       if (!start) return;
       const distance = Math.hypot(event.clientX - start.x, event.clientY - start.y);
       if (distance < DRAG_THRESHOLD) return; // a click, not a drag
+      // The page scrolled during the press → a scroll gesture (dragging the
+      // scrollbar, or drag-to-edge autoscroll), not a content drag. The scroll
+      // itself is captured separately.
+      if (window.scrollX !== start.scrollX || window.scrollY !== start.scrollY) return;
+      // No real source element (root / background) → not a meaningful drag, and
+      // its selector would be a degenerate `xpath=//`.
+      if (!start.el || start.el === document.documentElement || start.el === document.body) return;
       // A non-empty selection means the user was selecting text, not dragging.
       if ((window.getSelection()?.toString().length ?? 0) > 0) return;
       emitDrag(start.el, resolveActionable(event.target), event.clientX, event.clientY);
