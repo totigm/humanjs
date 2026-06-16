@@ -26,7 +26,7 @@ Each adds a real subsystem, so they stay out of the first cut:
 - **In-app replay / verify** — a "run this" button that executes the exported spec (spawns `playwright test`) and shows pass / fail in the dashboard, closing the record → test → green loop.
 - **Video + GIF export** — capture frames alongside the DOM events so the same session also exports an `.mp4` / `.gif` via the existing `toVideo` / `toGif` path. Reuses recorder infra; great for the demo / tutorial-creator audience. Needs the frame-capture loop running next to DOM capture.
 - **Insert / re-record mid-timeline** — append or splice new actions into an existing recording without starting over.
-- ~~**`human.selectText(target)` primitive + capture**~~ — _shipped._ Element-scoped text-selection primitive (`@humanjs/core` + `@humanjs/playwright` + MCP + codegen) plus recorder capture (a triple-click / select-all / whole-element drag → a `selectText` step). Free-form cross-element ranges stay uncaptured by design.
+- ~~**`human.selectText(target)` primitive + capture**~~ — _shipped._ Text-selection primitive (`@humanjs/core` + `@humanjs/playwright` + MCP + codegen) plus recorder capture. Whole-element highlights record a plain `selectText`; partial highlights record `selectText(target, { text })` with the exact substring, reproduced by finding that text inside the element (not by coordinates).
 
 ## Deliberately out of scope
 

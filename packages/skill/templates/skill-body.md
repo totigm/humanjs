@@ -109,7 +109,7 @@ All await; selectors are strings or Playwright `Locator`s (`move`/`drag` also ac
 | `human.clear(target)` | Wipe a field — select-all + delete. Use before `type` to replace a value. |
 | `human.check(target)` / `human.uncheck(target)` | Tick/untick a checkbox or radio — clicks only if the state needs to change. |
 | `human.selectOption(target, values)` | Choose option(s) in a native `<select>` (cursor moves to it, then sets the value). |
-| `human.selectText(target)` | Highlight all text inside an element (cursor moves to it, then selects). Element-scoped. |
+| `human.selectText(target, options?)` | Highlight text inside an element (cursor moves to it, then selects). Selects all of it by default; pass `{ text }` to select just that substring. |
 | `human.upload(target, files)` | Attach file(s) to a file input (no OS dialog). |
 | `human.press(key)` | Single key (`'Tab'`) or chord (`'Mod+S'` — `Mod` = Meta on macOS, Control elsewhere). |
 | `human.read(target)` | Dwell based on word count. |

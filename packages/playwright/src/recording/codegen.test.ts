@@ -69,6 +69,11 @@ describe('generateHumanJS', () => {
     expect(out).toContain("await human.selectText('h1');");
   });
 
+  it('renders a partial selectText with its captured substring', () => {
+    const out = generateHumanJS(timeline([ev('selectText', { target: 'p', text: 'es una' })]));
+    expect(out).toContain("await human.selectText('p', { text: 'es una' });");
+  });
+
   it('emits raw points as coordinate objects with a flag comment', () => {
     const out = generateHumanJS(timeline([ev('move', { target: 'point(120, 340)' })]));
     expect(out).toContain('await human.move({ x: 120, y: 340 });');

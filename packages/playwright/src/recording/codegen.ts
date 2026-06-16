@@ -99,10 +99,16 @@ function emitAction(e: TimelineEvent, opts: EmitOptions = {}): string {
     }
     case 'check':
     case 'uncheck':
-    case 'clear':
-    case 'selectText': {
+    case 'clear': {
       const { code } = targetArg(p.target);
       return `  await human.${e.type}(${code});`;
+    }
+    case 'selectText': {
+      const { code } = targetArg(p.target);
+      if (typeof p.text === 'string' && p.text.length > 0) {
+        return `  await human.selectText(${code}, { text: ${q(p.text)} });`;
+      }
+      return `  await human.selectText(${code});`;
     }
     case 'selectOption': {
       const { code } = targetArg(p.target);

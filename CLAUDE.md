@@ -83,6 +83,7 @@ await human.check(selector);              // tick a checkbox/radio (clicks only 
 await human.uncheck(selector);            // untick a checkbox
 await human.selectOption(selector, value);// native <select> — cursor moves to it, then sets value
 await human.selectText(selector);         // highlight an element's text (cursor moves to it, then selects)
+await human.selectText(selector, { text: 'es una' }); // select just a substring (found inside the element)
 await human.upload(selector, files);      // attach file(s) to a file input (no OS dialog)
 await human.read(text);                   // dwell based on word count
 await human.scroll('natural');

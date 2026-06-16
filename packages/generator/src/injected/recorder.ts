@@ -392,11 +392,12 @@ export function installRecorder(): void {
     { passive: true, capture: true },
   );
 
-  // Text selection: capture an element-scoped "select all of this element's
-  // text" gesture (triple-click, select-all, drag over a whole element) as a
-  // selectText step. Free-form ranges that span elements aren't captured — the
-  // primitive is element-scoped. (Input/textarea internal selection lives off
-  // the document selection, so it isn't auto-captured.)
+  // Text selection: capture a highlight (drag-select, triple-click, select-all)
+  // as a selectText step. The target is the smallest element containing the
+  // selection; if the highlight is that element's whole text we record a plain
+  // selectText, otherwise we record the exact substring so replay re-selects
+  // just it (`selectText(el, { text })`). (Input/textarea internal selection
+  // lives off the document selection, so it isn't auto-captured.)
   const normalizeText = (value: string | null | undefined): string =>
     (value ?? '').replace(/\s+/g, ' ').trim();
   let selectionTimer: ReturnType<typeof setTimeout> | undefined;
@@ -406,14 +407,18 @@ export function installRecorder(): void {
     selectionTimer = setTimeout(() => {
       const selection = window.getSelection();
       if (!selection || selection.isCollapsed || selection.rangeCount === 0) return;
-      const selected = normalizeText(selection.toString());
+      const selectedRaw = selection.toString().trim();
+      const selected = normalizeText(selectedRaw);
       if (!selected) return;
       const container = selection.getRangeAt(0).commonAncestorContainer;
       const el = container instanceof Element ? container : container.parentElement;
       if (!el || el === document.body || el === document.documentElement) return;
-      // Element-scoped only: the selection must be the element's whole text.
-      if (normalizeText(el.textContent) !== selected) return;
-      emitAction({ type: 'selectText', params: targetParams(el) });
+      const whole = normalizeText(el.textContent);
+      if (!whole) return;
+      // Whole-element highlight → plain selectText; partial → carry the text.
+      const params =
+        whole === selected ? targetParams(el) : { ...targetParams(el), text: selectedRaw };
+      emitAction({ type: 'selectText', params });
     }, 400);
   });
 }

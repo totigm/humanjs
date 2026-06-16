@@ -227,16 +227,21 @@ export function registerPrimitiveTools(server: McpServer, { sessions, env }: Too
     {
       title: 'Select an element’s text (humanized)',
       description:
-        'Selects (highlights) all text inside an element — moves the cursor to it, then selects its text. Element-scoped: it selects the element’s whole text, not a free-form range. Use before copying, replacing, or triggering a highlight menu.',
+        'Selects (highlights) text inside an element — moves the cursor to it, then selects. By default selects all of the element’s text; pass `text` to select just that substring (found inside the element, whitespace-tolerant, first match; falls back to the whole element if not found). Use before copying, replacing, or triggering a highlight menu.',
       inputSchema: {
         selector: z.string().describe('Selector of the element whose text to select.'),
+        text: z
+          .string()
+          .optional()
+          .describe('Optional substring to select instead of the element’s whole text.'),
         session: sessionArg,
       },
     },
-    async ({ selector, session }) => {
+    async ({ selector, text, session }) => {
       const { human } = await sessions.get(session);
-      await human.selectText(selector);
-      return { content: [{ type: 'text', text: `selected text in ${selector}` }] };
+      await human.selectText(selector, text === undefined ? undefined : { text });
+      const what = text === undefined ? 'text' : `"${text}"`;
+      return { content: [{ type: 'text', text: `selected ${what} in ${selector}` }] };
     },
   );
 
