@@ -2,6 +2,7 @@
 "@humanjs/playwright": minor
 "@humanjs/core": minor
 "@humanjs/mcp": minor
+"@humanjs/generator": patch
 "@humanjs/skill": patch
 ---
 
