@@ -4,7 +4,14 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**", "tsconfig.json", "tsup.config.ts", "package.json"],
+      "inputs": [
+        "src/**",
+        "dashboard/**",
+        "tsconfig.json",
+        "tsup.config.ts",
+        "vite.config.ts",
+        "package.json"
+      ],
       "outputs": ["dist/**"]
     },
     "dev": {
