@@ -199,6 +199,9 @@ export function installRecorder(): void {
     'click',
     (event) => {
       if (event.button !== 0) return;
+      // A double/triple click is a word/paragraph selection gesture, not N
+      // clicks — the selection is captured as `selectText` instead.
+      if (event.detail >= 2) return;
       if (suppressNextClick) {
         suppressNextClick = false;
         return;
@@ -382,4 +385,29 @@ export function installRecorder(): void {
     },
     { passive: true, capture: true },
   );
+
+  // Text selection: capture an element-scoped "select all of this element's
+  // text" gesture (triple-click, select-all, drag over a whole element) as a
+  // selectText step. Free-form ranges that span elements aren't captured — the
+  // primitive is element-scoped. (Input/textarea internal selection lives off
+  // the document selection, so it isn't auto-captured.)
+  const normalizeText = (value: string | null | undefined): string =>
+    (value ?? '').replace(/\s+/g, ' ').trim();
+  let selectionTimer: ReturnType<typeof setTimeout> | undefined;
+  document.addEventListener('selectionchange', () => {
+    clearTimeout(selectionTimer);
+    // Debounce until the selection settles — a drag-select fires this per pixel.
+    selectionTimer = setTimeout(() => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || selection.rangeCount === 0) return;
+      const selected = normalizeText(selection.toString());
+      if (!selected) return;
+      const container = selection.getRangeAt(0).commonAncestorContainer;
+      const el = container instanceof Element ? container : container.parentElement;
+      if (!el || el === document.body || el === document.documentElement) return;
+      // Element-scoped only: the selection must be the element's whole text.
+      if (normalizeText(el.textContent) !== selected) return;
+      emitAction({ type: 'selectText', params: targetParams(el) });
+    }, 400);
+  });
 }

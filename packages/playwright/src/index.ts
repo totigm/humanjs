@@ -313,6 +313,18 @@ export interface Human {
    */
   selectOption(target: Locator | string, values: SelectOptionValues): Promise<string[]>;
   /**
+   * Select all text inside `target` (a paragraph, heading, input, …). The
+   * cursor moves to the element (humanized), then its text is highlighted —
+   * the "select this" gesture before copying, replacing, or triggering a
+   * highlight menu. Element-scoped: it selects the element's whole text, not a
+   * free-form range across the page.
+   *
+   * `target` is element-bound (selector or `Locator`). In `speed: 'instant'`,
+   * delegates to Playwright's native `locator.selectText()` with no cursor
+   * motion.
+   */
+  selectText(target: Locator | string): Promise<void>;
+  /**
    * Attach file(s) to a file-input `target`. The cursor moves to the control
    * (visible in recordings / the overlay), then the files are attached via
    * `setInputFiles`. Unlike a real click this never opens the OS file dialog
@@ -903,6 +915,21 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
       return performAction(
         { type: 'selectOption', params: { target: describeMouseTarget(target), values } },
         () => executeSelectOption(target, values, mouseCtx()),
+      );
+    },
+    async selectText(target) {
+      await performAction(
+        { type: 'selectText', params: { target: describeMouseTarget(target) } },
+        async () => {
+          // Move the cursor onto the element first (the visible "select this"
+          // approach), then highlight its text. Skipped in instant mode, where
+          // selectText() just sets the selection with no motion.
+          if (speed !== 'instant') {
+            await executeMove(target, mouseCtx());
+          }
+          const locator = typeof target === 'string' ? page.locator(target) : target;
+          await locator.selectText();
+        },
       );
     },
     async upload(target, files) {

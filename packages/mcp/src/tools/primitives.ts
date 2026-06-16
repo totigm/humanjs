@@ -223,6 +223,24 @@ export function registerPrimitiveTools(server: McpServer, { sessions, env }: Too
   );
 
   server.registerTool(
+    'human_selectText',
+    {
+      title: 'Select an element’s text (humanized)',
+      description:
+        'Selects (highlights) all text inside an element — moves the cursor to it, then selects its text. Element-scoped: it selects the element’s whole text, not a free-form range. Use before copying, replacing, or triggering a highlight menu.',
+      inputSchema: {
+        selector: z.string().describe('Selector of the element whose text to select.'),
+        session: sessionArg,
+      },
+    },
+    async ({ selector, session }) => {
+      const { human } = await sessions.get(session);
+      await human.selectText(selector);
+      return { content: [{ type: 'text', text: `selected text in ${selector}` }] };
+    },
+  );
+
+  server.registerTool(
     'human_check',
     {
       title: 'Check a box (humanized)',

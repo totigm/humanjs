@@ -75,6 +75,7 @@ export type KnownActionType =
   | 'rightClick'
   | 'scroll'
   | 'selectOption'
+  | 'selectText'
   | 'press'
   | 'sleep'
   | 'type'
