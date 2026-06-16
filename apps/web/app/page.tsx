@@ -3,6 +3,7 @@ import {
   Comparison,
   FeatureBento,
   Footer,
+  GeneratorShowcase,
   GetStarted,
   Hero,
   HonestLimits,
@@ -28,6 +29,7 @@ export default function Page() {
         <ReadingShowcase />
         <ScrollShowcase />
         <RecorderShowcase />
+        <GeneratorShowcase />
         <Audience />
         <FeatureBento />
         <PersonalityLab />
