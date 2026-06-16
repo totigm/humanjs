@@ -103,6 +103,13 @@ function emitAction(e: TimelineEvent, opts: EmitOptions = {}): string {
       const { code } = targetArg(p.target);
       return `  await human.${e.type}(${code});`;
     }
+    case 'selectText': {
+      const { code } = targetArg(p.target);
+      if (typeof p.text === 'string' && p.text.length > 0) {
+        return `  await human.selectText(${code}, { text: ${q(p.text)} });`;
+      }
+      return `  await human.selectText(${code});`;
+    }
     case 'selectOption': {
       const { code } = targetArg(p.target);
       return `  await human.selectOption(${code}, ${serializeSelectValues(p.values)});`;

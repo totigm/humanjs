@@ -4,7 +4,7 @@
 
 Initial release of `@humanjs/generator` — a visual recorder that turns a real browsing session into a clean, humanized Playwright test.
 
-`npx @humanjs/generator <url>` opens a real Chromium window and a local (loopback-only) dashboard. As you click, type, scroll, drag, and navigate, each action streams into the dashboard as a step captured with a role-first selector (ARIA role + accessible name → label → text → test id → `#id` → CSS → XPath). The dashboard is a full editor:
+`npx @humanjs/generator <url>` opens a real Chromium window and a local (loopback-only) dashboard. As you click, type, scroll, drag, select text, and navigate, each action streams into the dashboard as a step captured with a role-first selector (ARIA role + accessible name → label → text → test id → `#id` → CSS → XPath). The dashboard is a full editor:
 
 - **drag to reorder**, delete, relabel (label → comment), and edit captured values
 - a per-step **selector picker** over the ranked candidates

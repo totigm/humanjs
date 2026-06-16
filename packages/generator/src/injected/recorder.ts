@@ -134,6 +134,27 @@ export function installRecorder(): void {
   // captured as a separate step.
   let suppressNextClick = false;
 
+  // A click on non-interactive content might be the leading click of a triple-
+  // click whose selection hasn't formed yet. We defer such clicks briefly so a
+  // following multi-click or `selectText` can retract them; if nothing does, the
+  // click emits on its own. Any other recorded action flushes it first, so order
+  // is preserved.
+  let pendingClickParams: Record<string, unknown> | null = null;
+  let pendingClickTimer: ReturnType<typeof setTimeout> | undefined;
+  function flushPendingClick(): void {
+    clearTimeout(pendingClickTimer);
+    pendingClickTimer = undefined;
+    if (!pendingClickParams) return;
+    const params = pendingClickParams;
+    pendingClickParams = null;
+    emit({ type: 'click', params });
+  }
+  function cancelPendingClick(): void {
+    clearTimeout(pendingClickTimer);
+    pendingClickTimer = undefined;
+    pendingClickParams = null;
+  }
+
   // Throttled "a gesture happened" ping. Lets the CLI tell a navigation caused
   // by interaction (clicked link, form submit, search-as-you-type) from a
   // user-driven one (address bar) — only the latter becomes a `goto` step.
@@ -164,8 +185,9 @@ export function installRecorder(): void {
     emit({ type: 'type', params, inputValue: masked ? undefined : value });
   }
 
-  /** Flush any pending typed value, then emit a discrete action in order. */
+  /** Flush any pending deferred click + typed value, then emit in order. */
   function emitAction(action: CapturedAction): void {
+    flushPendingClick();
     flushType();
     emit(action);
   }
@@ -199,12 +221,34 @@ export function installRecorder(): void {
     'click',
     (event) => {
       if (event.button !== 0) return;
+      // The 2nd+ click of a multi-click is a word/paragraph selection gesture
+      // (captured as `selectText`); it also retracts the leading click deferred
+      // below.
+      if (event.detail >= 2) {
+        cancelPendingClick();
+        return;
+      }
       if (suppressNextClick) {
         suppressNextClick = false;
         return;
       }
       const el = resolveActionable(event.target);
-      if (el) emitAction({ type: 'click', params: targetParams(el) });
+      if (!el) return;
+      // Interactive targets are always a real click — record immediately.
+      if (el.matches(ACTIONABLE)) {
+        emitAction({ type: 'click', params: targetParams(el) });
+        return;
+      }
+      // Non-interactive target. While text is already selected, this click is
+      // the tail of a drag-select — drop it (captured as `selectText`).
+      const selection = window.getSelection();
+      if (selection && !selection.isCollapsed) return;
+      // Otherwise it may be the leading click of a triple-click (the selection
+      // hasn't formed yet). Defer it so a following multi-click / `selectText`
+      // can cancel it; otherwise it emits on its own shortly.
+      flushPendingClick();
+      pendingClickParams = targetParams(el);
+      pendingClickTimer = setTimeout(flushPendingClick, 400);
     },
     true,
   );
@@ -382,4 +426,36 @@ export function installRecorder(): void {
     },
     { passive: true, capture: true },
   );
+
+  // Text selection: capture a highlight (drag-select, triple-click, select-all)
+  // as a selectText step. The target is the smallest element containing the
+  // selection; if the highlight is that element's whole text we record a plain
+  // selectText, otherwise we record the exact substring so replay re-selects
+  // just it (`selectText(el, { text })`). (Input/textarea internal selection
+  // lives off the document selection, so it isn't auto-captured.)
+  const normalizeText = (value: string | null | undefined): string =>
+    (value ?? '').replace(/\s+/g, ' ').trim();
+  let selectionTimer: ReturnType<typeof setTimeout> | undefined;
+  document.addEventListener('selectionchange', () => {
+    clearTimeout(selectionTimer);
+    // Debounce until the selection settles — a drag-select fires this per pixel.
+    selectionTimer = setTimeout(() => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || selection.rangeCount === 0) return;
+      const selectedRaw = selection.toString().trim();
+      const selected = normalizeText(selectedRaw);
+      if (!selected) return;
+      const container = selection.getRangeAt(0).commonAncestorContainer;
+      const el = container instanceof Element ? container : container.parentElement;
+      if (!el || el === document.body || el === document.documentElement) return;
+      const whole = normalizeText(el.textContent);
+      if (!whole) return;
+      // Whole-element highlight → plain selectText; partial → carry the text.
+      const params =
+        whole === selected ? targetParams(el) : { ...targetParams(el), text: selectedRaw };
+      // The selection formed → retract the leading click we deferred for it.
+      cancelPendingClick();
+      emitAction({ type: 'selectText', params });
+    }, 400);
+  });
 }

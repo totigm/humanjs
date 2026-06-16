@@ -18,6 +18,7 @@ import {
   type SelectOptionValues,
   type UploadFiles,
 } from './forms';
+import { selectSubstringInElement } from './internal/select-substring';
 import { executeClear, executePaste, executePress, executeType, type KeyOrChord } from './keyboard';
 import { executeClick, executeDrag, executeHover, executeMove, type MouseTarget } from './mouse';
 import { type InstallMouseHelperOptions, installMouseHelper } from './mouse-helper';
@@ -114,6 +115,16 @@ export {
   type ToVideoOptions,
 } from './recording';
 export type { ScrollOptions, ScrollResult, ScrollTarget } from './scroll';
+
+/** Options for {@link Human.selectText}. */
+export interface SelectTextOptions {
+  /**
+   * Select only this substring of the element's text instead of all of it.
+   * Located inside the element whitespace-tolerantly (first match); falls back
+   * to selecting the whole element when not found.
+   */
+  text?: string;
+}
 
 /**
  * How fast the humanized session runs.
@@ -312,6 +323,23 @@ export interface Human {
    * In `speed: 'instant'`, sets the value with no cursor motion.
    */
   selectOption(target: Locator | string, values: SelectOptionValues): Promise<string[]>;
+  /**
+   * Select text inside `target` (a paragraph, heading, input, …). The cursor
+   * moves to the element (humanized), then the text is highlighted — the
+   * "select this" gesture before copying, replacing, or triggering a highlight
+   * menu.
+   *
+   * By default the element's whole text is selected. Pass `{ text }` to select
+   * just that substring: HumanJS finds it inside the element (whitespace-
+   * tolerant, mapped to exact offsets, first match) and selects only that
+   * range — so a recorded partial highlight reproduces as itself, not the whole
+   * element. If the text can't be located, it falls back to selecting all of
+   * the element.
+   *
+   * `target` is element-bound (selector or `Locator`). In `speed: 'instant'`
+   * the cursor motion is skipped; the selection is still applied.
+   */
+  selectText(target: Locator | string, options?: SelectTextOptions): Promise<void>;
   /**
    * Attach file(s) to a file-input `target`. The cursor moves to the control
    * (visible in recordings / the overlay), then the files are attached via
@@ -903,6 +931,32 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
       return performAction(
         { type: 'selectOption', params: { target: describeMouseTarget(target), values } },
         () => executeSelectOption(target, values, mouseCtx()),
+      );
+    },
+    async selectText(target, options) {
+      const text = options?.text;
+      await performAction(
+        {
+          type: 'selectText',
+          params: { target: describeMouseTarget(target), ...(text !== undefined ? { text } : {}) },
+        },
+        async () => {
+          // Move the cursor onto the element first (the visible "select this"
+          // approach), then highlight its text. Skipped in instant mode, where
+          // the selection is set with no motion.
+          if (speed !== 'instant') {
+            await executeMove(target, mouseCtx());
+          }
+          const locator = typeof target === 'string' ? page.locator(target) : target;
+          if (text === undefined) {
+            await locator.selectText();
+            return;
+          }
+          // Substring select: find the text in the element and select just it,
+          // falling back to the whole element when it can't be located.
+          const found = await locator.evaluate(selectSubstringInElement, text);
+          if (!found) await locator.selectText();
+        },
       );
     },
     async upload(target, files) {

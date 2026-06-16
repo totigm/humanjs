@@ -223,7 +223,7 @@ ghost-cursor pioneered humanized mouse paths and is excellent at what it does. H
 - [x] MCP server (`@humanjs/mcp`) for AI agents
 - [x] Recorder code export (Playwright / HumanJS)
 - [x] AI coding-agent skill (`@humanjs/skill`)
-- [ ] Visual generator (`@humanjs/generator`)
+- [x] Visual generator (`@humanjs/generator`)
 - [x] Plugin system + community personality authoring (`@yourname/personality-*`)
 - [ ] Recipes (`@humanjs/recipes`) for common flows
 - [ ] Touch / mobile humanization
