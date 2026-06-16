@@ -1,5 +1,26 @@
 # @humanjs/playwright
 
+## 0.9.0
+
+### Minor Changes
+
+- 39d87f3: `generatePlaywrightTest` now renders explicit `assert` timeline events into `@playwright/test` assertions: `{ kind: 'visible' }` → `expect(locator).toBeVisible()`, `{ kind: 'text', value }` → `toHaveText(value)`, `{ kind: 'url', value }` → `expect(page).toHaveURL(value)`. They interleave with actions in recorded order and pull `page` + `expect` into the test automatically. The standalone `generateHumanJS` script export ignores them (a replay script has no `expect`). This lets tooling that builds a `Timeline` (notably `@humanjs/generator`) emit intentional assertions alongside the actions, beyond the ones already derived from reads and captured inputs.
+- 39d87f3: Export `generateHumanJS` and `generatePlaywrightTest` from the package root. They turn a `Timeline` (the structured action log from `human.record()` / `rec.toTimeline()`) directly into a runnable HumanJS script or a `@humanjs/playwright/test` spec — the same code the `Recording` exporters emit, now callable on any `Timeline` you construct or load. This is the codegen entry point `@humanjs/generator` builds on, and it's useful standalone for tooling that produces timelines without running a live recording.
+- 39d87f3: `createHuman` now installs the visual cursor overlay (`installMouseHelper`) **by default**, so humanized motion is visible in headed runs and recordings without a manual call — exported scripts from `@humanjs/generator` / `Recording.toHumanJS()` now show the cursor when you run them.
+
+  Opt out with `cursor: false` — do this for `speed: 'instant'` / CI, where there's no motion to show and the injected cursor would otherwise land in test DOM and screenshots. Pass an options object (`cursor: { color, size, … }`) to style it. The `@humanjs/playwright/test` fixture opts out automatically in CI (it already runs `instant` there) and shows the cursor on local runs.
+
+  The install is scoped to the session's page, idempotent (a manual `installMouseHelper` or the MCP server's install on top is a no-op), and skipped on page objects that don't support it (so unit-test mocks are unaffected).
+
+- 13ca334: Add `human.selectText(target, options?)` — highlight text inside an element. The cursor moves to the element (humanized), then the text is selected — the "select this" gesture before copying, replacing, or triggering a highlight menu. Selects the element's whole text by default; pass `{ text }` to select just that substring, located inside the element whitespace-tolerantly and mapped to exact offsets (first match, falling back to the whole element if not found) — so it's reproduced by the text itself, not brittle coordinates. In `speed: 'instant'` the cursor motion is skipped; the selection is still applied.
+
+  Mirrored as the **`human_selectText`** MCP tool (with the optional `text` arg), rendered by the recorder code generators (`toPlaywright` / `toHumanJS`), documented in the `@humanjs/skill` primitives table, and backed by a new `'selectText'` `KnownActionType` in `@humanjs/core`. `@humanjs/generator` captures the gesture too: highlighting an element's whole text records a plain `selectText`, and highlighting part of it records `selectText(target, { text })` with the exact substring.
+
+### Patch Changes
+
+- Updated dependencies [13ca334]
+  - @humanjs/core@0.8.0
+
 ## 0.8.0
 
 ### Minor Changes

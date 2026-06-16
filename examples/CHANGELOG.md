@@ -1,5 +1,16 @@
 # @humanjs/examples
 
+## 0.0.8
+
+### Patch Changes
+
+- Updated dependencies [39d87f3]
+- Updated dependencies [39d87f3]
+- Updated dependencies [39d87f3]
+- Updated dependencies [13ca334]
+  - @humanjs/playwright@0.9.0
+  - @humanjs/recorder@0.3.2
+
 ## 0.0.7
 
 ### Patch Changes

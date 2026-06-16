@@ -1,6 +1,6 @@
 {
   "name": "@humanjs/playwright",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Humanize Playwright sessions for AI agents, QA tests, and demos.",
   "keywords": [
     "humanjs",
