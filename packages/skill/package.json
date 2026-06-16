@@ -1,6 +1,6 @@
 {
   "name": "@humanjs/skill",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Install the HumanJS coding-agent skill — teaches Claude Code, Cursor, and Codex to write humanized Playwright automation. Run: npx @humanjs/skill",
   "keywords": [
     "humanjs",
