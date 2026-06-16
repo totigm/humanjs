@@ -151,13 +151,21 @@ await record({ output: 'demo.mp4' }, async (human) => {
 });
 ```
 
-Or use the visual generator:
+Or skip writing the script entirely — record it visually:
 
 ```bash
 npx @humanjs/generator https://your-app.com
 ```
 
-Click through your app, pick a personality, export to clean Playwright + HumanJS.
+`@humanjs/generator` opens a real Chromium window and a local (loopback-only) dashboard. As you click, type, scroll, and select text, each action is captured with a **role-first selector** (accessible name + role — the way a person sees the page, not a brittle CSS path) and streams into a live editor as a step. There you can:
+
+- **reorder** (drag), **relabel**, and **delete** steps, and edit captured values
+- pick a **selector** per step from the ranked candidates
+- **point-and-add assertions** (`toBeVisible` / `toHaveText` / `toHaveURL`)
+- mark a field as a **secret** so it exports as `process.env.X` (passwords are always masked)
+- switch the **personality** (`careful` / `fast` / `distracted` / `precise`)
+
+When it looks right, export a `@playwright/test` spec (`.spec.ts`) or a standalone HumanJS script (`.ts`). It runs through the same codegen the library ships, so generated tests stay in lockstep with it.
 
 ## In tests
 
