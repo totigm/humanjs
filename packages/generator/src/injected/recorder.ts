@@ -207,7 +207,13 @@ export function installRecorder(): void {
         return;
       }
       const el = resolveActionable(event.target);
-      if (el) emitAction({ type: 'click', params: targetParams(el) });
+      if (!el) return;
+      // A click on non-interactive content while text is selected is part of a
+      // text-selection gesture (drag-select, multi-click), not a navigation
+      // click — the selection is captured as `selectText` instead.
+      const selection = window.getSelection();
+      if (selection && !selection.isCollapsed && !el.matches(ACTIONABLE)) return;
+      emitAction({ type: 'click', params: targetParams(el) });
     },
     true,
   );
