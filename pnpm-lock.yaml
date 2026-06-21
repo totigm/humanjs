@@ -106,8 +106,8 @@ importers:
         specifier: workspace:*
         version: link:../packages/recorder
       playwright:
-        specifier: ^1.60.0
-        version: 1.60.0
+        specifier: ^1.61.0
+        version: 1.61.0
 
   packages/core: {}
 
@@ -120,8 +120,8 @@ importers:
         specifier: workspace:*
         version: link:../playwright
       playwright:
-        specifier: ^1.60.0
-        version: 1.60.0
+        specifier: ^1.61.0
+        version: 1.61.0
       ws:
         specifier: ^8.18.0
         version: 8.21.0
@@ -169,8 +169,8 @@ importers:
         specifier: ^1.29.0
         version: 1.29.0(zod@3.25.76)
       playwright:
-        specifier: ^1.60.0
-        version: 1.60.0
+        specifier: ^1.61.0
+        version: 1.61.0
       zod:
         specifier: ^3.23.0
         version: 3.25.76
@@ -188,8 +188,8 @@ importers:
         specifier: ^1.60.0
         version: 1.60.0
       playwright:
-        specifier: ^1.60.0
-        version: 1.60.0
+        specifier: ^1.61.0
+        version: 1.61.0
 
   packages/recorder:
     dependencies:
@@ -198,8 +198,8 @@ importers:
         version: link:../playwright
     devDependencies:
       playwright:
-        specifier: ^1.60.0
-        version: 1.60.0
+        specifier: ^1.61.0
+        version: 1.61.0
 
   packages/skill:
     devDependencies:
@@ -2720,8 +2720,18 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
+  playwright-core@1.61.0:
+    resolution: {integrity: sha512-caX7TrY3Ml6egyDX0WUcTHDxodl/b51y5wJOdCEA36QviK/s2g081hvmGs8eaE3DWb6NYZQ6BjO/QkNRPenoPA==}
+    engines: {node: '>=18'}
+    hasBin: true
+
   playwright@1.60.0:
     resolution: {integrity: sha512-hheHdokM8cdqCb0lcE3s+zT4t4W+vvjpGxsZlDnikarzx8tSzMebh3UiFtgqwFwnTnjYQcsyMF8ei2mCO/tpeA==}
+    engines: {node: '>=18'}
+    hasBin: true
+
+  playwright@1.61.0:
+    resolution: {integrity: sha512-Z+7BeeqQPRRzklHsVFP4KTGIyMxKUmfeRA4WisM6G3/XW6nwGeX6fX9qYaDa+CiUqpOkb2f6X3nar05R3kSuJQ==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -5483,9 +5493,17 @@ snapshots:
 
   playwright-core@1.60.0: {}
 
+  playwright-core@1.61.0: {}
+
   playwright@1.60.0:
     dependencies:
       playwright-core: 1.60.0
+    optionalDependencies:
+      fsevents: 2.3.2
+
+  playwright@1.61.0:
+    dependencies:
+      playwright-core: 1.61.0
     optionalDependencies:
       fsevents: 2.3.2
 
