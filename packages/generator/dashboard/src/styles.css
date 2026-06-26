@@ -241,6 +241,61 @@ li.step {
   flex-wrap: wrap;
 }
 
+/* Replay / verify */
+button.run.running {
+  background: var(--field);
+  color: var(--text);
+}
+button.run:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.replay-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  flex: none;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.replay-badge.pass {
+  color: #4ade80;
+}
+.replay-badge.fail {
+  color: #f87171;
+}
+.replay-badge.running {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: var(--accent);
+  animation: replay-pulse 0.9s ease-in-out infinite;
+}
+@keyframes replay-pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.replay-result {
+  width: 100%;
+  margin: 0.5rem 0 0;
+  font-size: 0.82rem;
+}
+.replay-result.pass {
+  color: #4ade80;
+}
+.replay-result.fail {
+  color: #f87171;
+}
+.replay-result.aborted {
+  color: var(--muted);
+}
+
 /* Custom select */
 .select {
   position: relative;
