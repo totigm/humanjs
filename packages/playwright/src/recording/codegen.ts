@@ -1,9 +1,9 @@
 import type { Timeline, TimelineEvent } from './index';
+import { POINT_RE } from './targets';
 
 // A raw-coordinate target (`point(x, y)`) has no selector, so generated code
 // keeps the coordinate verbatim and flags it — converting it to a guessed
 // locator would silently change behavior (canvas/map/pixel-precise clicks).
-const POINT_RE = /^point\((-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)\)$/;
 const POINT_COMMENT = ' // raw coordinate — replace with a locator for a stable selector';
 const UNCAPTURED_COMMENT =
   ' // input not captured (masked or captureInputs disabled) — fill in (e.g. process.env.X)';
