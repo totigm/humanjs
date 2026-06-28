@@ -43,6 +43,10 @@ export type ServerMessage =
   | {
       readonly type: 'exported';
       readonly path: string;
+      /** Set for a video export whose replay failed partway — the file is truncated. */
+      readonly partial?: boolean;
+      /** Human-readable detail of the partial failure (the failing step + error). */
+      readonly warning?: string;
     }
   | { readonly type: 'replayStarted' }
   | {

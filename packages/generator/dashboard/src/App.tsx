@@ -223,7 +223,8 @@ function ReplayBanner({ result, error }: { result: ReplayResultState; error?: st
 }
 
 export function App() {
-  const { state, connected, exportedPath, exportError, replay, send } = useGenerator();
+  const { state, connected, exportedPath, exportWarning, exportError, replay, send } =
+    useGenerator();
   const [order, setOrder] = useState<Step[]>([]);
   const dragging = useRef(false);
   const editorRef = useRef<HTMLElement>(null);
@@ -341,7 +342,13 @@ export function App() {
               ✗ .{exportError.format} export failed — {exportError.error}
             </p>
           )}
-          {exportedPath && <p className="saved">Saved {exportedPath}</p>}
+          {exportedPath && (
+            <p className={exportWarning ? 'replay-result warn' : 'saved'}>
+              {exportWarning
+                ? `⚠ Saved ${exportedPath} — partial: ${exportWarning}`
+                : `Saved ${exportedPath}`}
+            </p>
+          )}
         </header>
 
         {order.length === 0 ? (

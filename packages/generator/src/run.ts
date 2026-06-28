@@ -121,14 +121,27 @@ export async function start(targetUrl: string): Promise<void> {
     const path = resolve(process.cwd(), `humanjs-recording.${format}`);
     let context: Awaited<ReturnType<typeof browser.newContext>> | undefined;
     let recording: Awaited<ReturnType<typeof recordReplay>> | undefined;
+    // A failing step doesn't throw (recordReplay returns a partial Recording) —
+    // capture the first failure so we can flag the video as truncated.
+    let firstFailure: { index: number; type: string; error?: string } | undefined;
     try {
       context = await browser.newContext({ viewport: null });
       const page = await context.newPage();
-      recording = await recordReplay(page, steps, { personality });
+      recording = await recordReplay(page, steps, {
+        personality,
+        onStep: ({ index, type, status, error }) => {
+          if (status === 'fail' && !firstFailure) {
+            firstFailure = { index, type, ...(error ? { error } : {}) };
+          }
+        },
+      });
       if (format === 'mp4') await recording.toVideo(path);
       else await recording.toGif(path);
-      server.broadcast({ type: 'exported', path });
-      console.log(`  Exported ${format} → ${path}`);
+      const warning = firstFailure
+        ? `replay failed at step ${firstFailure.index + 1} (${firstFailure.type})${firstFailure.error ? `: ${firstFailure.error}` : ''}`
+        : undefined;
+      server.broadcast({ type: 'exported', path, ...(warning ? { partial: true, warning } : {}) });
+      console.log(`  Exported ${format} → ${path}${warning ? ` (partial — ${warning})` : ''}`);
     } catch (cause) {
       const error = cause instanceof Error ? cause.message : String(cause);
       server.broadcast({ type: 'exportFailed', format, error });
