@@ -6,6 +6,14 @@ updates:
       interval: weekly
     open-pull-requests-limit: 10
     groups:
+      # playwright (prod dep) and @playwright/test (dev dep) MUST bump together:
+      # @humanjs/playwright's test fixture bridges both, and a version skew makes
+      # their playwright-core Page types incompatible (typecheck fails). Listed
+      # first so @playwright/test joins this group, not dev-dependencies.
+      playwright:
+        patterns:
+          - "playwright"
+          - "@playwright/*"
       dev-dependencies:
         dependency-type: development
         update-types:
