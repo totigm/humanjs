@@ -1,6 +1,6 @@
 {
   "name": "@humanjs/web",
-  "version": "0.0.4",
+  "version": "0.0.6",
   "private": true,
   "description": "humanjs.dev landing page",
   "type": "module",
@@ -17,11 +17,11 @@
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
     "clsx": "^2.1.1",
-    "framer-motion": "^12.40.0",
-    "lucide-react": "^1.16.0",
-    "next": "^16.2.6",
-    "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "framer-motion": "^12.42.0",
+    "lucide-react": "^1.21.0",
+    "next": "^16.2.9",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.0",

@@ -22,6 +22,10 @@ test-results
 # Demo recording output
 recordings
 
+# @humanjs/generator default exports (throwaway recordings)
+humanjs-recording.ts
+humanjs-recording.spec.ts
+
 # Environment
 .env
 .env.local

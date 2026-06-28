@@ -18,8 +18,10 @@ import {
   type SelectOptionValues,
   type UploadFiles,
 } from './forms';
-import { executePaste, executePress, executeType, type KeyOrChord } from './keyboard';
+import { selectSubstringInElement } from './internal/select-substring';
+import { executeClear, executePaste, executePress, executeType, type KeyOrChord } from './keyboard';
 import { executeClick, executeDrag, executeHover, executeMove, type MouseTarget } from './mouse';
+import { type InstallMouseHelperOptions, installMouseHelper } from './mouse-helper';
 import { executeRead, type ReadOptions, type ReadResult, type ReadTarget } from './reading';
 import {
   getCaptureSettingsForQuality,
@@ -102,15 +104,32 @@ export type { ReadOptions, ReadResult, ReadTarget } from './reading';
 export {
   type FfmpegPreset,
   type FfmpegTune,
+  generateHumanJS,
+  generatePlaywrightTest,
   type PlaywrightTestOptions,
   Recording,
   type RecordingQuality,
+  type ReplayOptions,
+  type ReplayResult,
+  type ReplayStepResult,
+  type ReplayStepUpdate,
+  replayTimeline,
   type Timeline,
   type TimelineEvent,
   type ToGifOptions,
   type ToVideoOptions,
 } from './recording';
 export type { ScrollOptions, ScrollResult, ScrollTarget } from './scroll';
+
+/** Options for {@link Human.selectText}. */
+export interface SelectTextOptions {
+  /**
+   * Select only this substring of the element's text instead of all of it.
+   * Located inside the element whitespace-tolerantly (first match); falls back
+   * to selecting the whole element when not found.
+   */
+  text?: string;
+}
 
 /**
  * How fast the humanized session runs.
@@ -130,6 +149,14 @@ export interface CreateHumanOptions {
   readonly speed?: Speed;
   /** Plugins installed on this session, invoked in registration order. */
   readonly plugins?: readonly HumanPlugin[];
+  /**
+   * Visual cursor overlay ({@link installMouseHelper}) so humanized motion is
+   * visible in headed runs and recordings. **On by default.** Pass `false` to
+   * opt out — do this for `speed: 'instant'` / CI, where there's no motion to
+   * show and the injected cursor would land in test DOM and screenshots. Pass
+   * an options object to style it (color, size, …).
+   */
+  readonly cursor?: boolean | InstallMouseHelperOptions;
   /**
    * Starting cursor position used as the origin of the first humanized path.
    * Defaults to `{ x: 0, y: 0 }`. Set this if you've already moved the cursor
@@ -254,6 +281,19 @@ export interface Human {
    */
   paste(target: Locator | string, value: string): Promise<void>;
   /**
+   * Clear a text field `target` (input, textarea, or contenteditable) with a
+   * humanized gesture: click to focus, **select-all**, a beat, then **delete**
+   * — the real keyboard motion a person uses to wipe a field before retyping,
+   * not a silent value reset. Fires the keydown/up + `input` events the page
+   * expects.
+   *
+   * Pair with `type()` to edit an existing value:
+   * `await human.clear('#name'); await human.type('#name', 'New');`
+   *
+   * In `speed: 'instant'`, delegates to Playwright's native `locator.clear()`.
+   */
+  clear(target: Locator | string): Promise<void>;
+  /**
    * Tick a checkbox or radio `target`. Moves the cursor to the control and
    * clicks it with the same humanized motion as `click()` — but only when
    * needed: if it already reports checked, no click fires (a real user
@@ -288,6 +328,23 @@ export interface Human {
    * In `speed: 'instant'`, sets the value with no cursor motion.
    */
   selectOption(target: Locator | string, values: SelectOptionValues): Promise<string[]>;
+  /**
+   * Select text inside `target` (a paragraph, heading, input, …). The cursor
+   * moves to the element (humanized), then the text is highlighted — the
+   * "select this" gesture before copying, replacing, or triggering a highlight
+   * menu.
+   *
+   * By default the element's whole text is selected. Pass `{ text }` to select
+   * just that substring: HumanJS finds it inside the element (whitespace-
+   * tolerant, mapped to exact offsets, first match) and selects only that
+   * range — so a recorded partial highlight reproduces as itself, not the whole
+   * element. If the text can't be located, it falls back to selecting all of
+   * the element.
+   *
+   * `target` is element-bound (selector or `Locator`). In `speed: 'instant'`
+   * the cursor motion is skipped; the selection is still applied.
+   */
+  selectText(target: Locator | string, options?: SelectTextOptions): Promise<void>;
   /**
    * Attach file(s) to a file-input `target`. The cursor moves to the control
    * (visible in recordings / the overlay), then the files are attached via
@@ -470,6 +527,22 @@ export interface Human {
    */
   content(): Promise<string>;
   /**
+   * Accessibility-tree **outline** of the page (or a region) — every
+   * interactive element and landmark by its ARIA role + accessible name,
+   * rendered as compact YAML (Playwright's `ariaSnapshot`). The most
+   * token-efficient way for an AI agent to see what's actionable and pick a
+   * selector: the names map directly to `getByRole` / accessible-name
+   * selectors, which HumanJS already favors.
+   *
+   * Prefer this over {@link Human.content} when the question is "what can I
+   * click / fill"; reach for {@link Human.screenshot} when you need the
+   * visual layout. Pass `target` to scope the outline to a region.
+   *
+   * Not a humanized action: no plugin events fire. Requires Playwright ≥ 1.49
+   * (when `ariaSnapshot` landed).
+   */
+  outline(target?: Locator | string): Promise<string>;
+  /**
    * Current URL of the page. Forwards to `page.url()`. Synchronous return
    * because Playwright's underlying API is sync.
    *
@@ -608,6 +681,16 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
   const context: PluginContext = { personality, rng };
   for (const plugin of plugins) {
     await plugin.install?.(context);
+  }
+
+  // Visual cursor overlay, on by default so humanized motion is visible in
+  // headed runs and recordings. Opt out with `cursor: false` (do this for
+  // `speed: 'instant'` / CI). Scoped to this page; idempotent, so a manual
+  // `installMouseHelper` or the MCP server's install is harmless on top. The
+  // capability check keeps it from touching partial page mocks in unit tests —
+  // a real Playwright `Page` always has `addInitScript`.
+  if (options.cursor !== false && typeof page.addInitScript === 'function') {
+    await installMouseHelper(page, typeof options.cursor === 'object' ? options.cursor : {});
   }
 
   // Each session can only produce one Recording — we can't run two
@@ -819,6 +902,20 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
         inputValue !== undefined ? { inputValue } : undefined,
       );
     },
+    async clear(target) {
+      await performAction(
+        { type: 'clear', params: { target: describeMouseTarget(target) } },
+        async () => {
+          // Implicit click to focus the field first — same pattern as type/paste
+          // (a real user clicks into a field before wiping it). Skipped in
+          // instant mode, where executeClear uses native locator.clear().
+          if (speed !== 'instant') {
+            await executeClick(target, mouseCtx());
+          }
+          await executeClear(target, { page, personality, rng, speed });
+        },
+      );
+    },
     async check(target) {
       await performAction(
         { type: 'check', params: { target: describeMouseTarget(target) } },
@@ -839,6 +936,32 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
       return performAction(
         { type: 'selectOption', params: { target: describeMouseTarget(target), values } },
         () => executeSelectOption(target, values, mouseCtx()),
+      );
+    },
+    async selectText(target, options) {
+      const text = options?.text;
+      await performAction(
+        {
+          type: 'selectText',
+          params: { target: describeMouseTarget(target), ...(text !== undefined ? { text } : {}) },
+        },
+        async () => {
+          // Move the cursor onto the element first (the visible "select this"
+          // approach), then highlight its text. Skipped in instant mode, where
+          // the selection is set with no motion.
+          if (speed !== 'instant') {
+            await executeMove(target, mouseCtx());
+          }
+          const locator = typeof target === 'string' ? page.locator(target) : target;
+          if (text === undefined) {
+            await locator.selectText();
+            return;
+          }
+          // Substring select: find the text in the element and select just it,
+          // falling back to the whole element when it can't be located.
+          const found = await locator.evaluate(selectSubstringInElement, text);
+          if (!found) await locator.selectText();
+        },
       );
     },
     async upload(target, files) {
@@ -988,6 +1111,15 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
     },
     content() {
       return page.content();
+    },
+    outline(target) {
+      const locator =
+        target === undefined
+          ? page.locator('body')
+          : typeof target === 'string'
+            ? page.locator(target)
+            : target;
+      return locator.ariaSnapshot();
     },
     url() {
       return page.url();

@@ -54,6 +54,28 @@ await human.type('input[name="email"]', 'gonzalo@example.com');
 
 Pass a `seed` and every random decision (path curvature, typo placement, keystroke jitter) becomes reproducible. Same seed + same personality + same value = same keystrokes.
 
+### Playwright Test fixture
+
+Writing `@playwright/test` specs? Import from the `@humanjs/playwright/test` subpath instead of constructing a `Human` in every test. It extends Playwright's `test` with a `human` fixture — seeded from the test title (deterministic per test) and instant in CI / humanized locally:
+
+```ts
+import { test, expect } from '@humanjs/playwright/test';
+
+test('checkout flow', async ({ human, page }) => {
+  await human.goto('/');
+  await human.click('Buy now');
+  await expect(page).toHaveURL(/checkout/);
+});
+```
+
+Customize per file (or per project via `playwright.config.ts` `use`) with the `humanOptions` option:
+
+```ts
+test.use({ humanOptions: { personality: 'distracted', speed: 'human' } });
+```
+
+Requires `@playwright/test` (an optional peer — you already have it to run the tests).
+
 ### Primitives
 
 The full `Human` surface, at a glance. Each one fires real DOM events through Playwright; the humanization wraps the timing and the path, not the dispatch.
@@ -357,6 +379,26 @@ await rec.toPlaywright('session.spec.ts'); // @playwright/test spec (humanized)
 Generated tests are built to *be tests*: they run `speed: process.env.CI ? 'instant' : '<recorded>'` (instant in CI, recorded feel locally) and drop recorded `sleep()` pauses (timing fidelity belongs in a demo, not a test — pass `toPlaywright(path, { keepSleeps: true })` to keep them). The test title comes from the recording's name (`human.record({ name })`) and is overridable with `{ title }`.
 
 Two more options: `{ steps: true }` groups the actions into `test.step(...)` blocks (a new step per navigation) for collapsible sections in the HTML report and trace; `{ baseUrl: true }` rewrites same-origin `goto`s to relative paths and adds a note to set `use.baseURL` in your `playwright.config.ts` — so the same test runs against local / staging / prod.
+
+### Replaying a timeline
+
+`replayTimeline(page, timeline, options?)` runs a recorded `Timeline` against a live page, driving it through the same humanized primitives the exported test uses — without spawning a test runner. It runs each event in order, reports per-step status via `onStep`, and **stops at the first failure** (like a real test).
+
+```ts
+import { chromium, replayTimeline } from '@humanjs/playwright';
+
+const page = await (await chromium.launch({ headless: false })).newPage();
+const result = await replayTimeline(page, recording.timeline, {
+  personality: 'careful',
+  onStep: ({ index, type, status }) => console.log(`${index} ${type}: ${status}`),
+});
+
+result.status; // 'pass' | 'fail'
+result.failedIndex; // index of the failing step, when failed
+result.steps; // per-step { index, type, status, error? }
+```
+
+`assert` events are evaluated with plain Playwright APIs — there's no `@playwright/test` dependency — so they approximate `expect` (`toBeVisible` via `waitFor`, `toHaveText` via normalized text equality, `toHaveURL` via `page.url()`) without its auto-retry on text/url. Pass an `AbortSignal` via `{ signal }` to cancel a run; it rejects with an `AbortError`. The cursor is on and `speed` is `'human'` by default so the replay is watchable. You own `page`'s lifecycle — `replayTimeline` doesn't close it. This is the engine behind the `@humanjs/generator` dashboard's **Run** button.
 
 By default the actual typed/pasted text is captured into the timeline (and the exported code). Values typed into `input[type="password"]` are always masked; set `captureInputs: false` to record none — exports then emit empty-string placeholders:
 

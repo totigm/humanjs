@@ -78,9 +78,12 @@ await human.move(target);                 // selector | Locator | Point — posi
 await human.drag(from, to);               // each endpoint: selector | Locator | Point
 await human.type(selector, value);        // click, then realistic typing rhythm
 await human.paste(selector, value);       // Cmd-V style (no per-char timing)
+await human.clear(selector);              // wipe a field: select-all + delete (pair with type to replace)
 await human.check(selector);              // tick a checkbox/radio (clicks only if needed)
 await human.uncheck(selector);            // untick a checkbox
 await human.selectOption(selector, value);// native <select> — cursor moves to it, then sets value
+await human.selectText(selector);         // highlight an element's text (cursor moves to it, then selects)
+await human.selectText(selector, { text: 'es una' }); // select just a substring (found inside the element)
 await human.upload(selector, files);      // attach file(s) to a file input (no OS dialog)
 await human.read(text);                   // dwell based on word count
 await human.scroll('natural');
@@ -91,7 +94,11 @@ const rec = await human.record(async () => { /* actions */ });
 await rec.toVideo('out.mp4');                // shipped
 await rec.toGif('out.gif');                   // shipped
 await rec.toTimeline('session.json');         // shipped
-// await rec.toPlaywright('test.spec.ts');    // v0.2 — Playwright code export
+await rec.toPlaywright('test.spec.ts');       // shipped — @playwright/test spec (humanized)
+await rec.toHumanJS('test.ts');               // shipped — standalone HumanJS script
+
+import { replayTimeline } from '@humanjs/playwright';
+await replayTimeline(page, rec.timeline);     // replay a recorded timeline; per-step pass/fail, stops at first failure
 
 await sleep(800);                             // shared helper, re-exported from @humanjs/core
 ```

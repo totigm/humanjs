@@ -12,13 +12,13 @@ interface Signal {
 const signals: Signal[] = [
   {
     label: 'Latest',
-    value: '@humanjs/core@0.6.0',
+    value: '@humanjs/core@0.8.0',
     href: 'https://www.npmjs.com/package/@humanjs/core',
     iconKind: 'external',
   },
   {
     label: 'Built on',
-    value: 'Playwright 1.40+',
+    value: 'Playwright 1.49+',
     href: 'https://playwright.dev',
     iconKind: 'external',
   },

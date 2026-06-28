@@ -62,7 +62,7 @@ export function Hero() {
           animate={shouldReduceMotion ? undefined : 'visible'}
           className="mb-8 font-mono text-[11px] uppercase tracking-[0.32em] text-muted"
         >
-          <span className="text-accent">v0.6</span>
+          <span className="text-accent">v0.9</span>
           <span aria-hidden className="mx-3 text-muted/40">
             /
           </span>

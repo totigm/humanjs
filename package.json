@@ -48,7 +48,8 @@
     "demo:record": "turbo run build --filter=@humanjs/recorder... && pnpm --filter @humanjs/examples record",
     "demo:record-manual": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples record-manual",
     "demo:scroll": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples scroll",
-    "demo:type": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples type"
+    "demo:type": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples type",
+    "demo:generate": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples generate"
   },
   "commitlint": {
     "extends": [
@@ -56,16 +57,16 @@
     ]
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.15",
+    "@biomejs/biome": "^2.4.16",
     "@changesets/cli": "^2.31.0",
-    "@commitlint/cli": "^21.0.1",
-    "@commitlint/config-conventional": "^21.0.1",
+    "@commitlint/cli": "^21.0.2",
+    "@commitlint/config-conventional": "^21.0.2",
     "@types/node": "^25.9.1",
-    "lefthook": "^2.1.8",
+    "lefthook": "^2.1.9",
     "publint": "^0.3.21",
     "tsup": "^8.5.1",
     "tsx": "^4.22.3",
-    "turbo": "^2.9.14",
+    "turbo": "^2.9.16",
     "typescript": "^6.0.3",
     "vitest": "^4.1.7"
   }

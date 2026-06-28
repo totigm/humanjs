@@ -1,19 +1,20 @@
 /**
- * HumanJS primitives demo — exercises every Human primitive in sequence
- * on one page so a viewer can see them all work visually:
+ * HumanJS primitives demo — walks through the core humanized primitives in
+ * sequence on one page so a viewer can see them work visually (the form
+ * primitives — doubleClick / check / selectOption / upload — aren't shown here):
  *
- *    1. hover       — cursor moves to a target, tooltip appears via :hover
- *    2. click       — basic Bezier-path click on a button
- *    3. rightClick  — context-menu click, custom menu appears
- *    4. drag        — selector → selector card move, then selector → Point slider
- *    5. type        — humanized per-key rhythm into an input
- *    6. press       — Mod+S triggers a Save indicator (cursor position irrelevant)
- *    7. paste       — long string lands in a textarea via insertText (no rhythm).
- *                     The paste section deliberately lives below the fold so
- *                     this step exercises the auto-scroll path before typing.
- *    8. read        — humanized cursor scan across prose during the dwell
- *    9. move        — pure positional motion to a Point, no element under cursor
- *   10. scroll      — humanized scroll all the way down to a destination
+ *    1. hover        — cursor moves to a target, tooltip appears via :hover
+ *    2. click        — basic Bezier-path click on a button
+ *    3. rightClick   — context-menu click, custom menu appears
+ *    4. drag         — selector → selector card move, then selector → Point slider
+ *    5. type & clear — per-key typing into an input, then select-all + delete and retype
+ *    6. press        — Mod+S triggers a Save indicator (cursor position irrelevant)
+ *    7. paste        — long string lands in a textarea via insertText (no rhythm).
+ *                      The paste section deliberately lives below the fold so
+ *                      this step exercises the auto-scroll path before typing.
+ *    8. read         — humanized cursor scan across prose during the dwell
+ *    9. move         — pure positional motion to a Point, no element under cursor
+ *   10. scroll       — humanized scroll all the way down to a destination
  *
  * Run with:
  *   pnpm demo:primitives
@@ -267,7 +268,7 @@ const DEMO_HTML = /* html */ `
         transition: left 0.08s linear;
       }
 
-      /* 5. Type */
+      /* 5. Type & clear */
       .text-input {
         width: 100%;
         padding: 14px 16px;
@@ -454,9 +455,9 @@ const DEMO_HTML = /* html */ `
         </div>
       </div>
 
-      <!-- 5. Type -->
+      <!-- 5. Type & clear -->
       <div class="block">
-        <div class="label"><span class="num">5</span> type</div>
+        <div class="label"><span class="num">5</span> type &amp; clear</div>
         <input id="type-input" class="text-input" placeholder="email" autocomplete="off" spellcheck="false" />
       </div>
 
@@ -634,7 +635,7 @@ async function main() {
 
   console.log(`Personality: ${personality}`);
   console.log(
-    'Demoing: hover → click → rightClick → drag → type → press → paste → read → move → scroll\n',
+    'Demoing: hover → click → rightClick → drag → type & clear → press → paste → read → move → scroll\n',
   );
 
   const browser = await chromium.launch({ headless: false });
@@ -686,16 +687,23 @@ async function main() {
     }
     await human.sleep(900);
 
-    // 5. Type — realistic per-key rhythm into the input. `human.type()` also
-    // implicitly clicks the input first, so you'll see the cursor land on
-    // the field before the keys land.
-    console.log('5. type → realistic typing rhythm into the input');
+    // 5. Type & clear — same field, two primitives. `human.type()` implicitly
+    // clicks the input first (watch the cursor land before the keys) and types
+    // with a humanized per-key rhythm. Then `clear` (select-all + delete) wipes
+    // it and we retype the corrected value — the realistic "edit an existing
+    // value" flow. `clear` has no element of its own, so it shares this field.
+    console.log('5. type & clear → type into the input, then wipe it and retype');
     await human.type('#type-input', 'demo@humanjs.dev');
+    await human.sleep(900);
+    console.log('   ↳ clear → select-all + delete, then retype the corrected value');
+    await human.clear('#type-input');
+    await human.sleep(700);
+    await human.type('#type-input', 'gonzalo@humanjs.dev');
     await human.sleep(900);
 
     // 6. Press — Mod+S triggers the page's save handler, indicator flashes.
-    // The input from step 5 is still focused; cursor position is irrelevant
-    // to which element receives a key press — only focus matters.
+    // The input from the previous step is still focused; cursor position is
+    // irrelevant to which element receives a key press — only focus matters.
     console.log('6. press → Mod+S triggers Save (against the focused input)');
     await human.press('Mod+S');
     await human.sleep(2000);

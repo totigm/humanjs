@@ -1,5 +1,30 @@
 # @humanjs/recorder
 
+## 0.3.2
+
+### Patch Changes
+
+- Updated dependencies [39d87f3]
+- Updated dependencies [39d87f3]
+- Updated dependencies [39d87f3]
+- Updated dependencies [13ca334]
+  - @humanjs/playwright@0.9.0
+
+## 0.3.1
+
+### Patch Changes
+
+- 8857b00: Ship the MIT `LICENSE` file inside every package tarball. Each package listed `LICENSE` in its `files` array but had no license file in its own directory, so published tarballs omitted it — this adds the file to each package. Also broadens every package's npm keywords for discoverability.
+
+  Tooling (not published): a `check:exports` task runs `publint --strict` on every package in CI, validating the published exports map, `files`, and type fields against the packed output (warnings fail the check).
+
+- Updated dependencies [a0a11c4]
+- Updated dependencies [910260f]
+- Updated dependencies [8857b00]
+- Updated dependencies [4757040]
+- Updated dependencies [54b3c65]
+  - @humanjs/playwright@0.8.0
+
 ## 0.3.0
 
 ### Minor Changes

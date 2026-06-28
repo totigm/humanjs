@@ -1653,3 +1653,92 @@ describe('createHuman', () => {
     });
   });
 });
+
+describe('human.outline', () => {
+  function makeOutlinePage(snapshot = '- button "Sign in"'): {
+    page: Page;
+    locator: { ariaSnapshot: ReturnType<typeof vi.fn> };
+    locatorFn: ReturnType<typeof vi.fn>;
+  } {
+    const locator = { ariaSnapshot: vi.fn().mockResolvedValue(snapshot) };
+    const locatorFn = vi.fn().mockReturnValue(locator);
+    const page = { locator: locatorFn } as unknown as Page;
+    return { page, locator, locatorFn };
+  }
+
+  it('returns the body aria snapshot by default', async () => {
+    const { page, locator, locatorFn } = makeOutlinePage('- heading "Welcome"');
+    const human = await createHuman(page, { speed: 'instant' });
+    const out = await human.outline();
+    expect(locatorFn).toHaveBeenCalledWith('body');
+    expect(locator.ariaSnapshot).toHaveBeenCalledTimes(1);
+    expect(out).toBe('- heading "Welcome"');
+  });
+
+  it('scopes to a selector when given', async () => {
+    const { page, locatorFn } = makeOutlinePage();
+    const human = await createHuman(page, { speed: 'instant' });
+    await human.outline('#form');
+    expect(locatorFn).toHaveBeenCalledWith('#form');
+  });
+
+  it('does not fire plugin actions (inspection only)', async () => {
+    const { page } = makeOutlinePage();
+    const before = vi.fn();
+    const human = await createHuman(page, {
+      speed: 'instant',
+      plugins: [{ name: 't', beforeAction: before }],
+    });
+    await human.outline();
+    expect(before).not.toHaveBeenCalled();
+  });
+});
+
+describe('human.clear', () => {
+  function makeClearPage() {
+    const locator = {
+      boundingBox: vi.fn().mockResolvedValue({ x: 100, y: 200, width: 120, height: 30 }),
+      scrollIntoViewIfNeeded: vi.fn().mockResolvedValue(undefined),
+      focus: vi.fn().mockResolvedValue(undefined),
+      clear: vi.fn().mockResolvedValue(undefined),
+      click: vi.fn().mockResolvedValue(undefined),
+    };
+    const press = vi.fn().mockResolvedValue(undefined);
+    const mouseClick = vi.fn().mockResolvedValue(undefined);
+    const page = {
+      locator: vi.fn(() => locator),
+      evaluate: vi.fn().mockResolvedValue(0),
+      keyboard: { press, insertText: vi.fn().mockResolvedValue(undefined) },
+      mouse: {
+        move: vi.fn().mockResolvedValue(undefined),
+        click: mouseClick,
+        wheel: vi.fn().mockResolvedValue(undefined),
+        down: vi.fn().mockResolvedValue(undefined),
+        up: vi.fn().mockResolvedValue(undefined),
+      },
+      viewportSize: () => ({ width: 1280, height: 720 }),
+    } as unknown as Page;
+    return { page, locator, press, mouseClick };
+  }
+
+  it('focuses, selects all, then deletes (humanized gesture)', async () => {
+    const { page, locator, press, mouseClick } = makeClearPage();
+    const human = await createHuman(page, { speed: 'fast' });
+    await human.clear('#name');
+    expect(mouseClick).toHaveBeenCalledTimes(1); // implicit focus click
+    expect(locator.focus).toHaveBeenCalled();
+    const chords = press.mock.calls.map((c) => c[0]);
+    expect(chords[0]).toMatch(/^(Meta|Control)\+A$/); // platform select-all
+    expect(chords[chords.length - 1]).toBe('Delete');
+    expect(locator.clear).not.toHaveBeenCalled();
+  });
+
+  it('instant mode uses native locator.clear() with no gesture', async () => {
+    const { page, locator, press, mouseClick } = makeClearPage();
+    const human = await createHuman(page, { speed: 'instant' });
+    await human.clear('#name');
+    expect(locator.clear).toHaveBeenCalledTimes(1);
+    expect(press).not.toHaveBeenCalled();
+    expect(mouseClick).not.toHaveBeenCalled();
+  });
+});

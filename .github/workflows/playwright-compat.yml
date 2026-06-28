@@ -20,7 +20,10 @@ jobs:
         playwright:
           # Floor: the minimum version our peerDependency promises to support.
           # If a test fails here, either fix the code or raise the peer range.
-          - "1.40.0"
+          # Bumped 1.40 -> 1.49 when human.outline() adopted `ariaSnapshot`
+          # (added in Playwright 1.49); kept in sync with @humanjs/playwright's
+          # peerDependencies range.
+          - "1.49.0"
           # Current latest, to catch regressions on new releases.
           - "latest"
     steps:
@@ -46,7 +49,12 @@ jobs:
         run: pnpm --filter @humanjs/core build
 
       - name: Pin Playwright to matrix version
-        run: pnpm --filter @humanjs/playwright add -D playwright@${{ matrix.playwright }}
+        # Pin BOTH playwright and @playwright/test — they ship in lockstep and a
+        # real install always has them on the same version. The `/test` fixture
+        # bridges them (its `page` comes from @playwright/test, passed to
+        # createHuman which types `Page` from playwright), so a version skew here
+        # would surface a phantom type mismatch that no real user hits.
+        run: pnpm --filter @humanjs/playwright add -D playwright@${{ matrix.playwright }} @playwright/test@${{ matrix.playwright }}
 
       - name: Typecheck against this Playwright version
         run: pnpm --filter @humanjs/playwright typecheck

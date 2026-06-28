@@ -37,6 +37,8 @@ await human.type('Card number', '4242…');      // by label
 await human.click('button.checkout');          // CSS fallback when needed
 ```
 
+Not sure what's on the page? `await human.outline()` returns the accessibility-tree outline (every element by ARIA role + accessible name, as YAML) — a compact, selector-friendly view of what's actionable. The names it shows are exactly what you pass to the role/label selectors above. Pass a selector to scope it to a region. (Requires Playwright ≥ 1.49.)
+
 ## Personalities
 
 ```ts
@@ -57,7 +59,21 @@ createHuman(page, { personality: blend('careful', 'distracted', 0.3) });
 
 ## Determinism and CI
 
-Set `seed` for reproducible runs (required for snapshot tests). Use `speed: 'instant'` in CI to bypass humanization and keep the suite fast — the documented test pattern:
+Set `seed` for reproducible runs (required for snapshot tests). Use `speed: 'instant'` in CI to bypass humanization and keep the suite fast.
+
+In Playwright tests, prefer the `@humanjs/playwright/test` fixture — it provides a `human` already seeded from the test title and instant-in-CI / humanized-locally, so there's no `createHuman` boilerplate:
+
+```ts
+import { test, expect } from '@humanjs/playwright/test';
+
+test('checkout flow', async ({ human, page }) => {
+  await human.goto('/');
+  await human.click('Buy now');
+  await expect(page).toHaveURL(/checkout/);
+});
+```
+
+Override per file or project with `test.use({ humanOptions: { personality: 'distracted' } })`. The explicit form still works when you want full control:
 
 ```ts
 import { test, expect } from '@playwright/test';
@@ -68,9 +84,7 @@ test('checkout flow', async ({ page }) => {
     seed: test.info().title,
     speed: process.env.CI ? 'instant' : 'human',
   });
-
   await human.goto('/');
-  await human.click('Buy now');
   await expect(page).toHaveURL(/checkout/);
 });
 ```
@@ -92,8 +106,10 @@ All await; selectors are strings or Playwright `Locator`s (`move`/`drag` also ac
 | `human.drag(from, to)` | Humanized drag; endpoints are selector / Locator / Point. |
 | `human.type(target, value)` | Click to focus, then realistic typing rhythm (+ optional typos/backspace). |
 | `human.paste(target, value)` | Cmd-V style insert — no per-char timing. |
+| `human.clear(target)` | Wipe a field — select-all + delete. Use before `type` to replace a value. |
 | `human.check(target)` / `human.uncheck(target)` | Tick/untick a checkbox or radio — clicks only if the state needs to change. |
 | `human.selectOption(target, values)` | Choose option(s) in a native `<select>` (cursor moves to it, then sets the value). |
+| `human.selectText(target, options?)` | Highlight text inside an element (cursor moves to it, then selects). Selects all of it by default; pass `{ text }` to select just that substring. |
 | `human.upload(target, files)` | Attach file(s) to a file input (no OS dialog). |
 | `human.press(key)` | Single key (`'Tab'`) or chord (`'Mod+S'` — `Mod` = Meta on macOS, Control elsewhere). |
 | `human.read(target)` | Dwell based on word count. |

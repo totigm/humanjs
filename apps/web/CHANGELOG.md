@@ -1,5 +1,22 @@
 # @humanjs/web
 
+## 0.0.6
+
+### Patch Changes
+
+- Updated dependencies [13ca334]
+  - @humanjs/core@0.8.0
+
+## 0.0.5
+
+### Patch Changes
+
+- Updated dependencies [a0a11c4]
+- Updated dependencies [910260f]
+- Updated dependencies [8857b00]
+- Updated dependencies [f77ca93]
+  - @humanjs/core@0.7.0
+
 ## 0.0.4
 
 ### Patch Changes

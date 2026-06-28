@@ -1,6 +1,6 @@
 {
   "name": "@humanjs/skill",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "description": "Install the HumanJS coding-agent skill — teaches Claude Code, Cursor, and Codex to write humanized Playwright automation. Run: npx @humanjs/skill",
   "keywords": [
     "humanjs",
@@ -68,7 +68,7 @@
     "clean": "rm -rf dist .turbo"
   },
   "devDependencies": {
-    "@clack/prompts": "^1.4.0"
+    "@clack/prompts": "^1.5.0"
   },
   "publishConfig": {
     "access": "public"

@@ -1,5 +1,79 @@
 # @humanjs/playwright
 
+## 0.9.0
+
+### Minor Changes
+
+- 39d87f3: `generatePlaywrightTest` now renders explicit `assert` timeline events into `@playwright/test` assertions: `{ kind: 'visible' }` → `expect(locator).toBeVisible()`, `{ kind: 'text', value }` → `toHaveText(value)`, `{ kind: 'url', value }` → `expect(page).toHaveURL(value)`. They interleave with actions in recorded order and pull `page` + `expect` into the test automatically. The standalone `generateHumanJS` script export ignores them (a replay script has no `expect`). This lets tooling that builds a `Timeline` (notably `@humanjs/generator`) emit intentional assertions alongside the actions, beyond the ones already derived from reads and captured inputs.
+- 39d87f3: Export `generateHumanJS` and `generatePlaywrightTest` from the package root. They turn a `Timeline` (the structured action log from `human.record()` / `rec.toTimeline()`) directly into a runnable HumanJS script or a `@humanjs/playwright/test` spec — the same code the `Recording` exporters emit, now callable on any `Timeline` you construct or load. This is the codegen entry point `@humanjs/generator` builds on, and it's useful standalone for tooling that produces timelines without running a live recording.
+- 39d87f3: `createHuman` now installs the visual cursor overlay (`installMouseHelper`) **by default**, so humanized motion is visible in headed runs and recordings without a manual call — exported scripts from `@humanjs/generator` / `Recording.toHumanJS()` now show the cursor when you run them.
+
+  Opt out with `cursor: false` — do this for `speed: 'instant'` / CI, where there's no motion to show and the injected cursor would otherwise land in test DOM and screenshots. Pass an options object (`cursor: { color, size, … }`) to style it. The `@humanjs/playwright/test` fixture opts out automatically in CI (it already runs `instant` there) and shows the cursor on local runs.
+
+  The install is scoped to the session's page, idempotent (a manual `installMouseHelper` or the MCP server's install on top is a no-op), and skipped on page objects that don't support it (so unit-test mocks are unaffected).
+
+- 13ca334: Add `human.selectText(target, options?)` — highlight text inside an element. The cursor moves to the element (humanized), then the text is selected — the "select this" gesture before copying, replacing, or triggering a highlight menu. Selects the element's whole text by default; pass `{ text }` to select just that substring, located inside the element whitespace-tolerantly and mapped to exact offsets (first match, falling back to the whole element if not found) — so it's reproduced by the text itself, not brittle coordinates. In `speed: 'instant'` the cursor motion is skipped; the selection is still applied.
+
+  Mirrored as the **`human_selectText`** MCP tool (with the optional `text` arg), rendered by the recorder code generators (`toPlaywright` / `toHumanJS`), documented in the `@humanjs/skill` primitives table, and backed by a new `'selectText'` `KnownActionType` in `@humanjs/core`. `@humanjs/generator` captures the gesture too: highlighting an element's whole text records a plain `selectText`, and highlighting part of it records `selectText(target, { text })` with the exact substring.
+
+### Patch Changes
+
+- Updated dependencies [13ca334]
+  - @humanjs/core@0.8.0
+
+## 0.8.0
+
+### Minor Changes
+
+- a0a11c4: Add form-interaction primitives so real flows (forms, checkout, settings) stay fully humanized instead of dropping back to raw Playwright:
+
+  - **`human.doubleClick(target)`** — same humanized approach as `click()`, double-click dispatch.
+  - **`human.check(target)` / `human.uncheck(target)`** — tick/untick a checkbox or radio; clicks only when the state needs to change (a real user doesn't re-click an already-ticked box), and verifies the result.
+  - **`human.selectOption(target, values)`** — choose option(s) in a native `<select>`; the cursor moves to the dropdown, then the value is set (firing `input`/`change`).
+  - **`human.upload(target, files)`** — attach file(s) to a file input; the cursor moves to the control, then files are set directly (never opens the OS dialog).
+
+  Each is mirrored as an MCP tool (`human_doubleClick`, `human_check`, `human_uncheck`, `human_selectOption`, `human_upload`), exported by the recorder's code generators (`toPlaywright` / `toHumanJS`), and documented in the `@humanjs/skill` primitives reference. `@humanjs/core` gains the matching `KnownActionType` entries so plugins can observe them.
+
+  `human_upload` confines reads to `HUMANJS_UPLOAD_DIR` (default: the server's working dir) and accepts a basename only — `../`, subdirectories, and absolute paths are rejected — so a prompt-injected filename can't read and exfiltrate arbitrary local files to a web form (same path-safety model as the output tools).
+
+- 910260f: Add `human.clear(target)` — clears a text field (input / textarea / contenteditable) with a real humanized keyboard gesture: click to focus, **select-all**, a beat, then **delete**, firing the `input` events the page expects. Pair it with `type()` to replace an existing value rather than append to it. In `speed: 'instant'` it delegates to Playwright's native `locator.clear()`.
+
+  Mirrored as the **`human_clear`** MCP tool, exported by the recorder code generators (`toPlaywright` / `toHumanJS`), documented in the `@humanjs/skill` primitives table, and backed by a new `'clear'` `KnownActionType` in `@humanjs/core`.
+
+- 4757040: Add page perception for AI agents: `human.outline(target?)` returns the page's accessibility-tree outline (every interactive element and landmark by ARIA role + accessible name, as compact YAML — Playwright's `ariaSnapshot`). It's the token-efficient way for an agent to see what's actionable and pick a selector: the names map directly to `getByRole` / accessible-name selectors, which HumanJS already favors. Pass a `target` to scope it to a region.
+
+  Exposed over MCP as **`human_outline`** (inspection tool, alongside `human_page_text` / `human_get_html`), and documented in the `@humanjs/skill` selector-strategy guide.
+
+  `@humanjs/playwright`'s `playwright` peer dependency floor moves from `>=1.40.0` to `>=1.49.0` — the version where `ariaSnapshot` landed.
+
+- 54b3c65: Add a Playwright Test fixture at the `@humanjs/playwright/test` subpath. It extends `@playwright/test`'s `test` with a ready-to-use `human` fixture — bound to the test's `page`, seeded from the test title (deterministic per test), and instant in CI / humanized locally — so specs skip the `createHuman` boilerplate:
+
+  ```ts
+  import { test, expect } from "@humanjs/playwright/test";
+
+  test("checkout", async ({ human, page }) => {
+    await human.goto("/cart");
+    await human.click("Checkout");
+    await expect(page).toHaveURL(/success/);
+  });
+  ```
+
+  Customize per file or project via `test.use({ humanOptions: { … } })`. `@playwright/test` is an optional peer dependency (only needed for this subpath; the package root is unaffected).
+
+  The recorder's `toPlaywright()` code export now generates specs that use this fixture — `import { test, expect } from '@humanjs/playwright/test'` plus `test.use({ humanOptions: … })` carrying the recorded personality/seed/speed — instead of a per-test `createHuman` call. (`toHumanJS()`, the standalone script export, is unchanged.)
+
+### Patch Changes
+
+- 8857b00: Ship the MIT `LICENSE` file inside every package tarball. Each package listed `LICENSE` in its `files` array but had no license file in its own directory, so published tarballs omitted it — this adds the file to each package. Also broadens every package's npm keywords for discoverability.
+
+  Tooling (not published): a `check:exports` task runs `publint --strict` on every package in CI, validating the published exports map, `files`, and type fields against the packed output (warnings fail the check).
+
+- Updated dependencies [a0a11c4]
+- Updated dependencies [910260f]
+- Updated dependencies [8857b00]
+- Updated dependencies [f77ca93]
+  - @humanjs/core@0.7.0
+
 ## 0.7.0
 
 ### Minor Changes

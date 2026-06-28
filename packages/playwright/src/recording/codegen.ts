@@ -1,9 +1,9 @@
 import type { Timeline, TimelineEvent } from './index';
+import { POINT_RE } from './targets';
 
 // A raw-coordinate target (`point(x, y)`) has no selector, so generated code
 // keeps the coordinate verbatim and flags it — converting it to a guessed
 // locator would silently change behavior (canvas/map/pixel-precise clicks).
-const POINT_RE = /^point\((-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)\)$/;
 const POINT_COMMENT = ' // raw coordinate — replace with a locator for a stable selector';
 const UNCAPTURED_COMMENT =
   ' // input not captured (masked or captureInputs disabled) — fill in (e.g. process.env.X)';
@@ -98,9 +98,17 @@ function emitAction(e: TimelineEvent, opts: EmitOptions = {}): string {
       return `  await human.${e.type}(${code});${isPoint ? POINT_COMMENT : ''}`;
     }
     case 'check':
-    case 'uncheck': {
+    case 'uncheck':
+    case 'clear': {
       const { code } = targetArg(p.target);
       return `  await human.${e.type}(${code});`;
+    }
+    case 'selectText': {
+      const { code } = targetArg(p.target);
+      if (typeof p.text === 'string' && p.text.length > 0) {
+        return `  await human.selectText(${code}, { text: ${q(p.text)} });`;
+      }
+      return `  await human.selectText(${code});`;
     }
     case 'selectOption': {
       const { code } = targetArg(p.target);
@@ -151,6 +159,17 @@ function emitAction(e: TimelineEvent, opts: EmitOptions = {}): string {
       return '  await human.goBack();';
     case 'goForward':
       return '  await human.goForward();';
+    case 'assert': {
+      // An explicit assertion (e.g. added in the generator's editor). Test-only:
+      // `generateHumanJS` filters these out, since the standalone replay script
+      // has no `expect` / `page`.
+      const kind = String(p.kind ?? 'visible');
+      if (kind === 'url') return `  await expect(page).toHaveURL(${q(p.value)});`;
+      const { code } = targetArg(p.target);
+      if (kind === 'text')
+        return `  await expect(page.locator(${code})).toHaveText(${q(p.value)});`;
+      return `  await expect(page.locator(${code})).toBeVisible();`;
+    }
     default:
       return `  // unsupported action: ${e.type}`;
   }
@@ -169,7 +188,11 @@ export function generateHumanJS(timeline: Timeline): string {
   const imports = needsSleepImport(timeline)
     ? "import { chromium, createHuman, sleep } from '@humanjs/playwright';"
     : "import { chromium, createHuman } from '@humanjs/playwright';";
-  const body = timeline.events.map((e) => emitAction(e)).join('\n');
+  // Assertions are a test concept; the standalone replay script drops them.
+  const body = timeline.events
+    .filter((e) => e.type !== 'assert')
+    .map((e) => emitAction(e))
+    .join('\n');
   return `${imports}
 
 async function main() {
@@ -275,8 +298,10 @@ function emitSteps(events: readonly TimelineEvent[], opts: EmitOptions): string 
 /**
  * Generates a `@playwright/test` spec that replays the session through
  * HumanJS — a humanized test, not raw Playwright, since the humanization is
- * the point. Runs instant in CI / recorded speed locally, drops timing
- * `sleep()`s by default, and derives the assertions it safely can.
+ * the point. Uses the `@humanjs/playwright/test` fixture for the `human`
+ * (recorded personality / seed / speed applied via `test.use({ humanOptions })`),
+ * runs instant in CI / recorded speed locally, drops timing `sleep()`s by
+ * default, and derives the assertions it safely can.
  */
 export function generatePlaywrightTest(
   timeline: Timeline,
@@ -295,13 +320,16 @@ export function generatePlaywrightTest(
   // Only import `expect` if we actually emitted assertions (body has no
   // comments yet, so this won't match the TODO placeholder below).
   const hasAsserts = body.includes('await expect(');
-  const testImport = hasAsserts
-    ? "import { expect, test } from '@playwright/test';"
-    : "import { test } from '@playwright/test';";
-  const humanImport = needsSleep
-    ? "import { createHuman, sleep } from '@humanjs/playwright';"
-    : "import { createHuman } from '@humanjs/playwright';";
+  // `test` + `expect` come from the `@humanjs/playwright/test` fixture (which
+  // supplies the `human`); only `sleep` (when kept) stays on the package root.
+  const fixtureImport = hasAsserts
+    ? "import { expect, test } from '@humanjs/playwright/test';"
+    : "import { test } from '@humanjs/playwright/test';";
+  const sleepImport = needsSleep ? "\nimport { sleep } from '@humanjs/playwright';" : '';
   const title = options.title ?? timeline.name ?? 'recorded session';
+  // `page` is only referenced by the derived assertions — omit it from the
+  // test args when there are none, so the generated test has no unused fixture.
+  const args = hasAsserts ? '{ human, page }' : '{ human }';
   const baseUrlNote = baseOrigin
     ? `  // Set use.baseURL = ${q(baseOrigin)} in playwright.config.ts for these relative paths.\n\n`
     : '';
@@ -310,16 +338,18 @@ export function generatePlaywrightTest(
   const todo = [
     hasAsserts
       ? '  // TODO: add assertions for the outcome of this flow, e.g.:'
-      : "  // TODO: assert the outcome — import { expect } from '@playwright/test', e.g.:",
+      : "  // TODO: assert the outcome — add `page` to the test args and import { expect } from '@humanjs/playwright/test', e.g.:",
     '  //   await expect(page).toHaveURL(/dashboard/);',
     "  //   await expect(page.getByText('Welcome back')).toBeVisible();",
   ].join('\n');
-  return `${testImport}
-${humanImport}
+  // Recorded personality / seed / speed are applied via the fixture's
+  // `humanOptions` option, so the test still replays with its exact settings
+  // (instant in CI) while skipping the per-test createHuman boilerplate.
+  return `${fixtureImport}${sleepImport}
 
-test(${q(title)}, async ({ page }) => {
-  const human = await createHuman(page, ${createHumanOptions(timeline, true)});
+test.use({ humanOptions: ${createHumanOptions(timeline, true)} });
 
+test(${q(title)}, async (${args}) => {
 ${baseUrlNote}${body}
 
 ${todo}

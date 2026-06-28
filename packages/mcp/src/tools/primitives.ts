@@ -205,6 +205,47 @@ export function registerPrimitiveTools(server: McpServer, { sessions, env }: Too
   );
 
   server.registerTool(
+    'human_clear',
+    {
+      title: 'Clear a field (humanized)',
+      description:
+        'Clears a text field (input/textarea/contenteditable) with a real keyboard gesture — click to focus, select-all, then delete — firing the input events the page expects. Use before human_type when you need to replace an existing value rather than append to it.',
+      inputSchema: {
+        selector: z.string().describe('Selector of the field to clear.'),
+        session: sessionArg,
+      },
+    },
+    async ({ selector, session }) => {
+      const { human } = await sessions.get(session);
+      await human.clear(selector);
+      return { content: [{ type: 'text', text: `cleared ${selector}` }] };
+    },
+  );
+
+  server.registerTool(
+    'human_selectText',
+    {
+      title: 'Select an element’s text (humanized)',
+      description:
+        'Selects (highlights) text inside an element — moves the cursor to it, then selects. By default selects all of the element’s text; pass `text` to select just that substring (found inside the element, whitespace-tolerant, first match; falls back to the whole element if not found). Use before copying, replacing, or triggering a highlight menu.',
+      inputSchema: {
+        selector: z.string().describe('Selector of the element whose text to select.'),
+        text: z
+          .string()
+          .optional()
+          .describe('Optional substring to select instead of the element’s whole text.'),
+        session: sessionArg,
+      },
+    },
+    async ({ selector, text, session }) => {
+      const { human } = await sessions.get(session);
+      await human.selectText(selector, text === undefined ? undefined : { text });
+      const what = text === undefined ? 'text' : `"${text}"`;
+      return { content: [{ type: 'text', text: `selected ${what} in ${selector}` }] };
+    },
+  );
+
+  server.registerTool(
     'human_check',
     {
       title: 'Check a box (humanized)',

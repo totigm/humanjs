@@ -140,6 +140,18 @@ await recording.toHumanJS('checkout.ts');         // runnable HumanJS script
 await recording.toPlaywright('checkout.spec.ts'); // @playwright/test spec (humanized)
 ```
 
+Replay a recorded timeline against a live page — driven through the same humanized
+primitives, with per-step pass/fail and stop-at-first-failure (no `@playwright/test` needed):
+
+```ts
+import { replayTimeline } from '@humanjs/playwright';
+
+const result = await replayTimeline(page, recording.timeline, {
+  onStep: ({ index, status }) => console.log(`${index}: ${status}`),
+});
+console.log(result.status); // 'pass' | 'fail'
+```
+
 Or one-call for the simple case (browser/page lifecycle handled for you):
 
 ```ts
@@ -151,15 +163,39 @@ await record({ output: 'demo.mp4' }, async (human) => {
 });
 ```
 
-Or use the visual generator:
+Or skip writing the script entirely — record it visually:
 
 ```bash
 npx @humanjs/generator https://your-app.com
 ```
 
-Click through your app, pick a personality, export to clean Playwright + HumanJS.
+`@humanjs/generator` opens a real Chromium window and a local (loopback-only) dashboard. As you click, type, scroll, and select text, each action is captured with a **role-first selector** (accessible name + role — the way a person sees the page, not a brittle CSS path) and streams into a live editor as a step. There you can:
+
+- **reorder** (drag), **relabel**, and **delete** steps, and edit captured values
+- pick a **selector** per step from the ranked candidates
+- **point-and-add assertions** (`toBeVisible` / `toHaveText` / `toHaveURL`)
+- mark a field as a **secret** so it exports as `process.env.X` (passwords are always masked)
+- switch the **personality** (`careful` / `fast` / `distracted` / `precise`)
+
+Hit **Run** to replay the recording in a fresh window and watch each step go green or red — verify it passes before you export. When it looks right, export a `@playwright/test` spec (`.spec.ts`) or a standalone HumanJS script (`.ts`). It runs through the same codegen the library ships, so generated tests stay in lockstep with it.
 
 ## In tests
+
+Use the `@humanjs/playwright/test` fixture — it extends Playwright's `test` with a ready-to-use `human`, seeded from the test title and instant in CI, humanized locally. No boilerplate:
+
+```ts
+import { test, expect } from '@humanjs/playwright/test';
+
+test('checkout flow', async ({ human, page }) => {
+  await human.goto('/');
+  await human.click('Buy now');
+  await expect(page).toHaveURL(/checkout/);
+});
+```
+
+The seed (the test title) makes runs deterministic; `speed: 'instant'` in CI keeps the suite fast, full humanization runs locally. Customize per file or project: `test.use({ humanOptions: { personality: 'distracted' } })`.
+
+Prefer to wire it yourself? Create the human explicitly:
 
 ```ts
 import { test, expect } from '@playwright/test';
@@ -167,18 +203,14 @@ import { createHuman } from '@humanjs/playwright';
 
 test('checkout flow', async ({ page }) => {
   const human = await createHuman(page, {
-    personality: 'careful',
     seed: test.info().title,
     speed: process.env.CI ? 'instant' : 'human',
   });
-
   await human.goto('/');
   await human.click('Buy now');
   await expect(page).toHaveURL(/checkout/);
 });
 ```
-
-The `seed` makes runs deterministic. `speed: 'instant'` in CI keeps your test suite fast.
 
 ## Compared to alternatives
 
@@ -211,7 +243,7 @@ ghost-cursor pioneered humanized mouse paths and is excellent at what it does. H
 - [x] MCP server (`@humanjs/mcp`) for AI agents
 - [x] Recorder code export (Playwright / HumanJS)
 - [x] AI coding-agent skill (`@humanjs/skill`)
-- [ ] Visual generator (`@humanjs/generator`)
+- [x] Visual generator (`@humanjs/generator`)
 - [x] Plugin system + community personality authoring (`@yourname/personality-*`)
 - [ ] Recipes (`@humanjs/recipes`) for common flows
 - [ ] Touch / mobile humanization
