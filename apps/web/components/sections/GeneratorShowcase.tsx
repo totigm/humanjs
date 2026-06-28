@@ -34,6 +34,10 @@ const features: { title: string; body: string }[] = [
     body: 'Reorder, relabel, and delete steps, point-and-add assertions, mark secrets as env vars, and switch personalities live.',
   },
   {
+    title: 'Run to verify',
+    body: 'Replay the recording in a fresh window and watch each step pass or fail — confirm it works before you ship, not after.',
+  },
+  {
     title: 'Export clean code',
     body: 'One click writes a @playwright/test spec or a standalone HumanJS script — the same codegen the library ships.',
   },
@@ -53,8 +57,9 @@ export function GeneratorShowcase() {
             <p className="mt-6 max-w-xl text-balance text-base text-muted-strong md:text-lg">
               One command opens a real Chromium window and a local dashboard. As you click, type,
               scroll, and select, every action streams into a live editor as a step with a
-              role-first selector — then exports a clean, humanized Playwright test. No code until
-              you want it.
+              role-first selector. Hit <span className="text-foreground">Run</span> to replay it and
+              watch every step go green, then export a clean, humanized Playwright test. No code
+              until you want it.
             </p>
           </div>
         </ScrollReveal>
@@ -129,8 +134,19 @@ export function GeneratorShowcase() {
           </div>
         </ScrollReveal>
 
-        <ScrollReveal delay={0.14}>
-          <dl className="mt-10 grid gap-x-8 gap-y-6 md:mt-12 md:grid-cols-3">
+        <ScrollReveal delay={0.12}>
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-card-lg border border-hairline bg-surface px-5 py-3 font-mono text-sm">
+            <span className="text-accent">▶ Run</span>
+            <ArrowRight aria-hidden className="h-4 w-4 text-muted" />
+            <span className="flex items-center gap-1.5 font-medium text-emerald-400">
+              <span aria-hidden>✓</span> Passed
+            </span>
+            <span className="text-muted/70">· 6 steps · 4.2s</span>
+          </div>
+        </ScrollReveal>
+
+        <ScrollReveal delay={0.16}>
+          <dl className="mt-10 grid gap-x-8 gap-y-6 md:mt-12 md:grid-cols-2 lg:grid-cols-4">
             {features.map((f) => (
               <div key={f.title}>
                 <dt className="flex items-center gap-2 text-sm font-medium text-foreground">
