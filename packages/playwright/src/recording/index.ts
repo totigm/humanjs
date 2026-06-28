@@ -9,12 +9,13 @@ import { generateHumanJS, generatePlaywrightTest, type PlaywrightTestOptions } f
 export type { PlaywrightTestOptions } from './codegen';
 export { generateHumanJS, generatePlaywrightTest } from './codegen';
 export type {
+  RecordReplayOptions,
   ReplayOptions,
   ReplayResult,
   ReplayStepResult,
   ReplayStepUpdate,
 } from './replay';
-export { replayTimeline } from './replay';
+export { recordReplay, replayTimeline } from './replay';
 
 // Safety net for captured-frame temp dirs: every live Recording registers
 // its dir here, and a single lazy `process.on('exit')` handler sweeps

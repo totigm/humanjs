@@ -1,7 +1,10 @@
+import { stat, unlink } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { chromium } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { TimelineEvent } from './index';
-import { replayTimeline } from './replay';
+import { recordReplay, replayTimeline } from './replay';
 
 /**
  * Real-browser integration tests for `replayTimeline`. Run in `instant` speed
@@ -113,5 +116,26 @@ describe('replayTimeline (integration)', () => {
         cursor: false,
       }),
     ).rejects.toThrow('Replay aborted');
+  });
+
+  it('recordReplay captures frames and exports a non-empty gif', async () => {
+    const page = await freshPage();
+    // Default 'human' speed so the replay spans enough wall-clock to capture
+    // several frames; low fps keeps the test fast.
+    const rec = await recordReplay(
+      page,
+      [event('click', { target: '#btn' }), event('type', { target: '#name' }, 'Ada')],
+      { fps: 8 },
+    );
+    expect(rec.hasVideo).toBe(true);
+
+    const out = join(tmpdir(), `humanjs-replay-test-${process.pid}.gif`);
+    try {
+      await rec.toGif(out);
+      expect((await stat(out)).size).toBeGreaterThan(0);
+    } finally {
+      await rec.dispose();
+      await unlink(out).catch(() => {});
+    }
   });
 });
