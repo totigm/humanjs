@@ -1,6 +1,6 @@
 {
   "name": "@humanjs/mcp",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Model Context Protocol server for HumanJS — drive a Playwright browser with humanized motion from Claude Desktop, Claude Code, Cursor, Codex, and any other MCP client.",
   "keywords": [
     "humanjs",

@@ -1,5 +1,12 @@
 # @humanjs/recorder
 
+## 0.3.3
+
+### Patch Changes
+
+- Updated dependencies [3e5ab52]
+  - @humanjs/playwright@0.10.0
+
 ## 0.3.2
 
 ### Patch Changes
