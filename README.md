@@ -152,6 +152,17 @@ const result = await replayTimeline(page, recording.timeline, {
 console.log(result.status); // 'pass' | 'fail'
 ```
 
+Or replay a timeline **while capturing frames** and export the clean run as video/gif —
+`recordReplay` is the timeline twin of `human.record()`:
+
+```ts
+import { recordReplay } from '@humanjs/playwright';
+
+const clip = await recordReplay(page, recording.timeline); // replays + captures, cursor visible
+await clip.toGif('demo.gif');
+await clip.toVideo('demo.mp4');
+```
+
 Or one-call for the simple case (browser/page lifecycle handled for you):
 
 ```ts
@@ -177,7 +188,7 @@ npx @humanjs/generator https://your-app.com
 - mark a field as a **secret** so it exports as `process.env.X` (passwords are always masked)
 - switch the **personality** (`careful` / `fast` / `distracted` / `precise`)
 
-Hit **Run** to replay the recording in a fresh window and watch each step go green or red — verify it passes before you export. When it looks right, export a `@playwright/test` spec (`.spec.ts`) or a standalone HumanJS script (`.ts`). It runs through the same codegen the library ships, so generated tests stay in lockstep with it.
+Hit **Run** to replay the recording in a fresh window and watch each step go green or red — verify it passes before you export. When it looks right, export a `@playwright/test` spec (`.spec.ts`) or a standalone HumanJS script (`.ts`) — it runs through the same codegen the library ships, so generated tests stay in lockstep — or export an **`.mp4` / `.gif`** of the clean replayed flow for a demo or tutorial.
 
 ## In tests
 

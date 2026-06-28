@@ -24,7 +24,7 @@ The first published release. Milestones, each independently testable:
 Each adds a real subsystem, so they stay out of the first cut:
 
 - ~~**In-app replay / verify**~~ — _shipped._ A **Run** button replays the curated recording in a fresh, capture-free window via `replayTimeline` (`@humanjs/playwright`) and shows per-step pass / fail plus an overall result banner, closing the record → edit → green loop. In-process replay (not spawning `playwright test`) so it works regardless of the project's deps; stops at the first failure; cancellable.
-- **Video + GIF export** — capture frames alongside the DOM events so the same session also exports an `.mp4` / `.gif` via the existing `toVideo` / `toGif` path. Reuses recorder infra; great for the demo / tutorial-creator audience. Needs the frame-capture loop running next to DOM capture.
+- ~~**Video + GIF export**~~ — _shipped._ **Export .mp4 / .gif** buttons replay the curated recording in a fresh window via `recordReplay` (`@humanjs/playwright`) — capturing frames and assembling them with the recorder's `toVideo` / `toGif` pipeline — and write a clean video of exactly the flow (no fumbles). Cursor visible; reuses the Run busy-guard.
 - **Insert / re-record mid-timeline** — append or splice new actions into an existing recording without starting over.
 - ~~**`human.selectText(target)` primitive + capture**~~ — _shipped._ Text-selection primitive (`@humanjs/core` + `@humanjs/playwright` + MCP + codegen) plus recorder capture. Whole-element highlights record a plain `selectText`; partial highlights record `selectText(target, { text })` with the exact substring, reproduced by finding that text inside the element (not by coordinates).
 

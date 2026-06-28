@@ -400,6 +400,22 @@ result.steps; // per-step { index, type, status, error? }
 
 `assert` events are evaluated with plain Playwright APIs — there's no `@playwright/test` dependency — so they approximate `expect` (`toBeVisible` via `waitFor`, `toHaveText` via normalized text equality, `toHaveURL` via `page.url()`) without its auto-retry on text/url. Pass an `AbortSignal` via `{ signal }` to cancel a run; it rejects with an `AbortError`. The cursor is on and `speed` is `'human'` by default so the replay is watchable. You own `page`'s lifecycle — `replayTimeline` doesn't close it. This is the engine behind the `@humanjs/generator` dashboard's **Run** button.
 
+### Recording a replay to video / GIF
+
+`recordReplay(page, timeline, options?)` replays a timeline **while capturing frames** and returns a `Recording` — the timeline twin of `human.record()` (which captures a live callback). Export the clean replayed flow with the same `toVideo()` / `toGif()`:
+
+```ts
+import { chromium, recordReplay } from '@humanjs/playwright';
+
+const page = await (await chromium.launch({ headless: false })).newPage();
+const clip = await recordReplay(page, recording.timeline, { fps: 30 });
+await clip.toGif('demo.gif');
+await clip.toVideo('demo.mp4');
+await clip.dispose();
+```
+
+The humanized cursor is visible (the point is to show the motion). It returns the `Recording` even if the replay fails partway — the video stops there; verify with `replayTimeline` first for a clean take. No new dependencies — it composes `replayTimeline`, the frame poller, and the `ffmpeg-static`-backed assembly. This is the engine behind the generator's **Export .mp4 / .gif** buttons.
+
 By default the actual typed/pasted text is captured into the timeline (and the exported code). Values typed into `input[type="password"]` are always masked; set `captureInputs: false` to record none — exports then emit empty-string placeholders:
 
 ```ts
