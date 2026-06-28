@@ -67,10 +67,14 @@ export async function start(targetUrl: string): Promise<void> {
     const controller = new AbortController();
     replayController = controller;
     server.broadcast({ type: 'replayStarted' });
-    const context = await browser.newContext({ viewport: null });
-    const page = await context.newPage();
     const startedAt = Date.now();
+    // Created inside the try so a newContext/newPage failure still resets state
+    // and broadcasts a `replayDone` — otherwise Run would stay disabled and the
+    // dashboard would be stuck "running".
+    let context: Awaited<ReturnType<typeof browser.newContext>> | undefined;
     try {
+      context = await browser.newContext({ viewport: null });
+      const page = await context.newPage();
       const result = await replayTimeline(page, steps, {
         personality,
         signal: controller.signal,
@@ -97,7 +101,7 @@ export async function start(targetUrl: string): Promise<void> {
         ...(aborted ? {} : { error: cause instanceof Error ? cause.message : String(cause) }),
       });
     } finally {
-      await context.close().catch(() => {});
+      await context?.close().catch(() => {});
       replayController = null;
     }
   };
