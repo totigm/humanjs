@@ -94,7 +94,11 @@ const rec = await human.record(async () => { /* actions */ });
 await rec.toVideo('out.mp4');                // shipped
 await rec.toGif('out.gif');                   // shipped
 await rec.toTimeline('session.json');         // shipped
-// await rec.toPlaywright('test.spec.ts');    // v0.2 — Playwright code export
+await rec.toPlaywright('test.spec.ts');       // shipped — @playwright/test spec (humanized)
+await rec.toHumanJS('test.ts');               // shipped — standalone HumanJS script
+
+import { replayTimeline } from '@humanjs/playwright';
+await replayTimeline(page, rec.timeline);     // replay a recorded timeline; per-step pass/fail, stops at first failure
 
 await sleep(800);                             // shared helper, re-exported from @humanjs/core
 ```
