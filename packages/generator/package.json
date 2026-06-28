@@ -1,6 +1,6 @@
 {
   "name": "@humanjs/generator",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Visual recorder for HumanJS — npx @humanjs/generator <url> records your clicks in a real browser and exports a clean, humanized Playwright test.",
   "keywords": [
     "humanjs",
