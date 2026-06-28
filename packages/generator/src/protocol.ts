@@ -61,7 +61,15 @@ export type ServerMessage =
       /** Run-level error (page crashed / context failed), distinct from a step failure. */
       readonly error?: string;
       readonly durationMs: number;
+    }
+  | {
+      readonly type: 'exportFailed';
+      readonly format: ExportFormat;
+      readonly error: string;
     };
+
+/** What the export command (and a failure) can target. */
+export type ExportFormat = 'spec' | 'script' | 'mp4' | 'gif';
 
 /** dashboard → CLI. */
 export type ClientMessage =
@@ -77,6 +85,6 @@ export type ClientMessage =
       readonly value?: string;
     }
   | { readonly type: 'setPersonality'; readonly personality: string }
-  | { readonly type: 'export'; readonly format: 'spec' | 'script' }
+  | { readonly type: 'export'; readonly format: ExportFormat }
   | { readonly type: 'replay' }
   | { readonly type: 'cancelReplay' };

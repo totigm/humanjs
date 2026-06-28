@@ -223,7 +223,7 @@ function ReplayBanner({ result, error }: { result: ReplayResultState; error?: st
 }
 
 export function App() {
-  const { state, connected, exportedPath, replay, send } = useGenerator();
+  const { state, connected, exportedPath, exportError, replay, send } = useGenerator();
   const [order, setOrder] = useState<Step[]>([]);
   const dragging = useRef(false);
   const editorRef = useRef<HTMLElement>(null);
@@ -311,6 +311,20 @@ export function App() {
             <button type="button" onClick={() => send({ type: 'export', format: 'script' })}>
               Export .ts
             </button>
+            <button
+              type="button"
+              disabled={order.length === 0 || replay.running}
+              onClick={() => send({ type: 'export', format: 'mp4' })}
+            >
+              Export .mp4
+            </button>
+            <button
+              type="button"
+              disabled={order.length === 0 || replay.running}
+              onClick={() => send({ type: 'export', format: 'gif' })}
+            >
+              Export .gif
+            </button>
           </div>
           {replay.result && (
             <ReplayBanner
@@ -321,6 +335,11 @@ export function App() {
                   : replay.result.error
               }
             />
+          )}
+          {exportError && (
+            <p className="replay-result fail">
+              ✗ .{exportError.format} export failed — {exportError.error}
+            </p>
           )}
           {exportedPath && <p className="saved">Saved {exportedPath}</p>}
         </header>
