@@ -27,6 +27,9 @@ export interface StepPatch {
   readonly secret?: string | null;
 }
 
+/** Per-step replay status, shown as a badge in the editor. */
+export type ReplayStatus = 'running' | 'pass' | 'fail';
+
 /** CLI → dashboard. */
 export type ServerMessage =
   | {
@@ -40,6 +43,24 @@ export type ServerMessage =
   | {
       readonly type: 'exported';
       readonly path: string;
+    }
+  | { readonly type: 'replayStarted' }
+  | {
+      readonly type: 'replayStep';
+      readonly id: string;
+      readonly status: ReplayStatus;
+      readonly error?: string;
+    }
+  | {
+      readonly type: 'replayDone';
+      readonly status: 'pass' | 'fail';
+      /** True when the run was cancelled rather than failing on a step. */
+      readonly aborted?: boolean;
+      /** Step that failed, when `status` is `'fail'` and a specific step caused it. */
+      readonly failedStepId?: string;
+      /** Run-level error (page crashed / context failed), distinct from a step failure. */
+      readonly error?: string;
+      readonly durationMs: number;
     };
 
 /** dashboard → CLI. */
@@ -56,4 +77,6 @@ export type ClientMessage =
       readonly value?: string;
     }
   | { readonly type: 'setPersonality'; readonly personality: string }
-  | { readonly type: 'export'; readonly format: 'spec' | 'script' };
+  | { readonly type: 'export'; readonly format: 'spec' | 'script' }
+  | { readonly type: 'replay' }
+  | { readonly type: 'cancelReplay' };

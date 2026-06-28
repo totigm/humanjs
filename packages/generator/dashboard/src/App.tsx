@@ -1,7 +1,7 @@
 import { Reorder, useDragControls } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
-import type { AssertKind, ClientMessage, Step } from '../../src/protocol';
-import { type Generator, useGenerator } from './api';
+import type { AssertKind, ClientMessage, ReplayStatus, Step } from '../../src/protocol';
+import { type Generator, type ReplayResultState, useGenerator } from './api';
 import { CodePreview } from './components/CodePreview';
 import { Select } from './components/Select';
 
@@ -89,14 +89,18 @@ function AssertForm({ afterId, send }: { afterId: string; send: Generator['send'
   );
 }
 
+const REPLAY_GLYPH: Record<ReplayStatus, string> = { running: '', pass: '✓', fail: '✗' };
+
 function StepRow({
   step,
   send,
+  status,
   onDragStart,
   onDragEnd,
 }: {
   step: Step;
   send: Generator['send'];
+  status?: ReplayStatus;
   onDragStart: () => void;
   onDragEnd: () => void;
 }) {
@@ -128,6 +132,11 @@ function StepRow({
         </button>
         <span className={`kind kind-${step.type}`}>{step.type}</span>
         <span className="detail">{detailFor(step)}</span>
+        {status && (
+          <span className={`replay-badge ${status}`} role="img" aria-label={`replay ${status}`}>
+            {REPLAY_GLYPH[status]}
+          </span>
+        )}
         <button
           type="button"
           className="del"
@@ -202,8 +211,19 @@ function StepRow({
   );
 }
 
+function ReplayBanner({ result, error }: { result: ReplayResultState; error?: string }) {
+  const secs = `${(result.durationMs / 1000).toFixed(1)}s`;
+  if (result.aborted) return <p className="replay-result aborted">Replay cancelled · {secs}</p>;
+  if (result.status === 'pass') return <p className="replay-result pass">✓ Passed · {secs}</p>;
+  return (
+    <p className="replay-result fail">
+      ✗ Failed{error ? ` — ${error}` : ''} · {secs}
+    </p>
+  );
+}
+
 export function App() {
-  const { state, connected, exportedPath, send } = useGenerator();
+  const { state, connected, exportedPath, replay, send } = useGenerator();
   const [order, setOrder] = useState<Step[]>([]);
   const dragging = useRef(false);
   const editorRef = useRef<HTMLElement>(null);
@@ -267,6 +287,24 @@ export function App() {
                 onChange={(v) => send({ type: 'setPersonality', personality: v })}
               />
             </div>
+            {replay.running ? (
+              <button
+                type="button"
+                className="run running"
+                onClick={() => send({ type: 'cancelReplay' })}
+              >
+                ■ Cancel
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="run"
+                disabled={order.length === 0}
+                onClick={() => send({ type: 'replay' })}
+              >
+                ▶ Run
+              </button>
+            )}
             <button type="button" onClick={() => send({ type: 'export', format: 'spec' })}>
               Export .spec.ts
             </button>
@@ -274,6 +312,16 @@ export function App() {
               Export .ts
             </button>
           </div>
+          {replay.result && (
+            <ReplayBanner
+              result={replay.result}
+              error={
+                replay.result.failedStepId
+                  ? replay.steps[replay.result.failedStepId]?.error
+                  : replay.result.error
+              }
+            />
+          )}
           {exportedPath && <p className="saved">Saved {exportedPath}</p>}
         </header>
 
@@ -296,6 +344,7 @@ export function App() {
                 key={step.id}
                 step={step}
                 send={send}
+                status={replay.steps[step.id]?.status}
                 onDragStart={() => {
                   dragging.current = true;
                 }}

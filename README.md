@@ -140,6 +140,18 @@ await recording.toHumanJS('checkout.ts');         // runnable HumanJS script
 await recording.toPlaywright('checkout.spec.ts'); // @playwright/test spec (humanized)
 ```
 
+Replay a recorded timeline against a live page — driven through the same humanized
+primitives, with per-step pass/fail and stop-at-first-failure (no `@playwright/test` needed):
+
+```ts
+import { replayTimeline } from '@humanjs/playwright';
+
+const result = await replayTimeline(page, recording.timeline, {
+  onStep: ({ index, status }) => console.log(`${index}: ${status}`),
+});
+console.log(result.status); // 'pass' | 'fail'
+```
+
 Or one-call for the simple case (browser/page lifecycle handled for you):
 
 ```ts
@@ -165,7 +177,7 @@ npx @humanjs/generator https://your-app.com
 - mark a field as a **secret** so it exports as `process.env.X` (passwords are always masked)
 - switch the **personality** (`careful` / `fast` / `distracted` / `precise`)
 
-When it looks right, export a `@playwright/test` spec (`.spec.ts`) or a standalone HumanJS script (`.ts`). It runs through the same codegen the library ships, so generated tests stay in lockstep with it.
+Hit **Run** to replay the recording in a fresh window and watch each step go green or red — verify it passes before you export. When it looks right, export a `@playwright/test` spec (`.spec.ts`) or a standalone HumanJS script (`.ts`). It runs through the same codegen the library ships, so generated tests stay in lockstep with it.
 
 ## In tests
 
