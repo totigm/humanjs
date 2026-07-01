@@ -295,6 +295,9 @@ button.run:disabled {
 .replay-result.aborted {
   color: var(--muted);
 }
+.replay-result.warn {
+  color: var(--accent);
+}
 
 /* Custom select */
 .select {

@@ -25,7 +25,7 @@ It launches a real Chromium window and a local dashboard. You click through your
 2. Interact with the site in the Chromium window — clicks, typing, scrolling, drag, navigation. Each action streams into the dashboard as a step, captured with a robust, role-first selector.
 3. Curate the timeline in the editor (below), pick a personality, and watch the generated test update live.
 4. Hit **Run** to replay the recording in a fresh window and see each step go green or red — verify it passes before you ship it.
-5. Hit **Export** to write a `.spec.ts` (a `@humanjs/playwright/test` spec) or a standalone `.ts` script to your working directory.
+5. Hit **Export** to write a `.spec.ts` (a `@humanjs/playwright/test` spec) or a standalone `.ts` script to your working directory — or an **`.mp4` / `.gif`** of the clean replayed flow for a demo or tutorial.
 
 ## The editor
 
@@ -36,6 +36,7 @@ It launches a real Chromium window and a local dashboard. You click through your
 - **Mark a field secret** so its value exports as `process.env.X` instead of a literal.
 - **Switch personality** (`careful` / `fast` / `distracted` / `precise`) — the same recording, re-shaped, no re-recording.
 - **Run / verify** — replay the curated recording in a fresh window; each step shows a live pass/fail badge and an overall result banner, stopping at the first failure. Cancellable, and it never re-records itself.
+- **Export video** — `.mp4` / `.gif` of the clean replayed flow (no fumbles or pauses), with the humanized cursor visible — for demos, tutorials, and side-by-side clips.
 
 ## Output
 

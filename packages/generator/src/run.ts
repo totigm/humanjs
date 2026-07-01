@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { type PresetName, replayTimeline } from '@humanjs/playwright';
+import { type PresetName, recordReplay, replayTimeline } from '@humanjs/playwright';
 import { chromium } from 'playwright';
 import { attachCapture } from './capture/attach';
 import { type ExportFormat, generateCode } from './export';
@@ -35,6 +35,8 @@ export async function start(targetUrl: string): Promise<void> {
   // closes over it.
   let browser: Awaited<ReturnType<typeof chromium.launch>>;
   let replayController: AbortController | null = null;
+  // One in-flight replay/export at a time (both pop a fresh window and replay).
+  let busy = false;
 
   const previewCode = (): string => generateCode(store.list(), { format: 'spec', personality });
 
@@ -60,9 +62,10 @@ export async function start(targetUrl: string): Promise<void> {
   // re-record itself), streaming per-step results to the dashboard. Stops at
   // the first failure; cancellable; the window is always closed afterwards.
   const runReplay = async (): Promise<void> => {
-    if (replayController) return; // a run is already in flight
+    if (busy) return; // a replay or export is already in flight
     const steps = store.list();
     if (steps.length === 0) return;
+    busy = true;
     const stepId = (index: number): string | undefined => steps[index]?.id;
     const controller = new AbortController();
     replayController = controller;
@@ -103,6 +106,50 @@ export async function start(targetUrl: string): Promise<void> {
     } finally {
       await context?.close().catch(() => {});
       replayController = null;
+      busy = false;
+    }
+  };
+
+  // Export an .mp4 / .gif: replay the curated timeline in a fresh, capture-free
+  // window while capturing frames (recordReplay), then assemble to disk. The
+  // user watches the clean replay happen; the window/frames are always released.
+  const exportVideo = async (format: 'mp4' | 'gif'): Promise<void> => {
+    if (busy) return;
+    const steps = store.list();
+    if (steps.length === 0) return;
+    busy = true;
+    const path = resolve(process.cwd(), `humanjs-recording.${format}`);
+    let context: Awaited<ReturnType<typeof browser.newContext>> | undefined;
+    let recording: Awaited<ReturnType<typeof recordReplay>> | undefined;
+    // A failing step doesn't throw (recordReplay returns a partial Recording) —
+    // capture the first failure so we can flag the video as truncated.
+    let firstFailure: { index: number; type: string; error?: string } | undefined;
+    try {
+      context = await browser.newContext({ viewport: null });
+      const page = await context.newPage();
+      recording = await recordReplay(page, steps, {
+        personality,
+        onStep: ({ index, type, status, error }) => {
+          if (status === 'fail' && !firstFailure) {
+            firstFailure = { index, type, ...(error ? { error } : {}) };
+          }
+        },
+      });
+      if (format === 'mp4') await recording.toVideo(path);
+      else await recording.toGif(path);
+      const warning = firstFailure
+        ? `replay failed at step ${firstFailure.index + 1} (${firstFailure.type})${firstFailure.error ? `: ${firstFailure.error}` : ''}`
+        : undefined;
+      server.broadcast({ type: 'exported', path, ...(warning ? { partial: true, warning } : {}) });
+      console.log(`  Exported ${format} → ${path}${warning ? ` (partial — ${warning})` : ''}`);
+    } catch (cause) {
+      const error = cause instanceof Error ? cause.message : String(cause);
+      server.broadcast({ type: 'exportFailed', format, error });
+      console.warn(`  ${format} export failed: ${error}`);
+    } finally {
+      await recording?.dispose().catch(() => {});
+      await context?.close().catch(() => {});
+      busy = false;
     }
   };
 
@@ -130,8 +177,9 @@ export async function start(targetUrl: string): Promise<void> {
         }
         break;
       case 'export':
-        void exportTimeline(message.format);
-        return; // export replies with `exported`, not a state refresh
+        if (message.format === 'mp4' || message.format === 'gif') void exportVideo(message.format);
+        else void exportTimeline(message.format);
+        return; // export replies with `exported` / `exportFailed`, not a state refresh
       case 'replay':
         void runReplay();
         return; // replay streams its own `replay*` messages

@@ -35,6 +35,8 @@ export interface Generator {
   readonly state: GeneratorState | null;
   readonly connected: boolean;
   readonly exportedPath: string | null;
+  readonly exportWarning: string | null;
+  readonly exportError: { format: string; error: string } | null;
   readonly replay: ReplayState;
   send(message: ClientMessage): void;
 }
@@ -44,6 +46,8 @@ export function useGenerator(): Generator {
   const [state, setState] = useState<GeneratorState | null>(null);
   const [connected, setConnected] = useState(false);
   const [exportedPath, setExportedPath] = useState<string | null>(null);
+  const [exportWarning, setExportWarning] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<{ format: string; error: string } | null>(null);
   const [replay, setReplay] = useState<ReplayState>(IDLE_REPLAY);
   const socketRef = useRef<WebSocket | null>(null);
 
@@ -70,6 +74,10 @@ export function useGenerator(): Generator {
         });
       } else if (message.type === 'exported') {
         setExportedPath(message.path);
+        setExportWarning(message.warning ?? null);
+        setExportError(null);
+      } else if (message.type === 'exportFailed') {
+        setExportError({ format: message.format, error: message.error });
       } else if (message.type === 'replayStarted') {
         setReplay({ running: true, steps: {}, result: null });
       } else if (message.type === 'replayStep') {
@@ -100,5 +108,5 @@ export function useGenerator(): Generator {
     socketRef.current?.send(JSON.stringify(message));
   };
 
-  return { state, connected, exportedPath, replay, send };
+  return { state, connected, exportedPath, exportWarning, exportError, replay, send };
 }

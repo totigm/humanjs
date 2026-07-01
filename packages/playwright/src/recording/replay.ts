@@ -10,7 +10,13 @@ import {
   type UploadFiles,
 } from '../index';
 import type { InstallMouseHelperOptions } from '../mouse-helper';
-import type { Timeline, TimelineEvent } from './index';
+import { startCapture } from './capture';
+import {
+  Recording,
+  type RecordingTimelineSource,
+  type Timeline,
+  type TimelineEvent,
+} from './index';
 import { resolveMouseTarget } from './targets';
 
 /** Progress callback payload, fired as each step starts and settles. */
@@ -107,6 +113,63 @@ export async function replayTimeline(
   }
 
   return { status: 'pass', steps, durationMs: Date.now() - startedAt };
+}
+
+/** Options for {@link recordReplay}. */
+export interface RecordReplayOptions extends ReplayOptions {
+  /** Capture rate in frames per second. Defaults to 30. */
+  readonly fps?: number;
+  /** JPEG frame quality (0-100). Defaults to 95. */
+  readonly quality?: number;
+}
+
+/**
+ * Replay a recorded {@link Timeline} against a live `page` while capturing
+ * frames, and return a {@link Recording} you can export with `toVideo()` /
+ * `toGif()`. The humanized cursor is visible by default — the point of the
+ * video is to show the motion. Symmetric with `human.record()`: that captures a
+ * live callback; this captures a replayed timeline.
+ *
+ * Returns the `Recording` regardless of whether the replay passed — a failed
+ * step just means the video stops there. Pass `onStep` if you need to observe
+ * failures, and verify with {@link replayTimeline} first for a clean take. The
+ * caller owns `page`'s lifecycle; `toVideo`/`toGif` read frames from disk, so
+ * the page can be closed before exporting.
+ */
+export async function recordReplay(
+  page: Page,
+  timeline: Timeline | readonly TimelineEvent[],
+  options: RecordReplayOptions = {},
+): Promise<Recording> {
+  const tl = Array.isArray(timeline) ? null : (timeline as Timeline);
+  const events = tl ? tl.events : (timeline as readonly TimelineEvent[]);
+
+  const capture = await startCapture(page, {
+    ...(options.fps !== undefined ? { fps: options.fps } : {}),
+    ...(options.quality !== undefined ? { quality: options.quality } : {}),
+  });
+  try {
+    await replayTimeline(page, timeline, options);
+  } catch (cause) {
+    // Infra failure / abort threw — drop the frames and propagate. A failing
+    // *step* doesn't throw (replayTimeline returns a result), so its partial
+    // frames are kept below.
+    await capture.abort();
+    throw cause;
+  }
+  const result = await capture.stop();
+
+  const personality =
+    tl?.personality ?? (typeof options.personality === 'string' ? options.personality : 'careful');
+  const seed = tl?.seed ?? (options.seed !== undefined ? String(options.seed) : null);
+  const timelineSource: RecordingTimelineSource = {
+    ...(tl?.name !== undefined ? { name: tl.name } : {}),
+    personality,
+    seed,
+    speed: tl?.speed ?? options.speed ?? 'human',
+    events,
+  };
+  return new Recording(result, result.startedAtMs, result.stoppedAtMs, timelineSource);
 }
 
 /** Translate a recorded scroll target back into a {@link ScrollTarget}. */
