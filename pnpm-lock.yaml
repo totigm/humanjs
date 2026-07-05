@@ -60,8 +60,8 @@ importers:
         specifier: ^2.1.1
         version: 2.1.1
       framer-motion:
-        specifier: ^12.42.0
-        version: 12.42.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        specifier: ^12.42.2
+        version: 12.42.2(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       lucide-react:
         specifier: ^1.22.0
         version: 1.22.0(react@19.2.7)
@@ -139,8 +139,8 @@ importers:
         specifier: ^4.3.4
         version: 4.7.0(vite@6.4.3(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4))
       framer-motion:
-        specifier: ^12.42.0
-        version: 12.42.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        specifier: ^12.42.2
+        version: 12.42.2(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       happy-dom:
         specifier: ^15.11.6
         version: 15.11.7
@@ -2152,8 +2152,8 @@ packages:
     resolution: {integrity: sha512-buRG0fpBtRHSTCOASe6hD258tEubFoRLb4ZNA6NxMVHNw2gOcwHo9wyablzMzOA5z9xA9L1KNjk/Nt6MT9aYow==}
     engines: {node: '>= 0.6'}
 
-  framer-motion@12.42.0:
-    resolution: {integrity: sha512-wp7EJnfWaaEScVygKv3e20udoRz+LbtxScsuTkakAxfXmt+ReC6WyPW2nINRAGvd+hG9odwcjBLyOTPjH5pBRA==}
+  framer-motion@12.42.2:
+    resolution: {integrity: sha512-5XY9luDiu0oHfHBjpDthFMh0ES+122w6p/papSJBweMkO8Sn+PW2QaEgRblQBpWFnuvZS5qvarpt/hO2pjGmnw==}
     peerDependencies:
       '@emotion/is-prop-valid': '*'
       react: ^18.0.0 || ^19.0.0
@@ -2571,8 +2571,8 @@ packages:
   mlly@1.8.2:
     resolution: {integrity: sha512-d+ObxMQFmbt10sretNDytwt85VrbkhhUA/JBGm1MPaWJ65Cl4wOgLaB1NYvJSZ0Ef03MMEU/0xpPMXUIQ29UfA==}
 
-  motion-dom@12.42.0:
-    resolution: {integrity: sha512-M63h4n8R+quJdNhBwuLlgxM+OLYa9+I/T2pzDRboB9fLXRdbou+Gw7Zury+SkpaCyACP1JHSjHgZ1EgTkBr30w==}
+  motion-dom@12.42.2:
+    resolution: {integrity: sha512-5gIMWLp/PycBtJRJWRgjxke5n8dlvkSn2DrYW+tr3XcqAZY1xZh6BJyooJXCM8wdfM7wfMjkBJNLge1CKPUIRA==}
 
   motion-utils@12.39.0:
     resolution: {integrity: sha512-8nadJAJjTtqRkmRF36FoJTrywK9nnFmnPwnSMyxaOCU7GDjN9RTMJIxx9De8ErM+vpPhMccr/6fo5WciyQLnMQ==}
@@ -2711,6 +2711,10 @@ packages:
 
   picomatch@4.0.4:
     resolution: {integrity: sha512-QP88BAKvMam/3NxH6vj2o21R6MjxZUAd6nlwAS/pnGvN9IVLocLHxGYIzFhg6fUQ+5th6P4dv4eW9jX3DSIj7A==}
+    engines: {node: '>=12'}
+
+  picomatch@4.0.5:
+    resolution: {integrity: sha512-RvwwcruNjI1ncT5xRakeyS9Lf8lcItv34KD+aif+VH9kduAyfYBipGh12274xtenIPZ119/R9BdTBa8gAwSh0A==}
     engines: {node: '>=12'}
 
   pify@4.0.1:
@@ -5040,9 +5044,9 @@ snapshots:
 
   forwarded@0.2.0: {}
 
-  framer-motion@12.42.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7):
+  framer-motion@12.42.2(react-dom@19.2.7(react@19.2.7))(react@19.2.7):
     dependencies:
-      motion-dom: 12.42.0
+      motion-dom: 12.42.2
       motion-utils: 12.39.0
       tslib: 2.8.1
     optionalDependencies:
@@ -5383,7 +5387,7 @@ snapshots:
       pkg-types: 1.3.1
       ufo: 1.6.4
 
-  motion-dom@12.42.0:
+  motion-dom@12.42.2:
     dependencies:
       motion-utils: 12.39.0
 
@@ -5498,6 +5502,8 @@ snapshots:
   picomatch@2.3.2: {}
 
   picomatch@4.0.4: {}
+
+  picomatch@4.0.5: {}
 
   pify@4.0.1: {}
 
@@ -5981,7 +5987,7 @@ snapshots:
   vite@8.0.13(@types/node@25.9.1)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.22.4):
     dependencies:
       lightningcss: 1.32.0
-      picomatch: 4.0.4
+      picomatch: 4.0.5
       postcss: 8.5.16
       rolldown: 1.0.1
       tinyglobby: 0.2.17
