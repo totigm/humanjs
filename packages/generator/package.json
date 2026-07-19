@@ -69,7 +69,7 @@
     "@humanjs/core": "workspace:*",
     "@humanjs/playwright": "workspace:*",
     "playwright": "^1.61.1",
-    "ws": "^8.18.0"
+    "ws": "^8.21.1"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",
