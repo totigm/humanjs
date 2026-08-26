@@ -68,7 +68,7 @@
   "dependencies": {
     "@humanjs/core": "workspace:*",
     "@humanjs/playwright": "workspace:*",
-    "playwright": "^1.61.1",
+    "playwright": "^1.62.1",
     "ws": "^8.21.1"
   },
   "devDependencies": {
