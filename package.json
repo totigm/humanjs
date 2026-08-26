@@ -57,17 +57,17 @@
     ]
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.1",
+    "@biomejs/biome": "^2.5.10",
     "@changesets/cli": "^2.31.0",
-    "@commitlint/cli": "^21.1.0",
-    "@commitlint/config-conventional": "^21.1.0",
+    "@commitlint/cli": "^21.2.2",
+    "@commitlint/config-conventional": "^21.2.2",
     "@types/node": "^26.1.0",
-    "lefthook": "^2.1.9",
-    "publint": "^0.3.21",
+    "lefthook": "^2.1.10",
+    "publint": "^0.3.24",
     "tsup": "^8.5.1",
-    "tsx": "^4.22.4",
-    "turbo": "^2.10.0",
+    "tsx": "^4.23.12",
+    "turbo": "^2.10.11",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.11"
   }
 }
