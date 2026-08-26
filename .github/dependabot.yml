@@ -18,11 +18,23 @@ updates:
         patterns:
           - "playwright"
           - "@playwright/*"
+      # Same lockstep problem, different family: react and react-dom are one
+      # runtime split across two packages, and their @types/* must describe the
+      # version actually installed. Dependabot shipped these separately in
+      # #103 (react) and #107 (react-dom) before this group existed.
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
       dev-dependencies:
         dependency-type: development
         exclude-patterns:
           - "playwright"
           - "@playwright/*"
+          - "@types/react"
+          - "@types/react-dom"
         update-types:
           - minor
           - patch
