@@ -8,14 +8,21 @@ updates:
     groups:
       # playwright (prod dep) and @playwright/test (dev dep) MUST bump together:
       # @humanjs/playwright's test fixture bridges both, and a version skew makes
-      # their playwright-core Page types incompatible (typecheck fails). Listed
-      # first so @playwright/test joins this group, not dev-dependencies.
+      # their playwright-core Page types incompatible (typecheck fails).
+      #
+      # Group order is NOT enough to keep them together: @playwright/test is a
+      # dev dep, so the dev-dependencies group claimed it anyway and shipped it
+      # without playwright (see #99 vs #94, both red on the resulting skew).
+      # The exclude-patterns below are what actually keeps it in this group.
       playwright:
         patterns:
           - "playwright"
           - "@playwright/*"
       dev-dependencies:
         dependency-type: development
+        exclude-patterns:
+          - "playwright"
+          - "@playwright/*"
         update-types:
           - minor
           - patch
