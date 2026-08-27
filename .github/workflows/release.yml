@@ -46,5 +46,17 @@ jobs:
           title: "chore: version packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Two different consumers read the npm credential, under two different
+          # names, and both are required:
+          #   NODE_AUTH_TOKEN -> the .npmrc that actions/setup-node writes.
+          #   NPM_TOKEN       -> changesets/action's own check. Without it the
+          #                      action logs "No NPM_TOKEN found" and silently
+          #                      falls back to OIDC trusted publishing, which
+          #                      fails with an opaque E404 if npm has no trusted
+          #                      publisher configured for these packages.
+          # The secret must be a classic *Automation* token (or a granular token
+          # with read-write on @humanjs/*). A classic "Publish" token does not
+          # bypass 2FA and dies in CI with EOTP.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: "true"
