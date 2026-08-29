@@ -1,8 +1,8 @@
 /**
  * Config tools — runtime tweaks to how a session behaves: personality
  * (env var sets the default, this changes it mid-session), humanization
- * speed, and viewport size (resize the live page for a bigger/crisper
- * recording or to test responsive layouts).
+ * speed, viewport size (resize the live page for a bigger/crisper
+ * recording or to test responsive layouts), and emulated media features.
  */
 
 import { blend } from '@humanjs/core';
@@ -11,6 +11,16 @@ import { z } from 'zod';
 import type { ToolContext } from '../context';
 
 const preset = z.enum(['careful', 'fast', 'distracted', 'precise']);
+
+/**
+ * Playwright resets an emulated media feature with `null`. `'system'` is
+ * the clearer word for an agent choosing a value, so it is translated here
+ * rather than exposing `null` in the tool schema.
+ */
+function toMediaValue<T extends string>(value: T | 'system' | undefined): T | null | undefined {
+  if (value === undefined) return undefined;
+  return value === 'system' ? null : value;
+}
 
 export function registerConfigTools(server: McpServer, { sessions }: ToolContext): void {
   server.registerTool(
@@ -91,6 +101,59 @@ export function registerConfigTools(server: McpServer, { sessions }: ToolContext
       const { human } = await sessions.get(session);
       await human.setViewportSize({ width, height });
       return { content: [{ type: 'text', text: `viewport set to ${width}×${height}` }] };
+    },
+  );
+  server.registerTool(
+    'human_emulate_media',
+    {
+      title: 'Emulate media features',
+      description:
+        "Emulates CSS media features for a session so you can verify the accessibility and theming paths a real user would get. `reducedMotion: 'reduce'` is the important one: it is the only way to check that a site's prefers-reduced-motion path actually works, and it is normally impossible to test without changing OS settings. Settings persist across navigations until changed; pass 'system' to stop emulating a feature.",
+      inputSchema: {
+        reducedMotion: z
+          .enum(['reduce', 'no-preference', 'system'])
+          .optional()
+          .describe(
+            "Emulate prefers-reduced-motion. Use 'reduce' to verify the reduced-motion path renders and stays usable.",
+          ),
+        colorScheme: z
+          .enum(['light', 'dark', 'no-preference', 'system'])
+          .optional()
+          .describe('Emulate prefers-color-scheme, to check the light and dark themes.'),
+        forcedColors: z
+          .enum(['active', 'none', 'system'])
+          .optional()
+          .describe(
+            "Emulate forced-colors (Windows High Contrast). 'active' reveals content that disappears when the author's colors are overridden.",
+          ),
+        session: z.string().optional().describe('Session ID. Omit for the default session.'),
+      },
+    },
+    async ({ reducedMotion, colorScheme, forcedColors, session }) => {
+      if (reducedMotion === undefined && colorScheme === undefined && forcedColors === undefined) {
+        throw new Error(
+          'Pass at least one of `reducedMotion`, `colorScheme` or `forcedColors`. Use "system" to stop emulating one.',
+        );
+      }
+      const { page } = await sessions.get(session);
+      await page.emulateMedia({
+        reducedMotion: toMediaValue(reducedMotion),
+        colorScheme: toMediaValue(colorScheme),
+        forcedColors: toMediaValue(forcedColors),
+      });
+      const applied = [
+        reducedMotion && `prefers-reduced-motion: ${reducedMotion}`,
+        colorScheme && `prefers-color-scheme: ${colorScheme}`,
+        forcedColors && `forced-colors: ${forcedColors}`,
+      ].filter(Boolean);
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `emulating ${applied.join(', ')} — re-render or navigate if the page only reads these at load`,
+          },
+        ],
+      };
     },
   );
 }

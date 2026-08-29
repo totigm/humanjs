@@ -3,7 +3,7 @@ import type { BrowserConfig, McpEnv } from './env';
 
 // Fakes + mock fns, hoisted so the vi.mock factories below can use them.
 const m = vi.hoisted(() => {
-  const fakePage = {};
+  const fakePage = { on: vi.fn() };
   const fakeContext = { newPage: vi.fn(), pages: vi.fn(), close: vi.fn() };
   const fakeBrowser = { newContext: vi.fn(), contexts: vi.fn(), close: vi.fn() };
   return {
@@ -170,5 +170,25 @@ describe('SessionManager — runtime persistence override', () => {
     const s = await mgr.get();
     expect(s.mode).toBe('persistent');
     expect(m.launchPersistentContext).toHaveBeenCalledWith('/runtime-profile', expect.any(Object));
+  });
+});
+
+describe('SessionManager — observability', () => {
+  it('gives every session its own console and network buffers', async () => {
+    const mgr = new SessionManager(makeEnv());
+    const session = await mgr.get();
+    expect(session.observers.console.size).toBe(0);
+    expect(session.observers.network.size).toBe(0);
+  });
+
+  it('subscribes to the page events the inspection tools read from', async () => {
+    const mgr = new SessionManager(makeEnv());
+    await mgr.get();
+    const events = m.fakePage.on.mock.calls.map((call) => call[0]);
+    // pageerror matters as much as console: an uncaught exception never
+    // arrives as a console message, and it is the most useful signal.
+    expect(events).toEqual(
+      expect.arrayContaining(['console', 'pageerror', 'request', 'response', 'requestfailed']),
+    );
   });
 });
