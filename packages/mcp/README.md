@@ -125,9 +125,21 @@ Click / rightClick / move / drag take a **selector or raw x/y coordinates** — 
 |---|---|
 | `human_screenshot` | Capture the page/element; returns the image to view, optionally saves it |
 | `human_page_text` | Visible text of the whole page |
-| `human_get_text` | Visible text of one element |
-| `human_get_attribute` | An element's attribute (`aria-label`, `href`, …) |
+| `human_outline` | Accessibility-tree outline — every interactive element by role + name |
+| `human_get_text` | Visible text of one element, or of every match with `all` |
+| `human_get_attribute` | An element's attribute (`aria-label`, `href`, …), or every match's with `all` |
 | `human_get_html` | An element's `outerHTML` — discover the real selector of a control |
+
+`human_get_text`, `human_get_attribute` and `human_get_html` read the first match by default. Pass `all: true` to sweep every match instead — every image `src`, every row label, every link `href` — with `limit` capping how many come back. Prefer `human_get_attribute` with `all` over `human_get_html` when you only need one attribute per element: same answer, a fraction of the tokens.
+
+**Observability** — what the page said about itself:
+
+| Tool | What it does |
+|---|---|
+| `human_console_messages` | Console output and uncaught page errors, filterable by regex or `onlyErrors` |
+| `human_network_requests` | Responses with method/URL/status/timing; `onlyFailures` covers 4xx/5xx *and* requests that never completed |
+
+Both start capturing when the session opens, so you can act first and ask afterwards — there is no "start capturing" call to forget. These are the only way to see a CORS rejection, a 404 on an asset, or a thrown `TypeError`: none of them appear in a screenshot or in page text. Buffers hold the last 500 entries and report how many were dropped, so a quiet result is never mistaken for a clean page. Pass `clear: true` to reset before an action and see only what that action caused.
 
 **Recording** — capture the session:
 
@@ -151,6 +163,9 @@ Click / rightClick / move / drag take a **selector or raw x/y coordinates** — 
 | `human_set_personality` | Switch preset or blend two presets at runtime |
 | `human_set_speed` | Switch humanization pace at runtime (`human` / `fast` / `instant`) |
 | `human_set_viewport` | Resize the viewport at runtime (bigger/crisper recording, responsive testing) |
+| `human_emulate_media` | Emulate `prefers-reduced-motion`, `prefers-color-scheme` and `forced-colors` |
+
+`human_emulate_media` is what makes accessibility paths testable. `reducedMotion: 'reduce'` is normally impossible to check without changing OS settings, so a site's reduced-motion path tends to ship unverified; here it is one call. Same for dark mode and Windows High Contrast. Settings persist across navigations until changed — pass `'system'` to stop emulating.
 
 **Browser:**
 
@@ -231,7 +246,7 @@ The server ships **built-in guidance** (sent to the agent on connect via MCP `in
 
 ## Security
 
-- **No arbitrary-JS `evaluate` tool.** Executing page-supplied JavaScript is a prompt-injection cliff — a malicious page could trick the agent into running code that exfiltrates data. The read-only inspection tools cover the legitimate "what's on the page" need.
+- **No arbitrary-JS `evaluate` tool.** Executing page-supplied JavaScript is a prompt-injection cliff — a malicious page could trick the agent into running code that exfiltrates data. The read-only inspection and observability tools cover the legitimate need instead: `human_get_attribute`/`human_get_text` with `all` sweep every match, `human_outline` maps what is actionable, and `human_console_messages`/`human_network_requests` expose what the page reported. Their internal `locator.evaluate` calls run fixed, hard-coded functions — never a string supplied by the model or the page.
 - **File-path safety.** Tools that write files accept a basename only; path components (`../`, absolute paths) are rejected, so a prompt-injected filename can't escape `HUMANJS_OUTPUT_DIR`.
 - **Upload path safety.** `human_upload` can attach a local file to a web form — a potential exfiltration path if a page prompt-injects the agent. So it reads files by **basename only** from `HUMANJS_UPLOAD_DIR` (default: the server's working dir); subdirectories, `../`, and absolute paths are rejected, so the agent can't reach (and send) files outside that folder. Point `HUMANJS_UPLOAD_DIR` at where your upload fixtures live.
 - **No credentials handling.** The server drives the browser; it doesn't manage logins, payment details, or secrets on your behalf.
