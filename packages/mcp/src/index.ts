@@ -32,6 +32,7 @@ import { SessionManager } from './session';
 import { registerBrowserTools } from './tools/browser';
 import { registerConfigTools } from './tools/config';
 import { registerInspectionTools } from './tools/inspection';
+import { registerObservabilityTools } from './tools/observability';
 import { registerPrimitiveTools } from './tools/primitives';
 import { registerRecordingTools } from './tools/recording';
 import { registerSessionTools } from './tools/sessions';
@@ -57,6 +58,12 @@ Export as a test: human_stop_recording picks format by extension. A .spec.ts (or
 
 Captured input + passwords: typed/pasted text IS recorded into the timeline and code exports, so generated scripts/tests are runnable — EXCEPT password fields, which are always masked (emitted as an empty string with a "fill in" comment). This is intentional, not a bug; don't work around it by hand-editing the secret back in. If the user explicitly wants the flow to log in, edit the exported file to read the credential from an env var (e.g. process.env.APP_PASSWORD) and tell them to set it — never hardcode a real password into a file that may be committed.
 
+When something looks wrong and the screenshot doesn't explain it, read human_console_messages (onlyErrors: true) and human_network_requests (onlyFailures: true) before guessing. A CORS rejection, a 404 on an image, or an uncaught TypeError appears in neither the screenshot nor the page text — those two tools are the only place it shows up. Capture is always on, so you can act first and check afterwards. Do NOT reach for curl to debug a page: a request made outside the browser carries none of its origin, cookies, or headers, so the failure you are chasing won't reproduce.
+
+Accessibility and theming: human_emulate_media sets prefers-reduced-motion, prefers-color-scheme and forced-colors. Use reducedMotion: 'reduce' to verify a reduced-motion path — it is otherwise untestable without changing OS settings.
+
+Reading many elements at once: human_get_text, human_get_attribute and human_get_html take all: true to return every match instead of the first. For "every image source" or "every link target", human_get_attribute with all is far cheaper than dumping HTML.
+
 Dynamic UI: prefer specific selectors (role, aria-label) over text — the same visible text often matches several cards before a filter, or the wrong one after. If a click reports multiple matches, narrow the selector.
 
 Browser state: by default each run is a fresh, signed-out browser. If a flow needs a login, tell the user to enable persistence (human_enable_persistence or HUMANJS_PERSIST) or CDP attach — see human_browser_info.`;
@@ -73,6 +80,7 @@ async function main(): Promise<void> {
 
   registerPrimitiveTools(server, ctx);
   registerInspectionTools(server, ctx);
+  registerObservabilityTools(server, ctx);
   registerRecordingTools(server, ctx);
   registerSessionTools(server, ctx);
   registerConfigTools(server, ctx);
