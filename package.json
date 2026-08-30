@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Humanize browser automation for AI agents, QA tests, and demos.",
-  "author": "Gonzalo Muñoz <toti@eventurex.com.ar>",
+  "author": "Gonzalo Mu\u00f1oz <toti@eventurex.com.ar>",
   "license": "MIT",
   "homepage": "https://humanjs.dev",
   "repository": {
@@ -47,6 +47,7 @@
     "demo:read": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples read",
     "demo:record": "turbo run build --filter=@humanjs/recorder... && pnpm --filter @humanjs/examples record",
     "demo:record-manual": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples record-manual",
+    "demo:readme": "turbo run build --filter=@humanjs/recorder... && pnpm --filter @humanjs/examples readme",
     "demo:scroll": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples scroll",
     "demo:type": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples type",
     "demo:generate": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples generate"
