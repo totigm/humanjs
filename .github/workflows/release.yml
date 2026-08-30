@@ -38,12 +38,18 @@ jobs:
         run: pnpm build
 
       - name: Create release PR or publish
-        uses: changesets/action@v1
+        uses: changesets/action@v2
         with:
           publish: pnpm release
           version: pnpm changeset version
           commit: "chore: version packages"
           title: "chore: version packages"
+          # v2 requires the GitHub credential as an explicit input. It no
+          # longer accepts the GITHUB_TOKEN environment variable, nor the
+          # credentials actions/checkout leaves in the git remote, so
+          # without this line the action cannot open the release PR or push
+          # tags. The env entry below stays for the changesets CLI itself.
+          github-token: ${{ secrets.GITHUB_TOKEN }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Two different consumers read the npm credential, under two different
