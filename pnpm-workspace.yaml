@@ -2,3 +2,23 @@ packages:
   - "packages/*"
   - "apps/*"
   - "examples"
+
+# pnpm 10 stopped running dependency install scripts unless they are allowed
+# explicitly, and pnpm 11 renamed the setting from the `onlyBuiltDependencies`
+# list to this `allowBuilds` map. Each entry below genuinely needs its script,
+# and every failure mode here is silent:
+#
+#   esbuild        fetches its platform binary; tsup and vite are dead without it.
+#   ffmpeg-static  fetches the ffmpeg binary @humanjs/recorder shells out to for
+#                  video and GIF export. Skipping it leaves the library importable
+#                  and every export broken only at runtime.
+#   lefthook       installs the git hook binary the repo's pre-commit relies on.
+#
+# Adding a dependency that ships an install script? pnpm refuses to run it and
+# prints ERR_PNPM_IGNORED_BUILDS. Decide deliberately, then add it here —
+# `pnpm approve-builds` will do it for you, but it rewrites this file and drops
+# these comments, so put them back.
+allowBuilds:
+  esbuild: true
+  ffmpeg-static: true
+  lefthook: true
