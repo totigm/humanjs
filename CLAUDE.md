@@ -53,6 +53,7 @@ Verified available on npm at project start: `@humanjs/core`, `@humanjs/playwrigh
 | `@humanjs/recorder` | Session recording → mp4 / Playwright code / JSON | v1 |
 | `@humanjs/mcp` | MCP server for runtime AI agents | v1 |
 | `@humanjs/skill` | Anthropic / Cursor / Codex skill for AI coding agents | v1 |
+| `@humanjs/cli` | `npx @humanjs/cli demo <url>` — watch it move, run flows, no project | v1 |
 | `@humanjs/generator` | `npx @humanjs/generator <url>` — visual recorder UI | v2 |
 | `@humanjs/recipes` | Pre-built common flows (login, checkout, etc.) | v2 |
 | `@humanjs/puppeteer` | Puppeteer adapter | v3 |

@@ -1,0 +1,74 @@
+{
+  "name": "@humanjs/cli",
+  "version": "0.0.0",
+  "description": "Command line for HumanJS — see humanized browser automation on any page, and run HumanJS scripts without setting up a project.",
+  "keywords": [
+    "humanjs",
+    "playwright",
+    "cli",
+    "browser-automation",
+    "humanize",
+    "e2e-testing",
+    "qa",
+    "screen-recording",
+    "demo"
+  ],
+  "author": "Gonzalo Muñoz <toti@eventurex.com.ar>",
+  "license": "MIT",
+  "homepage": "https://humanjs.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/totigm/humanjs.git",
+    "directory": "packages/cli"
+  },
+  "bugs": "https://github.com/totigm/humanjs/issues",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "humanjs": "./dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "check:exports": "publint --strict",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "@humanjs/core": "workspace:*",
+    "@humanjs/playwright": "workspace:*",
+    "@humanjs/recorder": "workspace:*",
+    "playwright": "^1.62.1",
+    "tsx": "^4.23.12"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
