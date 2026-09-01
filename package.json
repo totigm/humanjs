@@ -22,7 +22,7 @@
     "testing"
   ],
   "type": "module",
-  "packageManager": "pnpm@9.15.0",
+  "packageManager": "pnpm@11.25.0",
   "engines": {
     "node": ">=20"
   },
