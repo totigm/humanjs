@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Humanize browser automation for AI agents, QA tests, and demos.",
-  "author": "Gonzalo Mu\u00f1oz <toti@eventurex.com.ar>",
+  "author": "Gonzalo Muñoz <toti@eventurex.com.ar>",
   "license": "MIT",
   "homepage": "https://humanjs.dev",
   "repository": {
