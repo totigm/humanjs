@@ -1742,3 +1742,51 @@ describe('human.clear', () => {
     expect(mouseClick).not.toHaveBeenCalled();
   });
 });
+
+describe('human.emulateMedia', () => {
+  function makeMediaPage(): { page: Page; emulateMedia: ReturnType<typeof vi.fn> } {
+    const emulateMedia = vi.fn().mockResolvedValue(undefined);
+    const page = { emulateMedia } as unknown as Page;
+    return { page, emulateMedia };
+  }
+
+  it('forwards the options straight through to Playwright', async () => {
+    const { page, emulateMedia } = makeMediaPage();
+    const human = await createHuman(page, { speed: 'instant' });
+    await human.emulateMedia({ reducedMotion: 'reduce' });
+    expect(emulateMedia).toHaveBeenCalledWith({ reducedMotion: 'reduce' });
+  });
+
+  it('passes null through so a feature can stop being emulated', async () => {
+    const { page, emulateMedia } = makeMediaPage();
+    const human = await createHuman(page, { speed: 'instant' });
+    await human.emulateMedia({ colorScheme: null });
+    expect(emulateMedia).toHaveBeenCalledWith({ colorScheme: null });
+  });
+
+  it('accepts several features in one call', async () => {
+    const { page, emulateMedia } = makeMediaPage();
+    const human = await createHuman(page, { speed: 'instant' });
+    await human.emulateMedia({
+      reducedMotion: 'reduce',
+      colorScheme: 'dark',
+      forcedColors: 'active',
+    });
+    expect(emulateMedia).toHaveBeenCalledWith({
+      reducedMotion: 'reduce',
+      colorScheme: 'dark',
+      forcedColors: 'active',
+    });
+  });
+
+  it('does not fire plugin actions (configuration, not a humanized action)', async () => {
+    const { page } = makeMediaPage();
+    const before = vi.fn();
+    const human = await createHuman(page, {
+      speed: 'instant',
+      plugins: [{ name: 't', beforeAction: before }],
+    });
+    await human.emulateMedia({ reducedMotion: 'reduce' });
+    expect(before).not.toHaveBeenCalled();
+  });
+});
