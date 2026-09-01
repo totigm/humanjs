@@ -17,6 +17,14 @@
   <a href="https://github.com/totigm/humanjs/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/totigm/humanjs?style=flat"></a>
 </p>
 
+<p align="center">
+  <img src="./.github/demo.gif" alt="A cursor curving across a form, typing an email with uneven rhythm, and clicking a button — all driven by HumanJS" width="820">
+</p>
+
+<p align="center">
+  <sub>Curved cursor paths, typing with real rhythm, reading pauses. This GIF is not a mockup — it is a HumanJS session, recorded and exported by <code>@humanjs/recorder</code>. Regenerate it with <code>pnpm demo:readme</code>.</sub>
+</p>
+
 ---
 
 ## Why

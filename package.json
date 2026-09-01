@@ -47,6 +47,7 @@
     "demo:read": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples read",
     "demo:record": "turbo run build --filter=@humanjs/recorder... && pnpm --filter @humanjs/examples record",
     "demo:record-manual": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples record-manual",
+    "demo:readme": "turbo run build --filter=@humanjs/recorder... && pnpm --filter @humanjs/examples readme",
     "demo:scroll": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples scroll",
     "demo:type": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples type",
     "demo:generate": "turbo run build --filter=@humanjs/playwright... && pnpm --filter @humanjs/examples generate"
