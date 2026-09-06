@@ -75,9 +75,9 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
     "@types/ws": "^8.5.12",
-    "@vitejs/plugin-react": "^6.0.3",
+    "@vitejs/plugin-react": "^6.1.1",
     "framer-motion": "^13.1.1",
-    "happy-dom": "^20.10.6",
+    "happy-dom": "^20.13.2",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "vite": "^8.1.3"
