@@ -42,6 +42,36 @@ describe('parseArgs', () => {
     expect(options.viewport).toEqual({ width: 800, height: 600 });
   });
 
+  it('parses --timeout as milliseconds', () => {
+    expect(parseArgs(['replay', 'f.json', '--timeout', '5000']).options.timeoutMs).toBe(5000);
+  });
+
+  it('leaves timeoutMs undefined so Playwright keeps its own default', () => {
+    expect(parseArgs(['replay', 'f.json']).options.timeoutMs).toBeUndefined();
+  });
+
+  it.each([['0'], ['abc'], ['-1']])('rejects --timeout=%s', (bad) => {
+    expect(() => parseArgs(['replay', 'f.json', `--timeout=${bad}`])).toThrow(/Invalid --timeout/);
+  });
+
+  it('treats a bare negative as a missing value, since it looks like a flag', () => {
+    expect(() => parseArgs(['replay', 'f.json', '--timeout', '-1'])).toThrow(
+      /--timeout needs a value/,
+    );
+  });
+
+  it('accepts replay as a command', () => {
+    expect(parseArgs(['replay', 'flow.json']).command).toBe('replay');
+  });
+
+  it('leaves personality and speed unset when not passed', () => {
+    // replay reads this to tell "not specified" from "set to the default",
+    // so it can honour what the timeline recorded.
+    const { options } = parseArgs(['replay', 'f.json']);
+    expect(options.personality).toBeUndefined();
+    expect(options.speed).toBeUndefined();
+  });
+
   it.each([['-h'], ['--help']])('treats %s as the help command', (flag) => {
     expect(parseArgs([flag]).command).toBe('help');
   });
@@ -52,7 +82,7 @@ describe('parseArgs', () => {
 
   describe('rejections name the bad value and the alternatives', () => {
     it('rejects an unknown command', () => {
-      expect(() => parseArgs(['recrod'])).toThrow(/Unknown command "recrod".*demo, run/s);
+      expect(() => parseArgs(['recrod'])).toThrow(/Unknown command "recrod".*demo, run, replay/s);
     });
 
     it('rejects an unknown personality', () => {
