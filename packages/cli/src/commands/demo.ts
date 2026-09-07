@@ -136,6 +136,7 @@ export async function runDemo(url: string, options: CliOptions): Promise<void> {
   }
 
   const browser = await chromium.launch({ headless });
+  const startedAt = Date.now();
   try {
     const context = await browser.newContext({ viewport });
     if (options.timeoutMs !== undefined) context.setDefaultTimeout(options.timeoutMs);
@@ -146,4 +147,9 @@ export async function runDemo(url: string, options: CliOptions): Promise<void> {
   } finally {
     await browser.close();
   }
+  // Without this the command prints nothing at all when it is not
+  // recording, which reads as "it did not run" — especially in headless,
+  // where there was no window to watch either.
+  const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
+  console.log(`toured ${url} at ${viewport.width}×${viewport.height} in ${seconds}s`);
 }

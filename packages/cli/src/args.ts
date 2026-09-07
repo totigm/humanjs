@@ -47,6 +47,12 @@ export interface ParsedArgs {
   /** URL for `demo`, script path for `run`. */
   readonly target?: string;
   readonly options: CliOptions;
+  /**
+   * Every size requested. Usually one; `--viewport 1440x900,390x844` runs
+   * the command once per entry, which is how a responsive check stops
+   * being two invocations a person has to remember to keep in sync.
+   */
+  readonly viewports: readonly Viewport[];
 }
 
 /** Applied when a command has no better answer of its own. */
@@ -72,6 +78,24 @@ export class UsageError extends Error {
 function oneOf<T extends string>(value: string, allowed: readonly T[], flag: string): T {
   if ((allowed as readonly string[]).includes(value)) return value as T;
   throw new UsageError(`Unknown ${flag} "${value}". Expected one of: ${allowed.join(', ')}.`);
+}
+
+/**
+ * Parses a comma-separated list of `WIDTHxHEIGHT`, e.g.
+ * `1440x900,390x844`. Duplicates are collapsed — running the same size
+ * twice writes the same file twice and helps nobody.
+ */
+export function parseViewportList(value: string): Viewport[] {
+  const seen = new Set<string>();
+  const viewports: Viewport[] = [];
+  for (const part of value.split(',')) {
+    const viewport = parseViewport(part);
+    const key = `${viewport.width}x${viewport.height}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    viewports.push(viewport);
+  }
+  return viewports;
 }
 
 /**
@@ -114,6 +138,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
   let command: CommandName | undefined;
   let target: string | undefined;
   let options: CliOptions = DEFAULTS;
+  let viewports: readonly Viewport[] = [DEFAULTS.viewport];
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i] as string;
@@ -186,7 +211,8 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
       case '--viewport': {
         const { value, nextIndex } = takeValue(name, inline, argv, i);
         i = nextIndex;
-        options = { ...options, viewport: parseViewport(value) };
+        viewports = parseViewportList(value);
+        options = { ...options, viewport: viewports[0] as Viewport };
         break;
       }
       default:
@@ -194,7 +220,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     }
   }
 
-  return { command: command ?? 'help', target, options };
+  return { command: command ?? 'help', target, options, viewports };
 }
 
 function splitFlag(arg: string): [string, string | undefined] {
