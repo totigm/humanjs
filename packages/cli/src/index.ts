@@ -15,6 +15,7 @@
 
 import { parseArgs, UsageError } from './args';
 import { runDemo } from './commands/demo';
+import { runReplay } from './commands/replay';
 import { runScript } from './commands/run';
 
 // Replaced at build time by tsup's `define`. The fallback is what you
@@ -34,6 +35,15 @@ COMMANDS
   demo <url>       Drive a page the way a person would skim it: land, read
                    the heading, scroll in stages, drift the cursor over a
                    link. Never clicks — it runs on your site, not ours.
+  replay <file>    Re-run a recorded timeline and report whether it still
+                   works. Exits 1 on the first failed step, so it drops
+                   straight into CI:
+
+                     humanjs demo <url> --record flow.json
+                     humanjs replay flow.json
+
+                   The personality, speed and seed the timeline was
+                   recorded with are reused unless you override them.
   run <script>     Run a HumanJS flow. The browser and the Human instance
                    are wired for you; the script exports just the flow:
 
@@ -53,6 +63,9 @@ OPTIONS
   --seed <string>       Make the run deterministic — same seed, same
                         trajectory, every time
   --viewport <WxH>      Browser size                           (1280x800)
+  --timeout <ms>        Per-action timeout. Playwright's default is 30000,
+                        which makes a failing CI step wait half a minute
+                        to tell you something it knew immediately
   --headless            Run without a window (default is headed, because
                         the point of demo is watching it)
   -h, --help            Show this
@@ -62,6 +75,7 @@ EXAMPLES
   npx @humanjs/cli demo https://example.com
   npx @humanjs/cli demo https://example.com --record tour.gif
   npx @humanjs/cli run flow.ts --record login.spec.ts --headless
+  npx @humanjs/cli replay flow.json --headless
 
 Docs: https://humanjs.dev`;
 
@@ -87,6 +101,16 @@ async function main(): Promise<void> {
       }
       await runScript(target, options);
       return;
+    case 'replay': {
+      if (!target) {
+        throw new UsageError('replay needs a timeline file, e.g. `humanjs replay flow.json`.');
+      }
+      const passed = await runReplay(target, options);
+      // Setting exitCode rather than calling process.exit lets stdout
+      // flush — a truncated final line in a CI log is worse than useless.
+      if (!passed) process.exitCode = 1;
+      return;
+    }
   }
 }
 
