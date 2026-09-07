@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseArgs, parseViewport, UsageError } from './args';
+import { parseArgs, parseViewport, parseViewportList, UsageError } from './args';
 
 describe('parseArgs', () => {
   it('defaults to help with no arguments', () => {
@@ -146,4 +146,40 @@ describe('parseViewport', () => {
       expect(() => parseViewport(bad)).toThrow(/--viewport/);
     },
   );
+});
+
+describe('parseViewportList', () => {
+  it('parses a single size into a one-entry list', () => {
+    expect(parseViewportList('1440x900')).toEqual([{ width: 1440, height: 900 }]);
+  });
+
+  it('parses a comma-separated sweep', () => {
+    expect(parseViewportList('1440x900,390x844')).toEqual([
+      { width: 1440, height: 900 },
+      { width: 390, height: 844 },
+    ]);
+  });
+
+  it('collapses duplicates, since running a size twice writes the same file twice', () => {
+    expect(parseViewportList('800x600,800x600')).toHaveLength(1);
+  });
+
+  it('rejects the whole list when one entry is malformed', () => {
+    expect(() => parseViewportList('1440x900,nope')).toThrow(/--viewport/);
+  });
+});
+
+describe('parseArgs viewports', () => {
+  it('defaults to exactly one viewport', () => {
+    expect(parseArgs(['demo', 'u']).viewports).toHaveLength(1);
+  });
+
+  it('exposes every requested size', () => {
+    expect(parseArgs(['demo', 'u', '--viewport', '1440x900,390x844']).viewports).toHaveLength(2);
+  });
+
+  it('keeps options.viewport pointing at the first, for single-size callers', () => {
+    const parsed = parseArgs(['demo', 'u', '--viewport=1440x900,390x844']);
+    expect(parsed.options.viewport).toEqual({ width: 1440, height: 900 });
+  });
 });

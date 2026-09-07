@@ -1,7 +1,13 @@
 import type { Recording } from '@humanjs/playwright';
 import { describe, expect, it, vi } from 'vitest';
 import { UsageError } from './args';
-import { assertRecordFormat, exportRecording, resolveRecordFormat } from './export';
+import {
+  assertRecordFormat,
+  exportRecording,
+  resolveRecordFormat,
+  suffixFilename,
+  viewportSuffix,
+} from './export';
 
 describe('resolveRecordFormat', () => {
   it.each([
@@ -66,5 +72,40 @@ describe('exportRecording', () => {
     await exportRecording(recording, 'checkout.spec.ts');
     expect(recording.toPlaywright).toHaveBeenCalled();
     expect(recording.toHumanJS).not.toHaveBeenCalled();
+  });
+});
+
+describe('suffixFilename', () => {
+  it.each([
+    ['tour.gif', 'tour-1440x900.gif'],
+    ['clip.mp4', 'clip-1440x900.mp4'],
+    ['session.json', 'session-1440x900.json'],
+    ['flow.ts', 'flow-1440x900.ts'],
+  ])('suffixes %s before the extension', (input, expected) => {
+    expect(suffixFilename(input, '1440x900')).toBe(expected);
+  });
+
+  it('keeps a two-part .spec.ts intact', () => {
+    // path.extname sees only ".ts" here, which would produce
+    // flow.spec-1440x900.ts and silently demote the file to a plain script.
+    expect(suffixFilename('flow.spec.ts', '390x844')).toBe('flow-390x844.spec.ts');
+  });
+
+  it('keeps .test.ts intact too', () => {
+    expect(suffixFilename('flow.test.ts', '390x844')).toBe('flow-390x844.test.ts');
+  });
+
+  it('preserves the directory part of a path', () => {
+    expect(suffixFilename('out/tour.gif', '800x600')).toBe('out/tour-800x600.gif');
+  });
+
+  it('appends when there is no recognised extension', () => {
+    expect(suffixFilename('tour', '800x600')).toBe('tour-800x600');
+  });
+});
+
+describe('viewportSuffix', () => {
+  it('renders the size as it was typed', () => {
+    expect(viewportSuffix({ width: 1440, height: 900 })).toBe('1440x900');
   });
 });
