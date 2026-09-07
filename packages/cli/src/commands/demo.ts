@@ -14,23 +14,29 @@
 
 import { chromium, createHuman, type Human, installMouseHelper } from '@humanjs/playwright';
 import { record } from '@humanjs/recorder';
-import type { Locator, Page } from 'playwright';
-import type { CliOptions } from '../args';
+import type { Page } from 'playwright';
+import { type CliOptions, DEFAULT_PERSONALITY, DEFAULT_SPEED } from '../args';
+import { assertRecordFormat, exportRecording, recordNeedsFrames } from '../export';
 
 /**
- * First of `selectors` that resolves to something visible, as a locator
- * already narrowed with `.first()`.
+ * First of `selectors` that resolves to something visible, returned as a
+ * selector string already narrowed to one element.
  *
- * Returning a locator rather than the selector string is the whole point:
- * on a real page `a[href]` matches dozens of elements, and handing that
- * string to a primitive trips Playwright's strict mode and hangs until it
- * times out. Narrowing here means the caller cannot make that mistake.
+ * The narrowing is not optional: on a real page `a[href]` matches dozens
+ * of elements, and handing that to a primitive trips Playwright's strict
+ * mode and hangs until it times out.
+ *
+ * It has to stay a *string* rather than a `Locator`, though. The recorder
+ * serialises a primitive's target with `String()`, so passing a Locator
+ * writes `locator('a[href]').first()` into the timeline — which is not a
+ * selector, and makes the recording unreplayable. Playwright's `>> nth=0`
+ * says the same thing in a form that survives the round trip.
  */
-async function firstVisible(page: Page, selectors: readonly string[]): Promise<Locator | null> {
+async function firstVisible(page: Page, selectors: readonly string[]): Promise<string | null> {
   for (const selector of selectors) {
+    const narrowed = `${selector} >> nth=0`;
     try {
-      const locator = page.locator(selector).first();
-      if (await locator.isVisible()) return locator;
+      if (await page.locator(narrowed).isVisible()) return narrowed;
     } catch {
       // An invalid or unsupported selector on an exotic page: try the next.
     }
@@ -85,15 +91,32 @@ async function tour(human: Human, page: Page, url: string): Promise<void> {
 }
 
 export async function runDemo(url: string, options: CliOptions): Promise<void> {
-  const { personality, speed, seed, headless, viewport, record: output } = options;
+  const { seed, headless, viewport, record: output } = options;
+  const personality = options.personality ?? DEFAULT_PERSONALITY;
+  const speed = options.speed ?? DEFAULT_SPEED;
 
   if (output) {
+    // Validated before the browser opens: a bad extension should cost
+    // milliseconds, not a full run that ends with nothing usable.
+    const format = assertRecordFormat(output);
+    const needsFrames = recordNeedsFrames(format);
     const rec = await record(
-      { output, name: `humanjs demo ${url}`, personality, seed, viewport, headless },
+      {
+        // Passing `output` is what makes the recorder capture frames, and
+        // its own dispatch only knows gif-vs-video. Formats built from the
+        // action log are exported below instead.
+        ...(needsFrames ? { output } : {}),
+        name: `humanjs demo ${url}`,
+        personality,
+        seed,
+        viewport,
+        headless,
+      },
       async (human, page) => {
         await tour(human, page, url);
       },
     );
+    if (!needsFrames) await exportRecording(rec, output);
     console.log(`Recorded ${rec.timeline.events.length} actions to ${output}`);
     return;
   }
@@ -101,6 +124,7 @@ export async function runDemo(url: string, options: CliOptions): Promise<void> {
   const browser = await chromium.launch({ headless });
   try {
     const context = await browser.newContext({ viewport });
+    if (options.timeoutMs !== undefined) context.setDefaultTimeout(options.timeoutMs);
     await installMouseHelper(context);
     const page = await context.newPage();
     const human = await createHuman(page, { personality, speed, seed });

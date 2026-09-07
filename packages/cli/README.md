@@ -9,7 +9,7 @@
   <a href="https://humanjs.dev"><img alt="docs" src="https://img.shields.io/badge/docs-humanjs.dev-emerald"></a>
 </p>
 
-Command line for [HumanJS](https://humanjs.dev). Watch humanized browser automation on any page, and run HumanJS scripts, without creating a project.
+Command line for [HumanJS](https://humanjs.dev). Watch humanized browser automation on any page, run HumanJS scripts, and replay a recorded session as a regression check — without creating a project.
 
 ```bash
 npx @humanjs/cli demo https://example.com
@@ -31,6 +31,32 @@ npx @humanjs/cli demo https://your-site.com --record tour.gif
 ```
 
 Every step is optional at runtime: a page with no heading, nothing to scroll, or no links simply gets fewer steps rather than an error. **It never clicks** — it runs on your site, not ours, so it will not navigate away, submit a form, or fire a side effect.
+
+### `replay <timeline.json>`
+
+Re-runs a recorded session and reports whether it still works.
+
+```bash
+npx @humanjs/cli demo https://tu-app.com --record flow.json   # capture
+npx @humanjs/cli replay flow.json --headless                  # verify
+```
+
+```
+replaying flow.json — 6 steps (careful, human)
+
+  ✓  1  goto
+  ✓  2  sleep
+  ✗  3  hover
+        locator.boundingBox: Timeout 3000ms exceeded.
+
+  FAIL  step 3 of 6 (hover) · 5.3s
+```
+
+**It exits 1 on the first failed step**, which is the whole point — it drops into a CI job with no test framework and no code. A clean run exits 0.
+
+The personality, speed and seed the timeline was recorded with are reused unless you override them. A run captured as `distracted` replays differently under `careful`, so reproducing the original conditions is the only sane default for a regression check.
+
+`--record` works here too, so a replay can produce the video: `replay flow.json --record regression.mp4`.
 
 ### `run <script>`
 
@@ -61,9 +87,22 @@ npx @humanjs/cli run flow.ts --record login.spec.ts --headless
 | `--speed <pace>` | `human` · `fast` · `instant` (default `human`) |
 | `--seed <string>` | Deterministic run — same seed, same trajectory, every time |
 | `--viewport <WxH>` | Browser size (default `1280x800`; `1440×900` works too) |
+| `--timeout <ms>` | Per-action timeout. Playwright's default is 30000, which makes a failing CI step wait half a minute to report something it knew immediately |
 | `--headless` | Run without a window. The default is headed, because the point of `demo` is watching it |
 | `-h`, `--help` | Usage |
 | `-v`, `--version` | Version |
+
+## Record once, verify forever
+
+`--record` and `replay` are two halves of one loop. Record a flow to `.json`, and every later run of `replay` checks that it still works — no test framework, no code, and a non-zero exit when it breaks:
+
+```bash
+npx @humanjs/cli run checkout.ts --record checkout.json --headless
+# ...later, in CI
+npx @humanjs/cli replay checkout.json --headless --timeout 5000
+```
+
+The `.spec.ts` export below is the other route: it hands you a `@playwright/test` file if you would rather own the test. `replay` is the route that needs nothing else installed.
 
 ## Recording a flow as a test
 
