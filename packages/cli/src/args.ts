@@ -17,7 +17,7 @@ export type Personality = (typeof PERSONALITIES)[number];
 export const SPEEDS = ['human', 'fast', 'instant'] as const;
 export type SpeedName = (typeof SPEEDS)[number];
 
-export type CommandName = 'demo' | 'run' | 'replay' | 'help' | 'version';
+export type CommandName = 'demo' | 'compare' | 'run' | 'replay' | 'help' | 'version';
 
 export interface Viewport {
   readonly width: number;
@@ -120,7 +120,11 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
 
     if (!arg.startsWith('-')) {
       if (command === undefined) {
-        command = oneOf(arg, ['demo', 'run', 'replay', 'help', 'version'] as const, 'command');
+        command = oneOf(
+          arg,
+          ['demo', 'compare', 'run', 'replay', 'help', 'version'] as const,
+          'command',
+        );
       } else if (target === undefined) {
         target = arg;
       } else {

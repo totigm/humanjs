@@ -64,6 +64,10 @@ describe('parseArgs', () => {
     expect(parseArgs(['replay', 'flow.json']).command).toBe('replay');
   });
 
+  it('accepts compare as a command', () => {
+    expect(parseArgs(['compare', 'https://example.com']).command).toBe('compare');
+  });
+
   it('leaves personality and speed unset when not passed', () => {
     // replay reads this to tell "not specified" from "set to the default",
     // so it can honour what the timeline recorded.
@@ -82,7 +86,9 @@ describe('parseArgs', () => {
 
   describe('rejections name the bad value and the alternatives', () => {
     it('rejects an unknown command', () => {
-      expect(() => parseArgs(['recrod'])).toThrow(/Unknown command "recrod".*demo, run, replay/s);
+      expect(() => parseArgs(['recrod'])).toThrow(
+        /Unknown command "recrod".*demo, compare, run, replay/s,
+      );
     });
 
     it('rejects an unknown personality', () => {
