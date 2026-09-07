@@ -9,7 +9,7 @@
   <a href="https://humanjs.dev"><img alt="docs" src="https://img.shields.io/badge/docs-humanjs.dev-emerald"></a>
 </p>
 
-Command line for [HumanJS](https://humanjs.dev). Watch humanized browser automation on any page, run HumanJS scripts, and replay a recorded session as a regression check — without creating a project.
+Command line for [HumanJS](https://humanjs.dev). Watch humanized browser automation on any page, compare it against plain Playwright, run HumanJS scripts, and replay a recorded session as a regression check — without creating a project.
 
 ```bash
 npx @humanjs/cli demo https://example.com
@@ -31,6 +31,27 @@ npx @humanjs/cli demo https://your-site.com --record tour.gif
 ```
 
 Every step is optional at runtime: a page with no heading, nothing to scroll, or no links simply gets fewer steps rather than an error. **It never clicks** — it runs on your site, not ours, so it will not navigate away, submit a form, or fire a side effect.
+
+### `compare <url>`
+
+Records the same tour twice — once as straight Playwright, once humanized — and stacks them side by side into one video.
+
+```bash
+npx @humanjs/cli compare https://tu-app.com --record before-after.mp4
+```
+
+```
+recording the Playwright lane (speed: instant)…
+recording the HumanJS lane (careful)…
+combining…
+
+  before-after.mp4
+  Playwright 1.9s · HumanJS 8.6s (4.4× longer, and that is the point)
+```
+
+The robotic lane is not a caricature: it is `speed: 'instant'`, the documented mode that bypasses humanization and runs as plain Playwright. Both lanes execute the identical tour, so the only variable on screen is the motion.
+
+The lanes rarely last the same time, and that asymmetry is the message — the robotic side finishes early and **holds on its final frame** while the other is still moving. Writes `humanjs-compare.mp4` unless you pass `--record`.
 
 ### `replay <timeline.json>`
 
@@ -118,7 +139,8 @@ That writes a `@playwright/test` spec with assertions derived from the run. Type
 
 - Built on Playwright — humanizes it, does not replace it. Will not defeat sophisticated bot detection, and is not meant to.
 - `demo` runs against pages it has never seen. It is defensive by design, so on an unusual layout it does less rather than failing.
-- Recording video or GIF needs `ffmpeg`, bundled via `@humanjs/recorder`. `.json` timelines and code exports have no such dependency.
+- Recording video or GIF needs `ffmpeg`, bundled via `ffmpeg-static`. `.json` timelines and code exports have no such dependency.
+- `compare` runs the tour twice and then encodes, so it takes roughly twice as long as `demo` plus the stack.
 
 ## License
 
