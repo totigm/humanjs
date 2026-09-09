@@ -19,6 +19,7 @@ import { record } from '@humanjs/recorder';
 import type { Page } from 'playwright';
 import { type CliOptions, DEFAULT_PERSONALITY, type Personality } from '../args';
 import { assertRecordFormat } from '../export';
+import { applyMedia } from '../media';
 import { stackVideos } from '../stack';
 import { tour } from './demo';
 
@@ -78,6 +79,7 @@ async function recordLane(
       headless: options.headless,
     },
     async (human, page: Page) => {
+      await applyMedia(page, options);
       await tour(human, page, url, async (p) => {
         await p.addStyleTag({ content: laneLabelCss(label, accent) });
       });
