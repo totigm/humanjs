@@ -68,6 +68,33 @@ describe('parseArgs', () => {
     expect(parseArgs(['compare', 'https://example.com']).command).toBe('compare');
   });
 
+  it('accepts check as a command', () => {
+    expect(parseArgs(['check', 'https://example.com']).command).toBe('check');
+  });
+
+  it('parses the media emulation flags', () => {
+    const { options } = parseArgs([
+      'demo',
+      'u',
+      '--reduced-motion',
+      '--color-scheme=dark',
+      '--forced-colors',
+    ]);
+    expect(options.reducedMotion).toBe(true);
+    expect(options.colorScheme).toBe('dark');
+    expect(options.forcedColors).toBe(true);
+  });
+
+  it('rejects a colour scheme that is not light or dark', () => {
+    expect(() => parseArgs(['demo', 'u', '--color-scheme', 'sepia'])).toThrow(
+      /Unknown --color-scheme "sepia".*light, dark/s,
+    );
+  });
+
+  it('reads --out for check output', () => {
+    expect(parseArgs(['check', 'u', '--out', 'shots']).options.outDir).toBe('shots');
+  });
+
   it('leaves personality and speed unset when not passed', () => {
     // replay reads this to tell "not specified" from "set to the default",
     // so it can honour what the timeline recorded.
@@ -87,7 +114,7 @@ describe('parseArgs', () => {
   describe('rejections name the bad value and the alternatives', () => {
     it('rejects an unknown command', () => {
       expect(() => parseArgs(['recrod'])).toThrow(
-        /Unknown command "recrod".*demo, compare, run, replay/s,
+        /Unknown command "recrod".*demo, compare, check, run, replay/s,
       );
     });
 

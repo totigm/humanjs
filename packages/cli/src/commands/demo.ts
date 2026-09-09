@@ -17,6 +17,7 @@ import { record } from '@humanjs/recorder';
 import type { Page } from 'playwright';
 import { type CliOptions, DEFAULT_PERSONALITY, DEFAULT_SPEED } from '../args';
 import { assertRecordFormat, exportRecording, recordNeedsFrames } from '../export';
+import { applyMedia } from '../media';
 
 /**
  * First of `selectors` that resolves to something visible, returned as a
@@ -127,6 +128,7 @@ export async function runDemo(url: string, options: CliOptions): Promise<void> {
         headless,
       },
       async (human, page) => {
+        await applyMedia(page, options);
         await tour(human, page, url);
       },
     );
@@ -143,6 +145,7 @@ export async function runDemo(url: string, options: CliOptions): Promise<void> {
     await installMouseHelper(context);
     const page = await context.newPage();
     const human = await createHuman(page, { personality, speed, seed });
+    await applyMedia(page, options);
     await tour(human, page, url);
   } finally {
     await browser.close();

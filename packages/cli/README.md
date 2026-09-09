@@ -9,7 +9,7 @@
   <a href="https://humanjs.dev"><img alt="docs" src="https://img.shields.io/badge/docs-humanjs.dev-emerald"></a>
 </p>
 
-Command line for [HumanJS](https://humanjs.dev). Watch humanized browser automation on any page, compare it against plain Playwright, run HumanJS scripts, and replay a recorded session as a regression check — without creating a project.
+Command line for [HumanJS](https://humanjs.dev). Watch humanized browser automation on any page, compare it against plain Playwright, check the accessibility and theming paths, run HumanJS scripts, and replay a recorded session as a regression check — without creating a project.
 
 ```bash
 npx @humanjs/cli demo https://example.com
@@ -52,6 +52,33 @@ combining…
 The robotic lane is not a caricature: it is `speed: 'instant'`, the documented mode that bypasses humanization and runs as plain Playwright. Both lanes execute the identical tour, so the only variable on screen is the motion.
 
 The lanes rarely last the same time, and that asymmetry is the message — the robotic side finishes early and **holds on its final frame** while the other is still moving. Writes `humanjs-compare.mp4` unless you pass `--record`.
+
+### `check <url>`
+
+Renders the page under each accessibility and theming condition a real machine can be in, writes a screenshot of each, and reports which ones the page actually responds to.
+
+```bash
+npx @humanjs/cli check https://tu-app.com
+```
+
+```
+checked https://example.com at 1280×800
+
+  baseline       humanjs-check/baseline.png
+  dark           humanjs-check/dark.png
+                 identical to baseline — the page may have no branch for it
+  forced-colors  humanjs-check/forced-colors.png
+                 renders differently from baseline
+  reduced-motion humanjs-check/reduced-motion.png
+                 a still cannot show this — record under it instead:
+                 humanjs demo <url> --reduced-motion --record motion.mp4
+```
+
+Four screenshots on their own are four screenshots you have to compare by eye. The comparison is the point: **a condition that renders byte-identical to baseline is a page that very likely has no branch for it**, which is a finding you can act on.
+
+Reduced motion is the honest exception, and the command says so rather than implying a verdict it cannot support. The difference there is in movement, not layout, so proving it needs a recording — see below.
+
+Writes to `humanjs-check/` unless you pass `--out <dir>`.
 
 ### `replay <timeline.json>`
 
@@ -108,10 +135,26 @@ npx @humanjs/cli run flow.ts --record login.spec.ts --headless
 | `--speed <pace>` | `human` · `fast` · `instant` (default `human`) |
 | `--seed <string>` | Deterministic run — same seed, same trajectory, every time |
 | `--viewport <WxH>` | Browser size (default `1280x800`; `1440×900` works too). Accepts a comma-separated list to sweep sizes — see below |
+| `--reduced-motion` | Render under `prefers-reduced-motion: reduce` — pair with `--record`, since a still cannot show motion |
+| `--color-scheme <c>` | `light` or `dark` |
+| `--forced-colors` | Render under `forced-colors: active` (Windows High Contrast) |
+| `--out <dir>` | Where `check` writes its screenshots (default `humanjs-check`) |
 | `--timeout <ms>` | Per-action timeout. Playwright's default is 30000, which makes a failing CI step wait half a minute to report something it knew immediately |
 | `--headless` | Run without a window. The default is headed, because the point of `demo` is watching it |
 | `-h`, `--help` | Usage |
 | `-v`, `--version` | Version |
+
+## Testing the reduced-motion path
+
+Every command takes `--reduced-motion`, `--color-scheme <light|dark>` and `--forced-colors`, applied before the first navigation so a page that reads the preference once at boot still sees it.
+
+`--reduced-motion` is the one worth calling out. It is normally impossible to exercise without changing an OS setting, so the reduced-motion branch tends to ship unverified — and it fails quietly, because the people who depend on it are the least likely to report it. Pair it with `--record` and you get a video of the path actually running:
+
+```bash
+npx @humanjs/cli demo https://tu-app.com --reduced-motion --record motion.mp4
+```
+
+That is the check a screenshot cannot make.
 
 ## Checking several sizes at once
 
