@@ -71,7 +71,7 @@
     "@humanjs/playwright": "workspace:*",
     "@humanjs/recorder": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "playwright": "^1.62.1",
+    "playwright": "^1.63.0",
     "zod": "^4.4.3"
   },
   "publishConfig": {
