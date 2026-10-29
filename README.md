@@ -260,6 +260,8 @@ ghost-cursor pioneered humanized mouse paths and is excellent at what it does. H
 - [ ] Touch / mobile humanization
 - [ ] Puppeteer adapter (`@humanjs/puppeteer`)
 
+See [`ROADMAP.md`](./ROADMAP.md) for what is in flight, what is blocked upstream, and what will never be built.
+
 ## Contributing
 
 We welcome PRs that:
