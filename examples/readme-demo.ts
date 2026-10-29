@@ -12,6 +12,8 @@
  *
  * It writes straight to .github/demo.gif — the path the README points at —
  * so regenerating the asset is one command with nothing to copy by hand.
+ * The path is resolved from this file, so it lands in the repo wherever
+ * you happen to run it from.
  *
  * Deliberately short and deliberately narrow in what it shows: a curved
  * approach to a button, typing with real rhythm, and a reading dwell.
@@ -19,7 +21,19 @@
  * gets watched where a thirty-second one does not.
  */
 
+import { dirname, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { record } from '@humanjs/recorder';
+
+/**
+ * Resolved from this file, not from the shell's working directory.
+ *
+ * `output` is handed to the encoder as given, so a bare `../.github/...`
+ * lands wherever the command happened to be run from — correct through
+ * `pnpm demo:readme`, and silently *outside the repo* for anyone who runs
+ * `tsx examples/readme-demo.ts` from the root instead.
+ */
+const OUTPUT = resolve(dirname(fileURLToPath(import.meta.url)), '../.github/demo.gif');
 
 // Brand tokens mirrored from apps/web/app/globals.css so the asset does
 // not drift from the landing page it sits next to.
@@ -134,7 +148,7 @@ const DEMO_HTML = /* html */ `
 async function main(): Promise<void> {
   const rec = await record(
     {
-      output: '../.github/demo.gif',
+      output: OUTPUT,
       name: 'HumanJS README demo',
       personality: 'careful',
       // Pinned so re-running produces the same asset — a README image that
@@ -160,7 +174,7 @@ async function main(): Promise<void> {
   );
 
   console.log(`Captured ${rec.timeline.events.length} actions in ${rec.durationMs}ms.`);
-  console.log('Wrote .github/demo.gif — the README picks it up from there.');
+  console.log(`Wrote ${relative(process.cwd(), OUTPUT)} — the README picks it up from there.`);
 }
 
 main().catch((error) => {
