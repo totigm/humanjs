@@ -1,5 +1,14 @@
 # @humanjs/mcp
 
+## 0.4.3
+
+### Patch Changes
+
+- Updated dependencies [6cba1e5]
+- Updated dependencies [ca1fd88]
+  - @humanjs/playwright@0.12.0
+  - @humanjs/recorder@0.3.5
+
 ## 0.4.2
 
 ### Patch Changes
