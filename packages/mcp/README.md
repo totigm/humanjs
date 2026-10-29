@@ -130,7 +130,7 @@ Click / rightClick / move / drag take a **selector or raw x/y coordinates** — 
 | `human_get_attribute` | An element's attribute (`aria-label`, `href`, …), or every match's with `all` |
 | `human_get_html` | An element's `outerHTML` — discover the real selector of a control |
 
-`human_get_text`, `human_get_attribute` and `human_get_html` read the first match by default. Pass `all: true` to sweep every match instead — every image `src`, every row label, every link `href` — with `limit` capping how many come back. Prefer `human_get_attribute` with `all` over `human_get_html` when you only need one attribute per element: same answer, a fraction of the tokens.
+`human_get_text`, `human_get_attribute` and `human_get_html` read the first match by default. Pass `all: true` to sweep every match instead — every image `src`, every row label, every link `href` — with `limit` capping how many come back. A sweep survives a page that changes underneath it: an element replaced mid-read is marked in place and counted in the footer, so you get the rest of the values instead of one error. Prefer `human_get_attribute` with `all` over `human_get_html` when you only need one attribute per element: same answer, a fraction of the tokens.
 
 **Observability** — what the page said about itself:
 
@@ -139,7 +139,7 @@ Click / rightClick / move / drag take a **selector or raw x/y coordinates** — 
 | `human_console_messages` | Console output and uncaught page errors, filterable by regex or `onlyErrors` |
 | `human_network_requests` | Responses with method/URL/status/timing; `onlyFailures` covers 4xx/5xx *and* requests that never completed |
 
-Both start capturing when the session opens, so you can act first and ask afterwards — there is no "start capturing" call to forget. These are the only way to see a CORS rejection, a 404 on an asset, or a thrown `TypeError`: none of them appear in a screenshot or in page text. Buffers hold the last 500 entries and report how many were dropped, so a quiet result is never mistaken for a clean page. Pass `clear: true` to reset before an action and see only what that action caused.
+Both start capturing when the session opens, so you can act first and ask afterwards — there is no "start capturing" call to forget. These are the only way to see a CORS rejection, a 404 on an asset, or a thrown `TypeError`: none of them appear in a screenshot or in page text. Buffers hold the last 500 entries and report how many were dropped, so a quiet result is never mistaken for a clean page. Pass `clear: true` to empty a buffer before an action so the next call shows only what that action caused — it discards the whole buffer, not just what came back, and reports how much it threw away.
 
 **Recording** — capture the session:
 
