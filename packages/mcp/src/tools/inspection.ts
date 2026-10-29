@@ -17,6 +17,14 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { ToolContext } from '../context';
 import { resolveOutputPath } from '../output';
+import {
+  HTML_SWEEP_LIMIT,
+  SWEEP_READ_TIMEOUT_MS,
+  sweepBody,
+  sweepRead,
+  sweepSummary,
+  TEXT_SWEEP_LIMIT,
+} from '../sweep';
 
 const sessionArg = z
   .string()
@@ -40,14 +48,6 @@ function matchLimitArg(fallback: number) {
     .describe(
       `With \`all\`, the maximum number of matches to return (default ${fallback}). The total number found is always reported.`,
     );
-}
-
-/** Footer telling the agent when it is looking at a truncated sweep. */
-function sweepSummary(shown: number, total: number, selector: string): string {
-  if (shown >= total) {
-    return `— ${total} element${total === 1 ? '' : 's'} matched ${selector}`;
-  }
-  return `— showing the first ${shown} of ${total} elements matching ${selector}; raise \`limit\` to see more`;
 }
 
 export function registerInspectionTools(server: McpServer, ctx: ToolContext): void {
@@ -146,11 +146,11 @@ export function registerInspectionTools(server: McpServer, ctx: ToolContext): vo
     {
       title: "Get an element's text",
       description:
-        "Returns the visible innerText of the first element matching `selector` — a specific label, price, status, or message. Set `all` to read every match instead, e.g. every row's title in a table.",
+        "Returns the innerText of the first element matching `selector` — a specific label, price, status, or message. Set `all` to read every match instead, e.g. every row's title in a table; a sweep reports each match in document order, including ones that are not currently visible.",
       inputSchema: {
         selector: z.string().describe('Selector of the element to read.'),
         all: allArg,
-        limit: matchLimitArg(100),
+        limit: matchLimitArg(TEXT_SWEEP_LIMIT),
         session: sessionArg,
       },
     },
@@ -161,13 +161,14 @@ export function registerInspectionTools(server: McpServer, ctx: ToolContext): vo
         return { content: [{ type: 'text', text }] };
       }
       const elements = await page.locator(selector).all();
-      const shown = elements.slice(0, limit ?? 100);
-      const values = await Promise.all(shown.map((element) => element.innerText()));
-      const body = values.map((value, index) => `[${index}] ${value}`).join('\n');
+      const shown = elements.slice(0, limit ?? TEXT_SWEEP_LIMIT);
+      const readings = await sweepRead(shown, (element) =>
+        element.innerText({ timeout: SWEEP_READ_TIMEOUT_MS }),
+      );
       const text =
         elements.length === 0
           ? `No elements matched ${selector}`
-          : `${body}\n\n${sweepSummary(shown.length, elements.length, selector)}`;
+          : `${sweepBody(readings, (value) => value)}\n\n${sweepSummary(readings, elements.length, selector)}`;
       return { content: [{ type: 'text', text }] };
     },
   );
@@ -182,7 +183,7 @@ export function registerInspectionTools(server: McpServer, ctx: ToolContext): vo
         selector: z.string().describe('Selector of the element.'),
         attribute: z.string().describe('Attribute name, e.g. "aria-label", "href", "data-state".'),
         all: allArg,
-        limit: matchLimitArg(100),
+        limit: matchLimitArg(TEXT_SWEEP_LIMIT),
         session: sessionArg,
       },
     },
@@ -197,17 +198,17 @@ export function registerInspectionTools(server: McpServer, ctx: ToolContext): vo
         return { content: [{ type: 'text', text }] };
       }
       const elements = await page.locator(selector).all();
-      const shown = elements.slice(0, limit ?? 100);
-      const values = await Promise.all(shown.map((element) => element.getAttribute(attribute)));
+      const shown = elements.slice(0, limit ?? TEXT_SWEEP_LIMIT);
+      const readings = await sweepRead(shown, (element) =>
+        element.getAttribute(attribute, { timeout: SWEEP_READ_TIMEOUT_MS }),
+      );
       // A missing attribute is reported per element rather than dropped:
-      // "which of these has no href" is usually the interesting answer.
-      const body = values
-        .map((value, index) => `[${index}] ${value === null ? '(absent)' : value}`)
-        .join('\n');
+      // "which of these has no href" is usually the interesting answer —
+      // and it is a different answer from "this one could not be read".
       const text =
         elements.length === 0
           ? `No elements matched ${selector}`
-          : `${body}\n\n${sweepSummary(shown.length, elements.length, selector)}`;
+          : `${sweepBody(readings, (value) => value ?? '(absent)')}\n\n${sweepSummary(readings, elements.length, selector)}`;
       return { content: [{ type: 'text', text }] };
     },
   );
@@ -221,7 +222,7 @@ export function registerInspectionTools(server: McpServer, ctx: ToolContext): vo
       inputSchema: {
         selector: z.string().describe('Selector of the region to dump. Target narrowly.'),
         all: allArg,
-        limit: matchLimitArg(10),
+        limit: matchLimitArg(HTML_SWEEP_LIMIT),
         session: sessionArg,
       },
     },
@@ -241,15 +242,14 @@ export function registerInspectionTools(server: McpServer, ctx: ToolContext): vo
       // Capped tighter than the other sweeps: a handful of outerHTML dumps
       // is already a lot of tokens.
       const elements = await page.locator(selector).all();
-      const shown = elements.slice(0, limit ?? 10);
-      const values: string[] = await Promise.all(
-        shown.map((element) => element.evaluate((el) => el.outerHTML)),
+      const shown = elements.slice(0, limit ?? HTML_SWEEP_LIMIT);
+      const readings = await sweepRead(shown, (element) =>
+        element.evaluate((el) => el.outerHTML, undefined, { timeout: SWEEP_READ_TIMEOUT_MS }),
       );
-      const body = values.map((value, index) => `[${index}] ${value}`).join('\n\n');
       const text =
         elements.length === 0
           ? `No elements matched ${selector}`
-          : `${body}\n\n${sweepSummary(shown.length, elements.length, selector)}`;
+          : `${sweepBody(readings, (value: string) => value, '\n\n')}\n\n${sweepSummary(readings, elements.length, selector)}`;
       return { content: [{ type: 'text', text }] };
     },
   );
