@@ -5,6 +5,7 @@
   "description": "Runnable demos for HumanJS.",
   "type": "module",
   "scripts": {
+    "typecheck": "tsc --noEmit",
     "click": "tsx click-demo.ts",
     "compare": "tsx compare-demo.ts",
     "grandma": "tsx personality-grandma.ts",
