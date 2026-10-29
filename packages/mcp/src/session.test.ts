@@ -3,7 +3,7 @@ import type { BrowserConfig, McpEnv } from './env';
 
 // Fakes + mock fns, hoisted so the vi.mock factories below can use them.
 const m = vi.hoisted(() => {
-  const fakePage = { on: vi.fn() };
+  const fakePage = { on: vi.fn(), off: vi.fn() };
   const fakeContext = { newPage: vi.fn(), pages: vi.fn(), close: vi.fn() };
   const fakeBrowser = { newContext: vi.fn(), contexts: vi.fn(), close: vi.fn() };
   return {
@@ -31,7 +31,7 @@ vi.mock('@humanjs/playwright', () => ({
   installMouseHelper: m.installMouseHelper,
 }));
 
-import { SessionManager } from './session';
+import { DEFAULT_SESSION_ID, SessionManager } from './session';
 
 function makeEnv(browser: BrowserConfig = { mode: 'ephemeral' }, channel?: string): McpEnv {
   return {
@@ -190,5 +190,26 @@ describe('SessionManager — observability', () => {
     expect(events).toEqual(
       expect.arrayContaining(['console', 'pageerror', 'request', 'response', 'requestfailed']),
     );
+  });
+
+  it('unsubscribes every page listener when the session closes', async () => {
+    const mgr = new SessionManager(makeEnv());
+    await mgr.get();
+    const attached = m.fakePage.on.mock.calls.map((call) => call[0]);
+    await mgr.close(DEFAULT_SESSION_ID);
+    // A CDP-attached page outlives the session, so a listener left behind
+    // would keep feeding a buffer nobody can read for the life of the
+    // browser — and trip Node's max-listeners warning after a dozen.
+    const removed = m.fakePage.off.mock.calls.map((call) => call[0]);
+    expect(removed).toEqual(attached);
+  });
+
+  it('tolerates a second detach rather than double-unsubscribing', async () => {
+    const mgr = new SessionManager(makeEnv());
+    const session = await mgr.get();
+    await mgr.close(DEFAULT_SESSION_ID);
+    const afterClose = m.fakePage.off.mock.calls.length;
+    session.observers.detach();
+    expect(m.fakePage.off.mock.calls.length).toBe(afterClose);
   });
 });

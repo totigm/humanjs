@@ -18,7 +18,7 @@
  * see the note at the top of `tools/inspection.ts`.
  */
 
-import type { Page } from 'playwright';
+import type { ConsoleMessage, Page, Request, Response } from 'playwright';
 
 /** A console message, or an uncaught page error (level `'pageerror'`). */
 export interface ConsoleEntry {
@@ -95,11 +95,28 @@ export const NETWORK_BUFFER_LIMIT = 500;
 const ERROR_LEVELS = new Set(['error', 'pageerror']);
 
 /**
+ * Longest filter pattern accepted.
+ *
+ * JavaScript cannot interrupt a regex once it is running, so a pattern
+ * that backtracks catastrophically would wedge the server's event loop
+ * with no way out — and the pattern here comes from the model. A length
+ * cap is not a proof against that, but the patterns that blow up
+ * exponentially are built from nested quantifiers that need room, and no
+ * honest filter needs two hundred characters.
+ */
+const MAX_PATTERN_LENGTH = 200;
+
+/**
  * Compiles an AI-supplied filter pattern into a case-insensitive regex.
  * A malformed pattern is a caller mistake, not a server fault, so it fails
  * with a message that says how to fix it rather than a raw regex error.
  */
 export function compilePattern(pattern: string): RegExp {
+  if (pattern.length > MAX_PATTERN_LENGTH) {
+    throw new Error(
+      `\`pattern\` is ${pattern.length} characters; the limit is ${MAX_PATTERN_LENGTH}. Filter on something short and distinctive ("cors", "\\.png$") and narrow further with \`onlyErrors\`/\`status\` rather than one long alternation.`,
+    );
+  }
   try {
     return new RegExp(pattern, 'i');
   } catch (error) {
@@ -236,20 +253,30 @@ function summary(noun: string, result: QueryResult<unknown>): string {
   return `— ${shown} of ${result.total} captured${dropped}`;
 }
 
-/** The pair of buffers a session observes through. */
+/** The pair of buffers a session observes through, and how to stop. */
 export interface SessionObservers {
   readonly console: RingBuffer<ConsoleEntry>;
   readonly network: RingBuffer<NetworkEntry>;
+  /**
+   * Unsubscribes the page listeners. Idempotent.
+   *
+   * Not optional: in `cdp` mode a session closes *without* closing the
+   * page, because the browser belongs to the user. Listeners left behind
+   * would go on filling buffers nothing can read, and the eleventh
+   * session on a shared page trips Node's max-listeners warning.
+   */
+  readonly detach: () => void;
 }
 
 /**
  * Subscribes to a page's console and network events, filling bounded
  * buffers the inspection tools read from later.
  *
- * Listeners are attached once per session page and live as long as it
- * does, so events raised between tool calls — which is most of them — are
- * still captured. Playwright keeps page listeners across navigations, so
- * a `goto` does not silently stop the recording.
+ * Listeners live as long as the session, so events raised between tool
+ * calls — which is most of them — are still captured. Playwright keeps
+ * page listeners across navigations, so a `goto` does not silently stop
+ * the recording. They are removed by {@link SessionObservers.detach},
+ * which the session manager calls on close.
  *
  * Request start times live in a `WeakMap` keyed by the request object: it
  * gives round-trip timing without an unbounded Map of requests that never
@@ -260,7 +287,9 @@ export function attachObservers(page: Page): SessionObservers {
   const networkBuffer = new RingBuffer<NetworkEntry>(NETWORK_BUFFER_LIMIT);
   const startedAt = new WeakMap<object, number>();
 
-  page.on('console', (message) => {
+  // Named rather than inline so `detach` can hand the same references
+  // back to `page.off` — an inline arrow cannot be unsubscribed.
+  const onConsole = (message: ConsoleMessage): void => {
     const location = message.location();
     const source = location.url
       ? `${location.url}:${location.lineNumber}:${location.columnNumber}`
@@ -271,25 +300,25 @@ export function attachObservers(page: Page): SessionObservers {
       source,
       at: Date.now(),
     });
-  });
+  };
 
   // An uncaught exception never reaches page.on('console'), and it is the
   // single most useful thing to surface — so it is folded into the same
   // buffer under its own level rather than needing a separate tool.
-  page.on('pageerror', (error) => {
+  const onPageError = (error: Error): void => {
     consoleBuffer.push({
       level: 'pageerror',
       text: error.stack ?? `${error.name}: ${error.message}`,
       source: null,
       at: Date.now(),
     });
-  });
+  };
 
-  page.on('request', (request) => {
+  const onRequest = (request: Request): void => {
     startedAt.set(request, Date.now());
-  });
+  };
 
-  page.on('response', (response) => {
+  const onResponse = (response: Response): void => {
     const request = response.request();
     const start = startedAt.get(request);
     networkBuffer.push({
@@ -301,9 +330,9 @@ export function attachObservers(page: Page): SessionObservers {
       at: Date.now(),
       ms: start === undefined ? null : Date.now() - start,
     });
-  });
+  };
 
-  page.on('requestfailed', (request) => {
+  const onRequestFailed = (request: Request): void => {
     const start = startedAt.get(request);
     networkBuffer.push({
       method: request.method(),
@@ -314,7 +343,27 @@ export function attachObservers(page: Page): SessionObservers {
       at: Date.now(),
       ms: start === undefined ? null : Date.now() - start,
     });
-  });
+  };
 
-  return { console: consoleBuffer, network: networkBuffer };
+  page.on('console', onConsole);
+  page.on('pageerror', onPageError);
+  page.on('request', onRequest);
+  page.on('response', onResponse);
+  page.on('requestfailed', onRequestFailed);
+
+  let detached = false;
+
+  return {
+    console: consoleBuffer,
+    network: networkBuffer,
+    detach: () => {
+      if (detached) return;
+      detached = true;
+      page.off('console', onConsole);
+      page.off('pageerror', onPageError);
+      page.off('request', onRequest);
+      page.off('response', onResponse);
+      page.off('requestfailed', onRequestFailed);
+    },
+  };
 }

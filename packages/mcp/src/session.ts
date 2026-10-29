@@ -321,6 +321,12 @@ export class SessionManager {
   async close(id: string): Promise<void> {
     const session = this.sessions.get(id);
     if (!session) return;
+    // Unsubscribe the page listeners first, before anything that can
+    // await. In `cdp` mode the teardown below deliberately leaves the
+    // page open (it is the user's browser), so nothing else would ever
+    // remove them, and the buffers they feed become unreachable garbage
+    // that still grows.
+    session.observers.detach();
     // Graceful finalize: if a recording is open, stop and save it to a
     // default-named file so an in-progress clip isn't silently dropped on
     // disconnect. Best-effort — on a hard crash this never runs, and the
