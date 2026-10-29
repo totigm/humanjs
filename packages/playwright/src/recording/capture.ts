@@ -5,6 +5,14 @@ import { sleep } from '@humanjs/core';
 import type { Page } from 'playwright';
 
 /**
+ * Consecutive screenshot failures tolerated before the capture loop gives
+ * up. Transient misses are survivable and common; persistent failure means
+ * something is actually broken, and spinning at the frame rate forever
+ * helps nobody.
+ */
+const MAX_CONSECUTIVE_SCREENSHOT_FAILURES = 10;
+
+/**
  * A captured frame in the timer-based capture session. `tMs` is the
  * wall-clock offset (ms) from the capture start.
  */
@@ -90,6 +98,8 @@ export async function startCapture(
 
   let stopped = false;
   let frameIndex = 0;
+  // Reset by every successful screenshot; only an unbroken run counts.
+  let consecutiveFailures = 0;
   // Collects every in-flight write so stop()/abort() can wait for them to
   // settle. Using `allSettled` (in `finish`) means an individual writeFile
   // failure drops one frame but never blocks the rest of the queue or the
@@ -107,6 +117,7 @@ export async function startCapture(
           quality: format === 'jpeg' ? quality : undefined,
         });
         if (stopped) return;
+        consecutiveFailures = 0;
         const idx = frameIndex++;
         const path = join(dir, `frame_${String(idx).padStart(6, '0')}.${ext}`);
         const tMs = loopStart - startedAtMs;
@@ -124,12 +135,28 @@ export async function startCapture(
           ),
         );
       } catch (err) {
-        // Page closed mid-capture, or screenshot otherwise failed. Bail
-        // cleanly rather than crashing the loop.
         if (stopped) return;
-        console.warn('humanjs capture: screenshot failed, stopping loop:', err);
-        stopped = true;
-        return;
+        // The page going away is terminal — there is nothing left to shoot.
+        if (page.isClosed()) return;
+        // Anything else is treated the way a failed write is, a few lines
+        // up: drop the frame, keep the recording. A single
+        // `Page.captureScreenshot` protocol error is ordinary on a page
+        // under load — a heavy animation or a font swap is enough — and
+        // losing the entire take over one missed frame is the wrong trade.
+        consecutiveFailures += 1;
+        if (consecutiveFailures >= MAX_CONSECUTIVE_SCREENSHOT_FAILURES) {
+          console.warn(
+            `humanjs capture: ${consecutiveFailures} consecutive screenshot failures, stopping loop:`,
+            err,
+          );
+          stopped = true;
+          return;
+        }
+        // Warned once per run of failures: at the frame rate, a page that
+        // keeps missing would otherwise bury everything else in the console.
+        if (consecutiveFailures === 1) {
+          console.warn('humanjs capture: screenshot failed, dropping frame:', err);
+        }
       }
       const elapsed = Date.now() - loopStart;
       const wait = intervalMs - elapsed;

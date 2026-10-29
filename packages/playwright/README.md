@@ -100,6 +100,26 @@ Targets accept a CSS selector string or a Playwright `Locator`. `move` and `drag
 
 Near-miss (cursor wobble before committing — see `personality.mouse.misclickProbability`) applies to the primitives that commit a button event at the resolved coordinates: `click`, `rightClick`, both `drag` endpoints, and the implicit focus-acquiring click inside `type` / `paste` (the keystrokes themselves are unaffected). `hover`, `move`, `press`, `read`, and `scroll` never misclick, by design — a wobble would trigger handlers on the wrong element for `hover`, and would contradict the explicit-coordinate contract for `move`. The misclick is also skipped when the cursor is already on the target (no approach means no overshoot).
 
+### Media emulation
+
+`emulateMedia` forwards to Playwright and covers the CSS media features a real user's machine would set: `prefers-reduced-motion`, `prefers-color-scheme`, `forced-colors`, `prefers-contrast`, and print media.
+
+```ts
+await human.emulateMedia({ reducedMotion: 'reduce' });
+await human.goto(url); // now renders the reduced-motion path
+```
+
+The reduced-motion branch is the one worth calling out. It is normally impossible to exercise without changing an OS setting, so it ships unverified even in projects that wrote it carefully — and it is exactly the branch that breaks silently, because the people who rely on it are the least likely to file a bug. Checking it costs one line.
+
+Settings persist across navigations until changed. Pass `null` for a feature to stop emulating it and fall back to the host's own setting:
+
+```ts
+await human.emulateMedia({ colorScheme: 'dark' });   // check the dark theme
+await human.emulateMedia({ colorScheme: null });     // back to the host setting
+```
+
+Not a humanized action — no plugin events fire, and it is unaffected by `speed`.
+
 ### Keyboard
 
 ```ts
