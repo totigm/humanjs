@@ -16,8 +16,15 @@ const preset = z.enum(['careful', 'fast', 'distracted', 'precise']);
  * Playwright resets an emulated media feature with `null`. `'system'` is
  * the clearer word for an agent choosing a value, so it is translated here
  * rather than exposing `null` in the tool schema.
+ *
+ * `undefined` must survive as `undefined`: Playwright leaves a feature
+ * untouched when the key is absent *or* undefined, and resets it on
+ * `null`. Collapsing the two would make setting the colour scheme
+ * silently cancel a reduced-motion emulation set earlier.
  */
-function toMediaValue<T extends string>(value: T | 'system' | undefined): T | null | undefined {
+export function toMediaValue<T extends string>(
+  value: T | 'system' | undefined,
+): T | null | undefined {
   if (value === undefined) return undefined;
   return value === 'system' ? null : value;
 }
@@ -135,8 +142,11 @@ export function registerConfigTools(server: McpServer, { sessions }: ToolContext
           'Pass at least one of `reducedMotion`, `colorScheme` or `forcedColors`. Use "system" to stop emulating one.',
         );
       }
-      const { page } = await sessions.get(session);
-      await page.emulateMedia({
+      // Through `human`, not `page`: the MCP surface mirrors the library's
+      // primitives, so anything the library method grows later (events,
+      // timeline entries) lands here without a second implementation.
+      const { human } = await sessions.get(session);
+      await human.emulateMedia({
         reducedMotion: toMediaValue(reducedMotion),
         colorScheme: toMediaValue(colorScheme),
         forcedColors: toMediaValue(forcedColors),
