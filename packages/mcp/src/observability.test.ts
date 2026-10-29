@@ -66,6 +66,13 @@ describe('compilePattern', () => {
     expect(compilePattern('cors').test('Blocked by CORS policy')).toBe(true);
   });
 
+  it('refuses a pattern long enough to be a backtracking hazard', () => {
+    // The pattern comes from the model and JS cannot interrupt a running
+    // regex, so an unbounded one could wedge the server's event loop.
+    expect(() => compilePattern('a'.repeat(201))).toThrow(/limit is 200/);
+    expect(() => compilePattern('a'.repeat(200))).not.toThrow();
+  });
+
   it('explains how to fix a malformed pattern', () => {
     expect(() => compilePattern('[unclosed')).toThrow(/Invalid `pattern`/);
   });

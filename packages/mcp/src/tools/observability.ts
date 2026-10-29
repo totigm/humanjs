@@ -46,8 +46,20 @@ const clearArg = z
   .boolean()
   .optional()
   .describe(
-    'Empty the buffer after returning these entries. Use it to get a clean slate before an action, so the next call shows only what that action caused.',
+    'Empty the WHOLE buffer after this read — not only the entries returned, and not only the ones that matched your filter. Use it for a clean slate before an action, so the next call shows just what that action caused. How many entries it discarded is reported back.',
   );
+
+/**
+ * Appends what a `clear` actually threw away.
+ *
+ * `clear` empties the buffer, not the slice that was returned, so a
+ * filtered read can discard evidence the agent never saw. Saying how much
+ * went is the difference between a clean slate and a silent loss.
+ */
+function withClearNote(text: string, discarded: number): string {
+  if (discarded === 0) return `${text}\n— buffer was already empty`;
+  return `${text}\n— buffer cleared, ${discarded} entr${discarded === 1 ? 'y' : 'ies'} discarded`;
+}
 
 export function registerObservabilityTools(server: McpServer, { sessions }: ToolContext): void {
   server.registerTool(
@@ -76,8 +88,10 @@ export function registerObservabilityTools(server: McpServer, { sessions }: Tool
         onlyErrors,
         limit: limit ?? DEFAULT_LIMIT,
       });
-      const text = formatConsole(result);
+      const formatted = formatConsole(result);
+      const discarded = observers.console.size;
       if (clear) observers.console.clear();
+      const text = clear ? withClearNote(formatted, discarded) : formatted;
       return { content: [{ type: 'text', text }] };
     },
   );
@@ -114,8 +128,10 @@ export function registerObservabilityTools(server: McpServer, { sessions }: Tool
         status,
         limit: limit ?? DEFAULT_LIMIT,
       });
-      const text = formatNetwork(result);
+      const formatted = formatNetwork(result);
+      const discarded = observers.network.size;
       if (clear) observers.network.clear();
+      const text = clear ? withClearNote(formatted, discarded) : formatted;
       return { content: [{ type: 'text', text }] };
     },
   );
