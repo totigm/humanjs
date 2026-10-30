@@ -17,7 +17,7 @@ export type Personality = (typeof PERSONALITIES)[number];
 export const SPEEDS = ['human', 'fast', 'instant'] as const;
 export type SpeedName = (typeof SPEEDS)[number];
 
-export type CommandName = 'demo' | 'run' | 'help' | 'version';
+export type CommandName = 'demo' | 'run' | 'replay' | 'help' | 'version';
 
 export interface Viewport {
   readonly width: number;
@@ -25,10 +25,18 @@ export interface Viewport {
 }
 
 export interface CliOptions {
-  readonly personality: Personality;
-  readonly speed: SpeedName;
+  /**
+   * Left undefined when the user did not pass the flag, so a command can
+   * tell "not specified" from "explicitly set to the default". `replay`
+   * relies on it: a timeline records the personality and speed it was
+   * captured with, and reproducing those beats imposing a fresh default.
+   */
+  readonly personality?: Personality;
+  readonly speed?: SpeedName;
   readonly seed?: string;
   readonly headless: boolean;
+  /** Default Playwright timeout in ms. Undefined leaves Playwright's own. */
+  readonly timeoutMs?: number;
   /** Output file for a recording; the extension picks the format. */
   readonly record?: string;
   readonly viewport: Viewport;
@@ -41,9 +49,11 @@ export interface ParsedArgs {
   readonly options: CliOptions;
 }
 
+/** Applied when a command has no better answer of its own. */
+export const DEFAULT_PERSONALITY: Personality = 'careful';
+export const DEFAULT_SPEED: SpeedName = 'human';
+
 const DEFAULTS: CliOptions = {
-  personality: 'careful',
-  speed: 'human',
   // Headed by default and on purpose: the whole point of `demo` is to
   // watch it. A headless default would make the first run look like it
   // did nothing.
@@ -110,7 +120,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
 
     if (!arg.startsWith('-')) {
       if (command === undefined) {
-        command = oneOf(arg, ['demo', 'run', 'help', 'version'] as const, 'command');
+        command = oneOf(arg, ['demo', 'run', 'replay', 'help', 'version'] as const, 'command');
       } else if (target === undefined) {
         target = arg;
       } else {
@@ -157,6 +167,16 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
         const { value, nextIndex } = takeValue(name, inline, argv, i);
         i = nextIndex;
         options = { ...options, record: value };
+        break;
+      }
+      case '--timeout': {
+        const { value, nextIndex } = takeValue(name, inline, argv, i);
+        i = nextIndex;
+        const ms = Number(value);
+        if (!Number.isFinite(ms) || ms <= 0) {
+          throw new UsageError(`Invalid --timeout "${value}". Expected milliseconds, e.g. 5000.`);
+        }
+        options = { ...options, timeoutMs: ms };
         break;
       }
       case '--viewport': {

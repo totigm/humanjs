@@ -20,7 +20,8 @@ import { pathToFileURL } from 'node:url';
 import { chromium, createHuman, type Human, installMouseHelper } from '@humanjs/playwright';
 import { record } from '@humanjs/recorder';
 import type { Page } from 'playwright';
-import { type CliOptions, UsageError } from '../args';
+import { type CliOptions, DEFAULT_PERSONALITY, DEFAULT_SPEED, UsageError } from '../args';
+import { assertRecordFormat, exportRecording, recordNeedsFrames } from '../export';
 
 /** The shape a script is expected to export. */
 export type Flow = (human: Human, page: Page) => Promise<void> | void;
@@ -69,16 +70,30 @@ async function loadFlow(path: string): Promise<Flow> {
 }
 
 export async function runScript(path: string, options: CliOptions): Promise<void> {
+  // The extension is checked before the script is even loaded, so a typo
+  // in --record never costs a browser launch.
+  const format = options.record ? assertRecordFormat(options.record) : null;
   const flow = await loadFlow(path);
-  const { personality, speed, seed, headless, viewport, record: output } = options;
+  const { seed, headless, viewport, record: output } = options;
+  const personality = options.personality ?? DEFAULT_PERSONALITY;
+  const speed = options.speed ?? DEFAULT_SPEED;
 
-  if (output) {
+  if (output && format) {
+    const needsFrames = recordNeedsFrames(format);
     const rec = await record(
-      { output, name: `humanjs run ${path}`, personality, seed, viewport, headless },
+      {
+        ...(needsFrames ? { output } : {}),
+        name: `humanjs run ${path}`,
+        personality,
+        seed,
+        viewport,
+        headless,
+      },
       async (human, page) => {
         await flow(human, page);
       },
     );
+    if (!needsFrames) await exportRecording(rec, output);
     console.log(`Recorded ${rec.timeline.events.length} actions to ${output}`);
     return;
   }
@@ -86,6 +101,7 @@ export async function runScript(path: string, options: CliOptions): Promise<void
   const browser = await chromium.launch({ headless });
   try {
     const context = await browser.newContext({ viewport });
+    if (options.timeoutMs !== undefined) context.setDefaultTimeout(options.timeoutMs);
     await installMouseHelper(context);
     const page = await context.newPage();
     const human = await createHuman(page, { personality, speed, seed });
