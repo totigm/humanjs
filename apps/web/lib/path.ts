@@ -38,7 +38,7 @@ export function makeHumanizedPath(
  */
 export function pointAt(path: readonly Point[], progress: number): Point {
   if (path.length === 0) return { x: 0, y: 0 };
-  const clamped = progress < 0 ? 0 : progress > 1 ? 1 : progress;
+  const clamped = Math.max(0, Math.min(1, progress));
   const lastIdx = path.length - 1;
   const exact = clamped * lastIdx;
   const idx = Math.min(lastIdx, Math.floor(exact));

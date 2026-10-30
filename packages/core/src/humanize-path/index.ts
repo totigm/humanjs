@@ -172,5 +172,5 @@ function lerp(a: number, b: number, t: number): number {
 }
 
 function clamp01(value: number): number {
-  return value < 0 ? 0 : value > 1 ? 1 : value;
+  return Math.max(0, Math.min(1, value));
 }

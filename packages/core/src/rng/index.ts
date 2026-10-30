@@ -51,7 +51,7 @@ export function createRng(seed?: string | number): Rng {
       return next() * (max - min) + min;
     },
     chance(p) {
-      const clamped = p < 0 ? 0 : p > 1 ? 1 : p;
+      const clamped = Math.max(0, Math.min(1, p));
       return next() < clamped;
     },
     nextGaussian(mean = 0, stdDev = 1) {
