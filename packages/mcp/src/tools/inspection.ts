@@ -17,11 +17,38 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { ToolContext } from '../context';
 import { resolveOutputPath } from '../output';
+import {
+  HTML_SWEEP_LIMIT,
+  SWEEP_READ_TIMEOUT_MS,
+  sweepBody,
+  sweepRead,
+  sweepSummary,
+  TEXT_SWEEP_LIMIT,
+} from '../sweep';
 
 const sessionArg = z
   .string()
   .optional()
   .describe('Session ID to act on. Omit to use the default session.');
+
+const allArg = z
+  .boolean()
+  .optional()
+  .describe(
+    'Read every element the selector matches instead of just the first. Use it to sweep a page — all image sources, all row labels, all link hrefs — in one call.',
+  );
+
+/** Caps a sweep so one call can't blow the agent's context window. */
+function matchLimitArg(fallback: number) {
+  return z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe(
+      `With \`all\`, the maximum number of matches to return (default ${fallback}). The total number found is always reported.`,
+    );
+}
 
 export function registerInspectionTools(server: McpServer, ctx: ToolContext): void {
   server.registerTool(
@@ -56,9 +83,17 @@ export function registerInspectionTools(server: McpServer, ctx: ToolContext): vo
         ? await page.locator(selector).screenshot()
         : await human.screenshot({ fullPage: fullPage ?? false });
 
+      // Always pair the image with a line of text. An image-only result is
+      // rendered as "Tool ran without output or errors" by MCP clients that
+      // key their summary off text content, which reads as a failure even
+      // though the capture succeeded.
+      const scope = selector ? `element ${selector}` : fullPage ? 'full page' : 'viewport';
       const content: Array<
         { type: 'image'; data: string; mimeType: string } | { type: 'text'; text: string }
-      > = [{ type: 'image', data: buffer.toString('base64'), mimeType: 'image/png' }];
+      > = [
+        { type: 'image', data: buffer.toString('base64'), mimeType: 'image/png' },
+        { type: 'text', text: `captured ${scope} of ${page.url()}` },
+      ];
 
       if (filename) {
         const path = resolveOutputPath(ctx.env.outputDir, filename);
@@ -111,15 +146,29 @@ export function registerInspectionTools(server: McpServer, ctx: ToolContext): vo
     {
       title: "Get an element's text",
       description:
-        'Returns the visible innerText of the first element matching `selector`. Use to read a specific label, price, status, or message.',
+        "Returns the innerText of the first element matching `selector` — a specific label, price, status, or message. Set `all` to read every match instead, e.g. every row's title in a table; a sweep reports each match in document order, including ones that are not currently visible.",
       inputSchema: {
         selector: z.string().describe('Selector of the element to read.'),
+        all: allArg,
+        limit: matchLimitArg(TEXT_SWEEP_LIMIT),
         session: sessionArg,
       },
     },
-    async ({ selector, session }) => {
+    async ({ selector, all, limit, session }) => {
       const { page } = await ctx.sessions.get(session);
-      const text = await page.locator(selector).innerText();
+      if (!all) {
+        const text = await page.locator(selector).first().innerText();
+        return { content: [{ type: 'text', text }] };
+      }
+      const elements = await page.locator(selector).all();
+      const shown = elements.slice(0, limit ?? TEXT_SWEEP_LIMIT);
+      const readings = await sweepRead(shown, (element) =>
+        element.innerText({ timeout: SWEEP_READ_TIMEOUT_MS }),
+      );
+      const text =
+        elements.length === 0
+          ? `No elements matched ${selector}`
+          : `${sweepBody(readings, (value) => value)}\n\n${sweepSummary(readings, elements.length, selector)}`;
       return { content: [{ type: 'text', text }] };
     },
   );
@@ -129,18 +178,37 @@ export function registerInspectionTools(server: McpServer, ctx: ToolContext): vo
     {
       title: "Get an element's attribute",
       description:
-        "Returns the value of an attribute on the first element matching `selector` (or reports it is absent). Handy for reading aria-label, data-*, href, value, disabled state, etc. — often how you confirm an icon-only button's purpose.",
+        "Returns the value of an attribute on the first element matching `selector` (or reports it is absent). Handy for reading aria-label, data-*, href, value, disabled state, etc. — often how you confirm an icon-only button's purpose. Set `all` to collect the attribute across every match, which is the compact way to extract every image source or link target on a page.",
       inputSchema: {
         selector: z.string().describe('Selector of the element.'),
         attribute: z.string().describe('Attribute name, e.g. "aria-label", "href", "data-state".'),
+        all: allArg,
+        limit: matchLimitArg(TEXT_SWEEP_LIMIT),
         session: sessionArg,
       },
     },
-    async ({ selector, attribute, session }) => {
+    async ({ selector, attribute, all, limit, session }) => {
       const { page } = await ctx.sessions.get(session);
-      const value = await page.locator(selector).getAttribute(attribute);
+      if (!all) {
+        const value = await page.locator(selector).first().getAttribute(attribute);
+        const text =
+          value === null
+            ? `${selector} has no attribute "${attribute}"`
+            : `${attribute}="${value}"`;
+        return { content: [{ type: 'text', text }] };
+      }
+      const elements = await page.locator(selector).all();
+      const shown = elements.slice(0, limit ?? TEXT_SWEEP_LIMIT);
+      const readings = await sweepRead(shown, (element) =>
+        element.getAttribute(attribute, { timeout: SWEEP_READ_TIMEOUT_MS }),
+      );
+      // A missing attribute is reported per element rather than dropped:
+      // "which of these has no href" is usually the interesting answer —
+      // and it is a different answer from "this one could not be read".
       const text =
-        value === null ? `${selector} has no attribute "${attribute}"` : `${attribute}="${value}"`;
+        elements.length === 0
+          ? `No elements matched ${selector}`
+          : `${sweepBody(readings, (value) => value ?? '(absent)')}\n\n${sweepSummary(readings, elements.length, selector)}`;
       return { content: [{ type: 'text', text }] };
     },
   );
@@ -150,18 +218,39 @@ export function registerInspectionTools(server: McpServer, ctx: ToolContext): vo
     {
       title: "Get an element's HTML",
       description:
-        'Returns the outerHTML of the first element matching `selector` — the element plus its children, including its own attributes (class, aria-label, etc.). The go-to tool for discovering the real selector of a control with no obvious text. Target a specific region; full-page HTML is large.',
+        'Returns the outerHTML of the first element matching `selector` — the element plus its children, including its own attributes (class, aria-label, etc.). The go-to tool for discovering the real selector of a control with no obvious text. Target a specific region; full-page HTML is large. Set `all` to dump every match, but prefer human_get_attribute with `all` when you only need one attribute from each — it returns the same information for a fraction of the tokens.',
       inputSchema: {
         selector: z.string().describe('Selector of the region to dump. Target narrowly.'),
+        all: allArg,
+        limit: matchLimitArg(HTML_SWEEP_LIMIT),
         session: sessionArg,
       },
     },
-    async ({ selector, session }) => {
+    async ({ selector, all, limit, session }) => {
       const { page } = await ctx.sessions.get(session);
       // Fixed function, not AI-supplied — outerHTML isn't a Playwright
-      // locator method, so we read it via a constrained evaluate.
-      const html = await page.locator(selector).evaluate((el) => el.outerHTML);
-      return { content: [{ type: 'text', text: html }] };
+      // locator method, so we read it via a constrained evaluate. Written
+      // inline at both call sites so Playwright infers the element type;
+      // the repo's tsconfig has no DOM lib to annotate it with.
+      if (!all) {
+        const html = await page
+          .locator(selector)
+          .first()
+          .evaluate((el) => el.outerHTML);
+        return { content: [{ type: 'text', text: html }] };
+      }
+      // Capped tighter than the other sweeps: a handful of outerHTML dumps
+      // is already a lot of tokens.
+      const elements = await page.locator(selector).all();
+      const shown = elements.slice(0, limit ?? HTML_SWEEP_LIMIT);
+      const readings = await sweepRead(shown, (element) =>
+        element.evaluate((el) => el.outerHTML, undefined, { timeout: SWEEP_READ_TIMEOUT_MS }),
+      );
+      const text =
+        elements.length === 0
+          ? `No elements matched ${selector}`
+          : `${sweepBody(readings, (value: string) => value, '\n\n')}\n\n${sweepSummary(readings, elements.length, selector)}`;
+      return { content: [{ type: 'text', text }] };
     },
   );
 }

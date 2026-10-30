@@ -1,5 +1,23 @@
 # @humanjs/playwright
 
+## 0.12.0
+
+### Minor Changes
+
+- ca1fd88: Add `human.emulateMedia(options)`, forwarding to Playwright's `page.emulateMedia`.
+
+  Covers `prefers-reduced-motion`, `prefers-color-scheme`, `forced-colors`, `prefers-contrast` and print media. The reduced-motion path is the motivating case: it cannot normally be exercised without changing an OS setting, so it tends to ship unverified even where it was written carefully — and it fails silently, because the users who depend on it are the least likely to report it.
+
+  Not a humanized action; no plugin events fire and `speed` does not affect it. This brings the library to parity with the `human_emulate_media` MCP tool.
+
+### Patch Changes
+
+- 6cba1e5: Keep recording when a single screenshot fails, instead of losing the whole take.
+
+  The capture loop treated any `page.screenshot()` rejection as terminal: it stopped, captured nothing more, and the export then failed with "No frames were captured". A transient `Page.captureScreenshot` protocol error is ordinary on a page under load — a heavy animation or a font swap is enough to cause one — so recording a real site could fail outright with no useful explanation.
+
+  Transient failures now drop a single frame and the loop continues, matching how a failed frame _write_ was already handled a few lines away. A closed page still stops immediately, and ten consecutive failures still give up rather than spinning at the frame rate forever. The dropped-frame warning is emitted once per run of failures, not once per frame.
+
 ## 0.11.0
 
 ### Minor Changes

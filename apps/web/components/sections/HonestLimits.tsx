@@ -57,7 +57,7 @@ export function HonestLimits() {
                 <span aria-hidden className="mx-2 text-muted/40">
                   ·
                 </span>
-                latest <span className="text-accent">v0.11</span>
+                latest <span className="text-accent">v0.12</span>
               </p>
             </ScrollReveal>
           </div>
