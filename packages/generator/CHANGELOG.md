@@ -1,5 +1,13 @@
 # @humanjs/generator
 
+## 0.3.1
+
+### Patch Changes
+
+- Updated dependencies [6cba1e5]
+- Updated dependencies [ca1fd88]
+  - @humanjs/playwright@0.12.0
+
 ## 0.3.0
 
 ### Minor Changes
