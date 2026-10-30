@@ -40,10 +40,10 @@ jobs:
       - name: Create release PR or publish
         uses: changesets/action@v2
         with:
-          publish: pnpm release
-          version: pnpm changeset version
-          commit: "chore: version packages"
-          title: "chore: version packages"
+          publish-script: pnpm release
+          version-script: pnpm changeset version
+          commit-message: "chore: version packages"
+          pr-title: "chore: version packages"
           # v2 requires the GitHub credential as an explicit input. It no
           # longer accepts the GITHUB_TOKEN environment variable, nor the
           # credentials actions/checkout leaves in the git remote, so

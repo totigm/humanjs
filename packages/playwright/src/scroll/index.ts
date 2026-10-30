@@ -449,5 +449,5 @@ async function walkSegments(
 }
 
 function clamp(value: number, min: number, max: number): number {
-  return value < min ? min : value > max ? max : value;
+  return Math.max(min, Math.min(max, value));
 }

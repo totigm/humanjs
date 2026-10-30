@@ -22,6 +22,6 @@
   "dependencies": {
     "@humanjs/playwright": "workspace:*",
     "@humanjs/recorder": "workspace:*",
-    "playwright": "^1.62.1"
+    "playwright": "^1.63.0"
   }
 }
