@@ -65,8 +65,8 @@
     "@humanjs/core": "workspace:*",
     "@humanjs/playwright": "workspace:*",
     "@humanjs/recorder": "workspace:*",
-    "playwright": "^1.62.1",
-    "tsx": "^4.23.12"
+    "playwright": "^1.63.0",
+    "tsx": "^4.23.15"
   },
   "publishConfig": {
     "access": "public"

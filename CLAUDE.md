@@ -7,7 +7,12 @@ Humanized browser automation for AI agents, QA tests, and demos. Playwright-firs
 
 ## Project status
 
-Greenfield — no code yet. We're scaffolding the v1 monorepo from scratch.
+Shipped and published on npm: `@humanjs/core`, `@humanjs/playwright`, `@humanjs/recorder`,
+`@humanjs/mcp`, `@humanjs/skill`, `@humanjs/generator`. `@humanjs/cli` is in flight.
+See [`ROADMAP.md`](./ROADMAP.md) for what comes next.
+
+No version numbers here on purpose — they rot. `npm view @humanjs/<pkg> version` is the authority,
+and the landing page holds the one pinned reference (see "Release hygiene" below).
 
 ## Positioning (immutable)
 
@@ -46,17 +51,21 @@ Verified available on npm at project start: `@humanjs/core`, `@humanjs/playwrigh
 
 ## Packages
 
-| Package | Purpose | Tier |
+| Package | Purpose | Status |
 |---|---|---|
-| `@humanjs/core` | Personality system, timing math, types, plugin contract | v1 |
-| `@humanjs/playwright` | Playwright adapter — the main public API | v1 |
-| `@humanjs/recorder` | Session recording → mp4 / Playwright code / JSON | v1 |
-| `@humanjs/mcp` | MCP server for runtime AI agents | v1 |
-| `@humanjs/skill` | Anthropic / Cursor / Codex skill for AI coding agents | v1 |
-| `@humanjs/cli` | `npx @humanjs/cli demo <url>` — watch it move, run flows, no project | v1 |
-| `@humanjs/generator` | `npx @humanjs/generator <url>` — visual recorder UI | v2 |
-| `@humanjs/recipes` | Pre-built common flows (login, checkout, etc.) | v2 |
-| `@humanjs/puppeteer` | Puppeteer adapter | v3 |
+| `@humanjs/core` | Personality system, timing math, types, plugin contract | Shipped |
+| `@humanjs/playwright` | Playwright adapter — the main public API | Shipped |
+| `@humanjs/recorder` | Session recording → mp4 / Playwright code / JSON | Shipped |
+| `@humanjs/mcp` | MCP server for runtime AI agents | Shipped |
+| `@humanjs/skill` | Anthropic / Cursor / Codex skill for AI coding agents | Shipped |
+| `@humanjs/cli` | `npx @humanjs/cli` — demo, compare, check, replay, run; no project setup | In flight |
+| `@humanjs/generator` | `npx @humanjs/generator <url>` — visual recorder UI | Shipped |
+| `@humanjs/recipes` | Pre-built common flows (login, checkout, etc.) | Later |
+| `@humanjs/puppeteer` | Puppeteer adapter | Later |
+
+Status words match [`ROADMAP.md`](./ROADMAP.md)'s sections, where the ordering and the reasoning
+live. Where `v1` appears in prose below it means the project's v1 **scope**, never an npm major —
+nothing is at 1.0.0, and `npm view @humanjs/<pkg> version` is the authority.
 
 ## Public API shape — keep examples consistent with this
 
@@ -86,7 +95,7 @@ await human.selectOption(selector, value);// native <select> — cursor moves to
 await human.selectText(selector);         // highlight an element's text (cursor moves to it, then selects)
 await human.selectText(selector, { text: 'es una' }); // select just a substring (found inside the element)
 await human.upload(selector, files);      // attach file(s) to a file input (no OS dialog)
-await human.read(text);                   // dwell based on word count
+await human.read(target);                 // dwell by word count — selector, Locator, {text} or {words}
 await human.scroll('natural');
 await human.press('Mod+S');               // chord — 'Mod' auto-maps: Meta on Mac, Control elsewhere
 await human.press('Tab');                  // bare key — single keys work too
@@ -157,7 +166,7 @@ Don't ship core packages without these:
 
 - Mouse: click, move, scroll (Bezier paths — leverage ghost-cursor's `path()` under the hood; MIT-compatible)
 - Typing with realistic rhythm + optional typo simulation + backspace recovery
-- Reading dwell (`human.read(text)`)
+- Reading dwell (`human.read(target)`)
 - Personalities (4 presets + extend/override/blend)
 - Seedable randomness
 - Speed multiplier / instant mode

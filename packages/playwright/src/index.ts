@@ -610,6 +610,26 @@ export interface Human {
    */
   setViewportSize(size: { width: number; height: number }): Promise<void>;
   /**
+   * Emulate CSS media features — `prefers-reduced-motion`,
+   * `prefers-color-scheme`, `forced-colors`, `prefers-contrast`, and print
+   * media. Forwards to `page.emulateMedia(options)`.
+   *
+   * The reduced-motion branch of a UI is normally impossible to exercise
+   * without changing an OS setting, so it tends to ship unverified even in
+   * projects that wrote it carefully. This makes it one call:
+   *
+   * ```ts
+   * await human.emulateMedia({ reducedMotion: 'reduce' });
+   * await human.goto(url);            // now renders the reduced-motion path
+   * ```
+   *
+   * Settings persist across navigations until changed. Pass `null` for a
+   * feature to stop emulating it and fall back to the host's own setting.
+   *
+   * Not a humanized action: no plugin events fire.
+   */
+  emulateMedia(options: Parameters<Page['emulateMedia']>[0]): Promise<void>;
+  /**
    * Render the page as a PDF. Forwards to `page.pdf(options)`. Chromium
    * only; works most reliably in headless mode (in headed mode, Playwright
    * silently switches to a print-style render).
@@ -1152,6 +1172,9 @@ export async function createHuman(page: Page, options: CreateHumanOptions = {}):
     },
     setViewportSize(size) {
       return page.setViewportSize(size);
+    },
+    emulateMedia(options) {
+      return page.emulateMedia(options);
     },
     pdf(opts) {
       return page.pdf(opts);

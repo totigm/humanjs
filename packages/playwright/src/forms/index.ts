@@ -13,7 +13,7 @@ function toLocator(target: FormTarget, ctx: MouseContext): Locator {
   return typeof target === 'string' ? ctx.page.locator(target) : target;
 }
 
-function describe(target: FormTarget): string {
+function describeTarget(target: FormTarget): string {
   return typeof target === 'string' ? target : (target.toString?.() ?? 'locator');
 }
 
@@ -77,7 +77,7 @@ export async function executeSetChecked(
     throw new Error(
       `Cannot ${checked ? 'check' : 'uncheck'}: element did not reach the ${
         checked ? 'checked' : 'unchecked'
-      } state after clicking (target: ${describe(target)}). Radios can't be unchecked by clicking — select a different option instead.`,
+      } state after clicking (target: ${describeTarget(target)}). Radios can't be unchecked by clicking — select a different option instead.`,
     );
   }
 }
