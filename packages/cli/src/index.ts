@@ -1,10 +1,13 @@
 /**
  * @humanjs/cli — the `humanjs` command.
  *
- * Two commands, both aimed at the same thing: getting from "I read the
+ * Five commands, all aimed at the same thing: getting from "I read the
  * README" to "I watched it move" without creating a project.
  *
  *   humanjs demo <url>      drive any page the way a person would skim it
+ *   humanjs compare <url>   the same tour twice, humanized vs straight
+ *   humanjs check <url>     render it under each a11y and theming path
+ *   humanjs replay <file>   re-run a recorded timeline as a check
  *   humanjs run <script>    run a HumanJS flow, browser already wired
  *
  * Note on invocation: the unscoped `humanjs` name on npm belongs to an
