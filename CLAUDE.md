@@ -51,16 +51,20 @@ Verified available on npm at project start: `@humanjs/core`, `@humanjs/playwrigh
 
 ## Packages
 
-| Package | Purpose | Tier |
+| Package | Purpose | Status |
 |---|---|---|
-| `@humanjs/core` | Personality system, timing math, types, plugin contract | v1 |
-| `@humanjs/playwright` | Playwright adapter — the main public API | v1 |
-| `@humanjs/recorder` | Session recording → mp4 / Playwright code / JSON | v1 |
-| `@humanjs/mcp` | MCP server for runtime AI agents | v1 |
-| `@humanjs/skill` | Anthropic / Cursor / Codex skill for AI coding agents | v1 |
-| `@humanjs/generator` | `npx @humanjs/generator <url>` — visual recorder UI | v1 |
-| `@humanjs/recipes` | Pre-built common flows (login, checkout, etc.) | v2 |
-| `@humanjs/puppeteer` | Puppeteer adapter | v3 |
+| `@humanjs/core` | Personality system, timing math, types, plugin contract | Shipped |
+| `@humanjs/playwright` | Playwright adapter — the main public API | Shipped |
+| `@humanjs/recorder` | Session recording → mp4 / Playwright code / JSON | Shipped |
+| `@humanjs/mcp` | MCP server for runtime AI agents | Shipped |
+| `@humanjs/skill` | Anthropic / Cursor / Codex skill for AI coding agents | Shipped |
+| `@humanjs/generator` | `npx @humanjs/generator <url>` — visual recorder UI | Shipped |
+| `@humanjs/recipes` | Pre-built common flows (login, checkout, etc.) | Later |
+| `@humanjs/puppeteer` | Puppeteer adapter | Later |
+
+Status words match [`ROADMAP.md`](./ROADMAP.md)'s sections, where the ordering and the reasoning
+live. Where `v1` appears in prose below it means the project's v1 **scope**, never an npm major —
+nothing is at 1.0.0, and `npm view @humanjs/<pkg> version` is the authority.
 
 ## Public API shape — keep examples consistent with this
 
