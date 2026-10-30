@@ -3,7 +3,7 @@ import type { BrowserConfig, McpEnv } from './env';
 
 // Fakes + mock fns, hoisted so the vi.mock factories below can use them.
 const m = vi.hoisted(() => {
-  const fakePage = {};
+  const fakePage = { on: vi.fn(), off: vi.fn() };
   const fakeContext = { newPage: vi.fn(), pages: vi.fn(), close: vi.fn() };
   const fakeBrowser = { newContext: vi.fn(), contexts: vi.fn(), close: vi.fn() };
   return {
@@ -31,7 +31,7 @@ vi.mock('@humanjs/playwright', () => ({
   installMouseHelper: m.installMouseHelper,
 }));
 
-import { SessionManager } from './session';
+import { DEFAULT_SESSION_ID, SessionManager } from './session';
 
 function makeEnv(browser: BrowserConfig = { mode: 'ephemeral' }, channel?: string): McpEnv {
   return {
@@ -170,5 +170,46 @@ describe('SessionManager — runtime persistence override', () => {
     const s = await mgr.get();
     expect(s.mode).toBe('persistent');
     expect(m.launchPersistentContext).toHaveBeenCalledWith('/runtime-profile', expect.any(Object));
+  });
+});
+
+describe('SessionManager — observability', () => {
+  it('gives every session its own console and network buffers', async () => {
+    const mgr = new SessionManager(makeEnv());
+    const session = await mgr.get();
+    expect(session.observers.console.size).toBe(0);
+    expect(session.observers.network.size).toBe(0);
+  });
+
+  it('subscribes to the page events the inspection tools read from', async () => {
+    const mgr = new SessionManager(makeEnv());
+    await mgr.get();
+    const events = m.fakePage.on.mock.calls.map((call) => call[0]);
+    // pageerror matters as much as console: an uncaught exception never
+    // arrives as a console message, and it is the most useful signal.
+    expect(events).toEqual(
+      expect.arrayContaining(['console', 'pageerror', 'request', 'response', 'requestfailed']),
+    );
+  });
+
+  it('unsubscribes every page listener when the session closes', async () => {
+    const mgr = new SessionManager(makeEnv());
+    await mgr.get();
+    const attached = m.fakePage.on.mock.calls.map((call) => call[0]);
+    await mgr.close(DEFAULT_SESSION_ID);
+    // A CDP-attached page outlives the session, so a listener left behind
+    // would keep feeding a buffer nobody can read for the life of the
+    // browser — and trip Node's max-listeners warning after a dozen.
+    const removed = m.fakePage.off.mock.calls.map((call) => call[0]);
+    expect(removed).toEqual(attached);
+  });
+
+  it('tolerates a second detach rather than double-unsubscribing', async () => {
+    const mgr = new SessionManager(makeEnv());
+    const session = await mgr.get();
+    await mgr.close(DEFAULT_SESSION_ID);
+    const afterClose = m.fakePage.off.mock.calls.length;
+    session.observers.detach();
+    expect(m.fakePage.off.mock.calls.length).toBe(afterClose);
   });
 });
