@@ -26,6 +26,7 @@ import {
 } from '@humanjs/playwright';
 import { type Browser, type BrowserContext, chromium, type Page } from 'playwright';
 import { type BrowserConfig, DEFAULT_PERSIST_DIR, type McpEnv } from './env';
+import { attachObservers, type SessionObservers } from './observability';
 
 export const DEFAULT_SESSION_ID = 'default';
 
@@ -79,6 +80,8 @@ interface InternalSession {
   /** The browser mode this session was created under (drives cleanup). */
   readonly mode: BrowserMode;
   recording: RecordingState | null;
+  /** Console + network buffers, filled by page listeners from creation on. */
+  readonly observers: SessionObservers;
   readonly createdAt: number;
 }
 
@@ -162,6 +165,10 @@ export class SessionManager {
     const personality = options.personality ?? this.env.personality;
     const speed = options.speed ?? this.env.speed;
     const human = await createHuman(page, { personality, speed });
+    // Attached before the session is handed out so the very first navigation
+    // a caller makes is already being observed — a console error thrown on
+    // the first page load is exactly the kind worth catching.
+    const observers = attachObservers(page);
 
     const session: InternalSession = {
       id,
@@ -172,6 +179,7 @@ export class SessionManager {
       speed,
       mode: config.mode,
       recording: null,
+      observers,
       createdAt: Date.now(),
     };
     this.sessions.set(id, session);
@@ -313,6 +321,12 @@ export class SessionManager {
   async close(id: string): Promise<void> {
     const session = this.sessions.get(id);
     if (!session) return;
+    // Unsubscribe the page listeners first, before anything that can
+    // await. In `cdp` mode the teardown below deliberately leaves the
+    // page open (it is the user's browser), so nothing else would ever
+    // remove them, and the buffers they feed become unreachable garbage
+    // that still grows.
+    session.observers.detach();
     // Graceful finalize: if a recording is open, stop and save it to a
     // default-named file so an in-progress clip isn't silently dropped on
     // disconnect. Best-effort — on a hard crash this never runs, and the
