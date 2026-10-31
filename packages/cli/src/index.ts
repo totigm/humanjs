@@ -14,6 +14,7 @@
  */
 
 import { type CliOptions, parseArgs, UsageError, type Viewport } from './args';
+import { runCheck } from './commands/check';
 import { runCompare } from './commands/compare';
 import { runDemo } from './commands/demo';
 import { runReplay } from './commands/replay';
@@ -43,6 +44,12 @@ COMMANDS
                    lane freezes on its last frame while the other is
                    still moving; that gap is the whole point.
                    Writes humanjs-compare.mp4 unless you pass --record.
+  check <url>      Render the page under each accessibility and theming
+                   condition a real machine can be in -- dark, light,
+                   forced-colors, reduced-motion -- write a screenshot of
+                   each, and report which ones the page responds to. A
+                   condition identical to baseline is a page that likely
+                   has no branch for it.
   replay <file>    Re-run a recorded timeline and report whether it still
                    works. Exits 1 on the first failed step, so it drops
                    straight into CI:
@@ -73,6 +80,13 @@ OPTIONS
   --viewport <WxH>      Browser size (1280x800). Accepts a comma-separated
                         list -- 1440x900,390x844 -- to run once per size,
                         with the size appended to each output filename
+  --reduced-motion      Render under prefers-reduced-motion: reduce. The
+                        only way to exercise that path without changing an
+                        OS setting -- pair it with --record, since a still
+                        frame cannot show motion
+  --color-scheme <c>    light | dark
+  --forced-colors       Render under forced-colors: active
+  --out <dir>           Where check writes its screenshots (humanjs-check)
   --timeout <ms>        Per-action timeout. Playwright's default is 30000,
                         which makes a failing CI step wait half a minute
                         to tell you something it knew immediately
@@ -86,6 +100,8 @@ EXAMPLES
   npx @humanjs/cli demo https://example.com --record tour.gif
   npx @humanjs/cli run flow.ts --record login.spec.ts --headless
   npx @humanjs/cli compare https://example.com --record before-after.mp4
+  npx @humanjs/cli check https://example.com
+  npx @humanjs/cli demo https://example.com --reduced-motion --record rm.mp4
   npx @humanjs/cli replay flow.json --headless
 
 Docs: https://humanjs.dev`;
@@ -119,6 +135,12 @@ async function runOnce(
         throw new UsageError('compare needs a URL, e.g. `humanjs compare https://example.com`.');
       }
       await runCompare(target, options);
+      return true;
+    case 'check':
+      if (!target) {
+        throw new UsageError('check needs a URL, e.g. `humanjs check https://example.com`.');
+      }
+      await runCheck(target, options);
       return true;
     case 'replay': {
       if (!target) {

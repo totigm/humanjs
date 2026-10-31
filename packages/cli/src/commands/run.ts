@@ -22,6 +22,7 @@ import { record } from '@humanjs/recorder';
 import type { Page } from 'playwright';
 import { type CliOptions, DEFAULT_PERSONALITY, DEFAULT_SPEED, UsageError } from '../args';
 import { assertRecordFormat, exportRecording, recordNeedsFrames } from '../export';
+import { applyMedia } from '../media';
 
 /** The shape a script is expected to export. */
 export type Flow = (human: Human, page: Page) => Promise<void> | void;
@@ -90,6 +91,7 @@ export async function runScript(path: string, options: CliOptions): Promise<void
         headless,
       },
       async (human, page) => {
+        await applyMedia(page, options);
         await flow(human, page);
       },
     );
@@ -105,6 +107,7 @@ export async function runScript(path: string, options: CliOptions): Promise<void
     await installMouseHelper(context);
     const page = await context.newPage();
     const human = await createHuman(page, { personality, speed, seed });
+    await applyMedia(page, options);
     await flow(human, page);
   } finally {
     await browser.close();

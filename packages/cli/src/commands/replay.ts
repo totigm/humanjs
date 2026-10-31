@@ -32,6 +32,7 @@ import {
   UsageError,
 } from '../args';
 import { assertRecordFormat, exportRecording } from '../export';
+import { applyMedia } from '../media';
 import { parseTimelineText, type TimelineFile } from '../timeline';
 
 /** What a settled step looked like, accumulated as the replay streams. */
@@ -143,6 +144,7 @@ export async function runReplay(path: string, options: CliOptions): Promise<bool
     if (options.timeoutMs !== undefined) context.setDefaultTimeout(options.timeoutMs);
     await installMouseHelper(context);
     const page = await context.newPage();
+    await applyMedia(page, options);
 
     if (options.record) {
       // recordReplay returns the Recording but discards the ReplayResult,
