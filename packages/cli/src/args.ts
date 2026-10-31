@@ -17,7 +17,7 @@ export type Personality = (typeof PERSONALITIES)[number];
 export const SPEEDS = ['human', 'fast', 'instant'] as const;
 export type SpeedName = (typeof SPEEDS)[number];
 
-export type CommandName = 'demo' | 'compare' | 'run' | 'replay' | 'help' | 'version';
+export type CommandName = 'demo' | 'compare' | 'check' | 'run' | 'replay' | 'help' | 'version';
 
 export interface Viewport {
   readonly width: number;
@@ -37,6 +37,14 @@ export interface CliOptions {
   readonly headless: boolean;
   /** Default Playwright timeout in ms. Undefined leaves Playwright's own. */
   readonly timeoutMs?: number;
+  /** Render under `prefers-reduced-motion: reduce`. */
+  readonly reducedMotion?: boolean;
+  /** Render under `prefers-color-scheme`. */
+  readonly colorScheme?: 'light' | 'dark';
+  /** Render under `forced-colors: active` (Windows High Contrast). */
+  readonly forcedColors?: boolean;
+  /** Directory for `check` output. */
+  readonly outDir?: string;
   /** Output file for a recording; the extension picks the format. */
   readonly record?: string;
   readonly viewport: Viewport;
@@ -147,7 +155,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
       if (command === undefined) {
         command = oneOf(
           arg,
-          ['demo', 'compare', 'run', 'replay', 'help', 'version'] as const,
+          ['demo', 'compare', 'check', 'run', 'replay', 'help', 'version'] as const,
           'command',
         );
       } else if (target === undefined) {
@@ -174,6 +182,27 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
       case '--headless':
         options = { ...options, headless: true };
         break;
+      case '--out': {
+        const { value, nextIndex } = takeValue(name, inline, argv, i);
+        i = nextIndex;
+        options = { ...options, outDir: value };
+        break;
+      }
+      case '--reduced-motion':
+        options = { ...options, reducedMotion: true };
+        break;
+      case '--forced-colors':
+        options = { ...options, forcedColors: true };
+        break;
+      case '--color-scheme': {
+        const { value, nextIndex } = takeValue(name, inline, argv, i);
+        i = nextIndex;
+        options = {
+          ...options,
+          colorScheme: oneOf(value, ['light', 'dark'] as const, '--color-scheme'),
+        };
+        break;
+      }
       case '--personality': {
         const { value, nextIndex } = takeValue(name, inline, argv, i);
         i = nextIndex;
