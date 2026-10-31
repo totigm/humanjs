@@ -14,6 +14,7 @@
  */
 
 import { parseArgs, UsageError } from './args';
+import { runCompare } from './commands/compare';
 import { runDemo } from './commands/demo';
 import { runReplay } from './commands/replay';
 import { runScript } from './commands/run';
@@ -35,6 +36,12 @@ COMMANDS
   demo <url>       Drive a page the way a person would skim it: land, read
                    the heading, scroll in stages, drift the cursor over a
                    link. Never clicks — it runs on your site, not ours.
+  compare <url>    Record the same tour twice -- once as straight
+                   Playwright (speed: instant), once humanized -- and
+                   stack them side by side into one video. The robotic
+                   lane freezes on its last frame while the other is
+                   still moving; that gap is the whole point.
+                   Writes humanjs-compare.mp4 unless you pass --record.
   replay <file>    Re-run a recorded timeline and report whether it still
                    works. Exits 1 on the first failed step, so it drops
                    straight into CI:
@@ -75,6 +82,7 @@ EXAMPLES
   npx @humanjs/cli demo https://example.com
   npx @humanjs/cli demo https://example.com --record tour.gif
   npx @humanjs/cli run flow.ts --record login.spec.ts --headless
+  npx @humanjs/cli compare https://example.com --record before-after.mp4
   npx @humanjs/cli replay flow.json --headless
 
 Docs: https://humanjs.dev`;
@@ -100,6 +108,12 @@ async function main(): Promise<void> {
         throw new UsageError('run needs a script path, e.g. `humanjs run flow.ts`.');
       }
       await runScript(target, options);
+      return;
+    case 'compare':
+      if (!target) {
+        throw new UsageError('compare needs a URL, e.g. `humanjs compare https://example.com`.');
+      }
+      await runCompare(target, options);
       return;
     case 'replay': {
       if (!target) {

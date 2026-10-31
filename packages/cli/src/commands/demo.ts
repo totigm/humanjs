@@ -62,8 +62,22 @@ async function isScrollable(page: Page): Promise<boolean> {
   }
 }
 
-async function tour(human: Human, page: Page, url: string): Promise<void> {
+/**
+ * The shared page tour. Exported so `compare` runs the identical script on
+ * both sides — a comparison where the two lanes do different things proves
+ * nothing about the motion.
+ *
+ * `afterLoad` runs once the page is up, before any humanized action, which
+ * is where `compare` paints its lane label.
+ */
+export async function tour(
+  human: Human,
+  page: Page,
+  url: string,
+  afterLoad?: (page: Page) => Promise<void>,
+): Promise<void> {
   await human.goto(url);
+  if (afterLoad) await afterLoad(page);
   await human.sleep(600);
 
   const heading = await firstVisible(page, ['h1', 'h2', 'main p', 'article p', 'p']);
