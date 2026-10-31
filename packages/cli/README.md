@@ -107,11 +107,29 @@ npx @humanjs/cli run flow.ts --record login.spec.ts --headless
 | `--personality <name>` | `careful` · `fast` · `distracted` · `precise` (default `careful`) |
 | `--speed <pace>` | `human` · `fast` · `instant` (default `human`) |
 | `--seed <string>` | Deterministic run — same seed, same trajectory, every time |
-| `--viewport <WxH>` | Browser size (default `1280x800`; `1440×900` works too) |
+| `--viewport <WxH>` | Browser size (default `1280x800`; `1440×900` works too). Accepts a comma-separated list to sweep sizes — see below |
 | `--timeout <ms>` | Per-action timeout. Playwright's default is 30000, which makes a failing CI step wait half a minute to report something it knew immediately |
 | `--headless` | Run without a window. The default is headed, because the point of `demo` is watching it |
 | `-h`, `--help` | Usage |
 | `-v`, `--version` | Version |
+
+## Checking several sizes at once
+
+`--viewport` takes a list, and the command runs once per size with the size appended to each output filename:
+
+```bash
+npx @humanjs/cli demo https://tu-app.com --viewport 1440x900,390x844 --record tour.gif
+# → tour-1440x900.gif
+# → tour-390x844.gif
+```
+
+It applies to every command, so a responsive regression check is one invocation rather than two that someone has to remember to keep in sync:
+
+```bash
+npx @humanjs/cli replay flow.json --viewport 1440x900,390x844 --headless
+```
+
+A single size behaves exactly as before — no banner, and the output keeps the filename you asked for.
 
 ## Record once, verify forever
 

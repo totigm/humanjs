@@ -13,11 +13,12 @@
  * yours. The help text below says so, because someone will try.
  */
 
-import { parseArgs, UsageError } from './args';
+import { type CliOptions, parseArgs, UsageError, type Viewport } from './args';
 import { runCompare } from './commands/compare';
 import { runDemo } from './commands/demo';
 import { runReplay } from './commands/replay';
 import { runScript } from './commands/run';
+import { suffixFilename, viewportSuffix } from './export';
 
 // Replaced at build time by tsup's `define`. The fallback is what you
 // see when running from source, where no build step has substituted it.
@@ -69,7 +70,9 @@ OPTIONS
   --speed <pace>        human | fast | instant                 (human)
   --seed <string>       Make the run deterministic — same seed, same
                         trajectory, every time
-  --viewport <WxH>      Browser size                           (1280x800)
+  --viewport <WxH>      Browser size (1280x800). Accepts a comma-separated
+                        list -- 1440x900,390x844 -- to run once per size,
+                        with the size appended to each output filename
   --timeout <ms>        Per-action timeout. Playwright's default is 30000,
                         which makes a failing CI step wait half a minute
                         to tell you something it knew immediately
@@ -87,45 +90,79 @@ EXAMPLES
 
 Docs: https://humanjs.dev`;
 
-async function main(): Promise<void> {
-  const { command, target, options } = parseArgs(process.argv.slice(2));
-
+/**
+ * Runs one command once, for one viewport.
+ *
+ * Returns false only when a `replay` failed, which is the sole outcome
+ * the exit code depends on.
+ */
+async function runOnce(
+  command: string,
+  target: string | undefined,
+  options: CliOptions,
+): Promise<boolean> {
   switch (command) {
-    case 'help':
-      console.log(HELP);
-      return;
-    case 'version':
-      console.log(VERSION);
-      return;
     case 'demo':
       if (!target) {
         throw new UsageError('demo needs a URL, e.g. `humanjs demo https://example.com`.');
       }
       await runDemo(target, options);
-      return;
+      return true;
     case 'run':
       if (!target) {
         throw new UsageError('run needs a script path, e.g. `humanjs run flow.ts`.');
       }
       await runScript(target, options);
-      return;
+      return true;
     case 'compare':
       if (!target) {
         throw new UsageError('compare needs a URL, e.g. `humanjs compare https://example.com`.');
       }
       await runCompare(target, options);
-      return;
+      return true;
     case 'replay': {
       if (!target) {
         throw new UsageError('replay needs a timeline file, e.g. `humanjs replay flow.json`.');
       }
-      const passed = await runReplay(target, options);
-      // Setting exitCode rather than calling process.exit lets stdout
-      // flush — a truncated final line in a CI log is worse than useless.
-      if (!passed) process.exitCode = 1;
-      return;
+      return runReplay(target, options);
     }
+    default:
+      return true;
   }
+}
+
+async function main(): Promise<void> {
+  const { command, target, options, viewports } = parseArgs(process.argv.slice(2));
+
+  if (command === 'help') {
+    console.log(HELP);
+    return;
+  }
+  if (command === 'version') {
+    console.log(VERSION);
+    return;
+  }
+
+  // One size is the overwhelmingly common case and must look untouched:
+  // no banner, and the output keeps the exact filename that was asked for.
+  const sweeping = viewports.length > 1;
+  let allPassed = true;
+
+  for (const viewport of viewports as readonly Viewport[]) {
+    const suffix = viewportSuffix(viewport);
+    if (sweeping) console.log(`\n── ${suffix} ──`);
+    const scoped: CliOptions = {
+      ...options,
+      viewport,
+      ...(sweeping && options.record ? { record: suffixFilename(options.record, suffix) } : {}),
+    };
+    const passed = await runOnce(command, target, scoped);
+    if (!passed) allPassed = false;
+  }
+
+  // Setting exitCode rather than calling process.exit lets stdout flush —
+  // a truncated final line in a CI log is worse than useless.
+  if (!allPassed) process.exitCode = 1;
 }
 
 main().catch((error: unknown) => {

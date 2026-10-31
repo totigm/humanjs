@@ -81,3 +81,29 @@ export async function exportRecording(recording: Recording, filename: string): P
 export function recordNeedsFrames(format: RecordFormat): boolean {
   return format === 'video' || format === 'gif';
 }
+
+/**
+ * Inserts a suffix before a filename's extension:
+ * `tour.gif` + `1440x900` → `tour-1440x900.gif`.
+ *
+ * Extension detection reuses {@link resolveRecordFormat}'s own suffix
+ * list rather than `path.extname`, because `.spec.ts` is two parts and
+ * `extname` sees only `.ts` — which would turn `flow.spec.ts` into
+ * `flow.spec-1440x900.ts` and quietly demote a Playwright test into a
+ * standalone script.
+ */
+export function suffixFilename(filename: string, suffix: string): string {
+  const lower = filename.toLowerCase();
+  const known = ['.spec.ts', '.test.ts', '.webm', '.json', '.mp4', '.gif', '.ts'];
+  for (const ext of known) {
+    if (lower.endsWith(ext)) {
+      return `${filename.slice(0, filename.length - ext.length)}-${suffix}${filename.slice(filename.length - ext.length)}`;
+    }
+  }
+  return `${filename}-${suffix}`;
+}
+
+/** `1440x900` — the suffix a viewport contributes to an output filename. */
+export function viewportSuffix(viewport: { width: number; height: number }): string {
+  return `${viewport.width}x${viewport.height}`;
+}
