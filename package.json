@@ -24,7 +24,7 @@
   "type": "module",
   "packageManager": "pnpm@11.25.0",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.18.0"
   },
   "scripts": {
     "build": "turbo run build",
@@ -65,7 +65,7 @@
     "@types/node": "^26.6.5",
     "lefthook": "^2.2.2",
     "publint": "^0.3.25",
-    "tsup": "^8.5.1",
+    "tsup": "^9.0.0",
     "tsx": "^4.23.15",
     "turbo": "^2.11.10",
     "typescript": "^6.0.3",
