@@ -60,7 +60,17 @@ Open as a stack of PRs, each building on the last.
 
 Tracked so nobody re-derives the diagnosis.
 
-- **TypeScript 7.** `@humanjs/core`'s build generates `.d.ts` through tsup, which reaches into the compiler API; the native port no longer exposes what it needs, and it fails with `Cannot read properties of undefined (reading 'useCaseSensitiveFileNames')`. `tsup`'s peer range is `>=4.5.0`, so npm installs TS 7 without complaint and the failure only appears at build time. Waiting on tsup.
+- **TypeScript 7.** `.d.ts` generation runs through tsup, which bundles `rollup-plugin-dts`; that
+  plugin needs the TypeScript compiler API, and the native port does not ship it. TS 7 points tools
+  at `@typescript/typescript6` for exactly this case, and tsup 9 names that package in its error
+  message — but then reaches for `_typescript2.default.parseJsonConfigFileContent`, and the fallback
+  is plain CJS with no `default` export, so the build dies on `parseJsonConfigFileContent is not a
+  function`. The API is present; tsup looks in the wrong place. There is nothing to configure here.
+
+  Checked against `main` on 2026-10-31, four ways: TS 7 fails on tsup 8.5.1 (which crashes earlier,
+  on `useCaseSensitiveFileNames`) and on tsup 9.0.0, with and without the fallback installed. TS 6
+  passes on both. `tsup`'s peer range is `>=4.5.0`, so the install succeeds either way and the
+  failure only surfaces at build time.
 
 ## Not on the roadmap
 
