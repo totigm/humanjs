@@ -1,6 +1,6 @@
 {
   "name": "@humanjs/cli",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Command line for HumanJS — see humanized browser automation on any page, and run HumanJS scripts without setting up a project.",
   "keywords": [
     "humanjs",
