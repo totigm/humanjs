@@ -70,7 +70,7 @@
     "playwright": ">=1.40.0"
   },
   "devDependencies": {
-    "playwright": "^1.63.0"
+    "playwright": "^1.65.0"
   },
   "publishConfig": {
     "access": "public"
